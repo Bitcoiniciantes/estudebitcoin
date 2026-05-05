@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BITCOIN INICIANTES – Consultoria Especializada em Bitcoin para pessoa física.</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Barlow:wght@300;400;500;600;700;900&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --blue: #00C2FF;
+      --blue-dim: #0099CC;
+      --blue-glow: rgba(0,194,255,0.18);
+      --blue-subtle: rgba(0,194,255,0.07);
+      --green: #00E5A0;
+      --red: #FF5C5C;
+      --bg: #080C10;
+      --bg2: #0D1117;
+      --bg3: #131A22;
+      --border: rgba(255,255,255,0.07);
+      --border-blue: rgba(0,194,255,0.3);
+      --text: #E8EDF2;
+      --text-dim: #7A8A9A;
+      --text-faint: #3A4A5A;
+      --mono: 'Space Mono', monospace;
+      --body: 'Barlow', sans-serif;
+      --cond: 'Barlow Condensed', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--body);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── GRID BACKGROUND ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,194,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,194,255,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 0 5%;
+      height: 68px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(8,12,16,0.9);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      color: var(--text);
+      text-decoration: none;
+      display: flex; align-items: center; gap: 12px;
+      letter-spacing: 0.05em;
+    }
+    .logo-mark {
+      width: 34px; height: 34px;
+      border: 2px solid var(--blue);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--blue);
+      font-size: 1rem;
+      font-weight: 700;
+      position: relative;
+    }
+    .logo-mark::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border: 1px solid rgba(0,194,255,0.2);
+    }
+    .logo-text { color: var(--text-dim); }
+    .logo-text strong { color: var(--blue); }
+
+    nav ul { list-style: none; display: flex; gap: 0; }
+    nav ul li a {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      text-decoration: none;
+      text-transform: uppercase;
+      padding: 8px 16px;
+      transition: color .2s;
+      border-right: 1px solid var(--border);
+    }
+    nav ul li:first-child a { border-left: 1px solid var(--border); }
+    nav ul li a:hover { color: var(--blue); }
+    .nav-cta {
+      font-family: var(--mono) !important;
+      font-size: 0.72rem !important;
+      letter-spacing: 0.08em !important;
+      color: var(--bg) !important;
+      background: var(--blue);
+      padding: 8px 20px !important;
+      text-transform: uppercase;
+      border: none !important;
+      transition: background .2s, box-shadow .2s !important;
+    }
+    .nav-cta:hover {
+      background: var(--blue-dim) !important;
+      box-shadow: 0 0 20px var(--blue-glow) !important;
+      color: var(--bg) !important;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      padding: 0 5%;
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 0;
+      align-items: center;
+      max-width: 1300px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-left {
+      padding-top: 68px;
+    }
+
+    .hero-pretag {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--blue);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 2rem;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .hero-pretag::before {
+      content: '';
+      width: 40px; height: 1px;
+      background: var(--blue);
+    }
+
+    .hero h1 {
+      font-family: var(--cond);
+      font-size: clamp(3.5rem, 7vw, 6.5rem);
+      font-weight: 900;
+      line-height: 0.92;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      margin-bottom: 2rem;
+    }
+    .hero h1 .line-dim { color: var(--text-faint); }
+    .hero h1 .line-blue { color: var(--blue); }
+    .hero h1 .line-white { color: var(--text); }
+
+    .hero-desc {
+      font-size: 1.05rem;
+      color: var(--text-dim);
+      font-weight: 300;
+      line-height: 1.75;
+      max-width: 500px;
+      margin-bottom: 3rem;
+      border-left: 2px solid var(--border-blue);
+      padding-left: 1.5rem;
+    }
+
+    .hero-btns {
+      display: flex; gap: 1rem; flex-wrap: wrap;
+    }
+    .btn-primary {
+      background: var(--blue);
+      color: var(--bg);
+      padding: 14px 32px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      transition: box-shadow .2s, transform .15s;
+      display: inline-block;
+      clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 30px var(--blue-glow);
+      transform: translateY(-2px);
+    }
+    .btn-outline {
+      border: 1px solid var(--border-blue);
+      color: var(--blue);
+      padding: 14px 32px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      transition: background .2s, color .2s;
+      display: inline-block;
+    }
+    .btn-outline:hover {
+      background: var(--blue-subtle);
+    }
+
+    /* Hero Right — Terminal Cards */
+    .hero-right {
+      padding-top: 68px;
+      padding-left: 3rem;
+      display: flex; flex-direction: column; gap: 1px;
+      border-left: 1px solid var(--border);
+    }
+
+    .terminal-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      padding: 1.5rem;
+      position: relative;
+      transition: border-color .3s;
+    }
+    .terminal-card:hover { border-color: var(--border-blue); }
+    .terminal-card.featured {
+      border-color: var(--border-blue);
+      background: var(--blue-subtle);
+    }
+    .terminal-card.featured::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--blue);
+    }
+    .tc-label {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-faint);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+    .tc-value {
+      font-family: var(--cond);
+      font-size: 2.4rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      color: var(--text);
+    }
+    .terminal-card.featured .tc-value { color: var(--blue); }
+    .tc-sub {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 0.3rem;
+      font-weight: 300;
+    }
+    .tc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; }
+
+    /* ── SCROLL TICKER ── */
+    .ticker {
+      background: var(--blue);
+      padding: 10px 0;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+    .ticker-track {
+      display: flex;
+      gap: 0;
+      animation: ticker 25s linear infinite;
+      white-space: nowrap;
+    }
+    .ticker-item {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--bg);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0 3rem;
+      flex-shrink: 0;
+    }
+    .ticker-sep { color: rgba(8,12,16,0.4); }
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    /* ── SECTIONS ── */
+    section { position: relative; z-index: 1; }
+    .section-inner { max-width: 1300px; margin: 0 auto; padding: 100px 5%; }
+
+    .sec-label {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--blue);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .sec-label::after {
+      content: '';
+      flex: 1;
+      max-width: 60px;
+      height: 1px;
+      background: var(--border-blue);
+    }
+
+    .sec-title {
+      font-family: var(--cond);
+      font-size: clamp(2.2rem, 4vw, 3.5rem);
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      line-height: 1;
+      margin-bottom: 1.5rem;
+    }
+    .sec-sub {
+      font-size: 1rem;
+      color: var(--text-dim);
+      font-weight: 300;
+      line-height: 1.75;
+      max-width: 500px;
+    }
+
+    /* ── ABOUT ── */
+    .about { background: var(--bg2); }
+    .about-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6rem;
+      align-items: center;
+    }
+    .about-list { list-style: none; margin-top: 2.5rem; display: flex; flex-direction: column; gap: 0; }
+    .about-list li {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 1rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+      transition: color .2s;
+    }
+    .about-list li:hover { color: var(--text); }
+    .about-list li::before {
+      content: "//";
+      font-family: var(--mono);
+      color: var(--blue);
+      font-size: 0.7rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .about-panel {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      padding: 3rem;
+      position: relative;
+    }
+    .about-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 60px; height: 2px;
+      background: var(--blue);
+    }
+    .btc-big {
+      font-family: var(--mono);
+      font-size: 5rem;
+      font-weight: 700;
+      color: var(--blue);
+      line-height: 1;
+      margin-bottom: 1.5rem;
+      opacity: 0.9;
+    }
+    .about-quote {
+      font-size: 0.95rem;
+      font-style: italic;
+      color: var(--text-dim);
+      line-height: 1.75;
+      border-left: 2px solid var(--border-blue);
+      padding-left: 1.2rem;
+    }
+    .about-quote strong { font-style: normal; color: var(--text); font-weight: 600; }
+
+    /* ── SERVICES ── */
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      margin-top: 4rem;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+    .service-card {
+      background: var(--bg);
+      padding: 2.2rem;
+      transition: background .25s;
+      position: relative;
+      overflow: hidden;
+    }
+    .service-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--blue);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform .3s ease;
+    }
+    .service-card:hover { background: var(--bg3); }
+    .service-card:hover::after { transform: scaleX(1); }
+
+    .service-num {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-faint);
+      letter-spacing: 0.1em;
+      margin-bottom: 1.5rem;
+    }
+    .service-icon {
+      font-size: 1.8rem;
+      margin-bottom: 1.2rem;
+      display: block;
+    }
+    .service-card h3 {
+      font-family: var(--cond);
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      margin-bottom: 0.7rem;
+      color: var(--text);
+    }
+    .service-card p { font-size: 0.87rem; color: var(--text-dim); line-height: 1.65; font-weight: 300; }
+
+    /* ── HOW IT WORKS ── */
+    .how { background: var(--bg2); }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      margin-top: 4rem;
+      position: relative;
+    }
+    .steps::before {
+      content: '';
+      position: absolute;
+      top: 2.5rem;
+      left: 12.5%;
+      right: 12.5%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-blue), transparent);
+    }
+    .step {
+      padding: 2.5rem 2rem;
+      text-align: center;
+      border-right: 1px solid var(--border);
+      position: relative;
+    }
+    .step:last-child { border-right: none; }
+    .step-num {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--blue);
+      letter-spacing: 0.1em;
+      width: 40px; height: 40px;
+      border: 1px solid var(--border-blue);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1.5rem;
+    }
+    .step h4 {
+      font-family: var(--cond);
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 0.6rem;
+    }
+    .step p { font-size: 0.83rem; color: var(--text-dim); line-height: 1.6; font-weight: 300; }
+
+    /* ── TESTIMONIALS ── */
+    .testi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      margin-top: 4rem;
+      background: var(--border);
+    }
+    .testi-card {
+      background: var(--bg);
+      padding: 2rem;
+      transition: background .25s;
+    }
+    .testi-card:hover { background: var(--bg3); }
+    .testi-stars {
+      font-size: 0.7rem;
+      color: var(--blue);
+      letter-spacing: 0.1em;
+      margin-bottom: 1rem;
+    }
+    .testi-text {
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      line-height: 1.7;
+      margin-bottom: 1.2rem;
+      font-weight: 300;
+      font-style: italic;
+    }
+    .testi-author {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text);
+      letter-spacing: 0.05em;
+    }
+    .testi-handle {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-faint);
+    }
+
+    /* ── NOT FOR EVERYONE ── */
+    .nfe { background: var(--bg3); }
+    .nfe-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      margin-top: 4rem;
+      background: var(--border);
+    }
+    .nfe-col {
+      background: var(--bg2);
+      padding: 2.5rem;
+    }
+    .nfe-col-head {
+      font-family: var(--cond);
+      font-size: 1.1rem;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .nfe-col.yes .nfe-col-head { color: var(--green); }
+    .nfe-col.no .nfe-col-head { color: var(--red); }
+    .nfe-col ul { list-style: none; display: flex; flex-direction: column; gap: 0; }
+    .nfe-col ul li {
+      font-size: 0.87rem;
+      color: var(--text-dim);
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+      padding-left: 1.5rem;
+      position: relative;
+      line-height: 1.5;
+      font-weight: 300;
+    }
+    .nfe-col.yes ul li::before { content: "+"; position: absolute; left: 0; color: var(--green); font-family: var(--mono); font-size: 0.9rem; font-weight: 700; }
+    .nfe-col.no ul li::before { content: "−"; position: absolute; left: 0; color: var(--red); font-family: var(--mono); font-size: 0.9rem; font-weight: 700; }
+
+    /* ── FORM ── */
+    .form-section { background: var(--bg); }
+    .form-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 5rem;
+      align-items: start;
+    }
+    .form-info .sec-title { font-size: clamp(1.8rem, 3vw, 2.8rem); }
+    .form-info p {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      line-height: 1.75;
+      margin-bottom: 1.2rem;
+      font-weight: 300;
+    }
+    .form-promises {
+      margin-top: 2rem;
+      display: flex; flex-direction: column; gap: 0;
+      border: 1px solid var(--border);
+    }
+    .promise-item {
+      display: flex; align-items: center; gap: 14px;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      letter-spacing: 0.03em;
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .promise-item:last-child { border-bottom: none; }
+    .promise-item::before {
+      content: "✓";
+      color: var(--green);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* Form */
+    .form-box {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      padding: 2.5rem;
+      position: relative;
+    }
+    .form-box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--blue);
+    }
+    .form-heading {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--blue);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 2rem;
+    }
+    .form-group { margin-bottom: 1.1rem; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    label {
+      display: block;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      font-weight: 400;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    input, select, textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 11px 14px;
+      font-family: var(--body);
+      font-size: 0.88rem;
+      color: var(--text);
+      transition: border-color .2s, box-shadow .2s;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--border-blue);
+      box-shadow: 0 0 0 2px var(--blue-subtle);
+    }
+    select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2300C2FF' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+    textarea { resize: vertical; min-height: 100px; }
+    select option { background: var(--bg2); }
+
+    .form-submit {
+      width: 100%;
+      background: var(--blue);
+      color: var(--bg);
+      border: none;
+      padding: 15px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: box-shadow .2s, transform .15s;
+      margin-top: 0.8rem;
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    }
+    .form-submit:hover {
+      box-shadow: 0 0 30px var(--blue-glow);
+      transform: translateY(-1px);
+    }
+    .form-note {
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-faint);
+      margin-top: 1rem;
+      letter-spacing: 0.05em;
+    }
+    .form-success {
+      display: none;
+      text-align: center;
+      padding: 3rem 2rem;
+    }
+    .form-success .success-icon { font-size: 3rem; margin-bottom: 1rem; }
+    .form-success h4 {
+      font-family: var(--cond);
+      font-size: 1.6rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+      color: var(--green);
+    }
+    .form-success p { color: var(--text-dim); font-size: 0.88rem; }
+
+    /* ── FAQ ── */
+    .faq { background: var(--bg2); }
+    .faq-list {
+      margin-top: 3rem;
+      display: flex; flex-direction: column; gap: 0;
+      max-width: 760px;
+      border: 1px solid var(--border);
+    }
+    .faq-item { border-bottom: 1px solid var(--border); }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-q {
+      width: 100%;
+      background: none;
+      border: none;
+      text-align: left;
+      padding: 1.2rem 1.5rem;
+      font-family: var(--body);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text);
+      transition: background .2s;
+      gap: 1rem;
+    }
+    .faq-q:hover { background: var(--bg3); }
+    .faq-q-icon {
+      font-family: var(--mono);
+      font-size: 1rem;
+      color: var(--blue);
+      flex-shrink: 0;
+      transition: transform .25s;
+    }
+    .faq-item.open .faq-q-icon { transform: rotate(45deg); }
+    .faq-a {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .35s ease, padding .35s;
+      padding: 0 1.5rem;
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      line-height: 1.7;
+      font-weight: 300;
+    }
+    .faq-item.open .faq-a { max-height: 300px; padding: 0 1.5rem 1.3rem; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 3rem 5%;
+      position: relative; z-index: 1;
+    }
+    .footer-inner {
+      max-width: 1300px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 2rem;
+    }
+    .footer-brand {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+    }
+    .footer-brand .f-blue { color: var(--blue); }
+    .footer-links {
+      display: flex; gap: 2rem; flex-wrap: wrap;
+    }
+    .footer-links a {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--text-faint);
+      text-decoration: none;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      transition: color .2s;
+    }
+    .footer-links a:hover { color: var(--blue); }
+    .footer-copy {
+      width: 100%;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-faint);
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      margin-top: 1rem;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 1024px) {
+      .hero { grid-template-columns: 1fr; min-height: auto; padding-top: 120px; padding-bottom: 60px; }
+      .hero-right { border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 2rem; margin-top: 2rem; }
+      .tc-row { grid-template-columns: 1fr 1fr; }
+      .about-grid { grid-template-columns: 1fr; gap: 3rem; }
+      .services-grid { grid-template-columns: 1fr 1fr; }
+      .steps { grid-template-columns: 1fr 1fr; }
+      .steps::before { display: none; }
+      .testi-grid { grid-template-columns: 1fr 1fr; }
+      nav ul { display: none; }
+    }
+    @media (max-width: 700px) {
+      .hero h1 { font-size: 3rem; }
+      .services-grid, .steps, .testi-grid { grid-template-columns: 1fr; }
+      .nfe-grid { grid-template-columns: 1fr; }
+      .form-wrap { grid-template-columns: 1fr; gap: 3rem; }
+      .form-row { grid-template-columns: 1fr; }
+      .footer-inner { flex-direction: column; }
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .hero-pretag { animation: fadeUp .5s ease both; }
+    .hero h1 { animation: fadeUp .6s ease both .1s; }
+    .hero-desc { animation: fadeUp .6s ease both .2s; }
+    .hero-btns { animation: fadeUp .6s ease both .3s; }
+    .hero-right { animation: fadeUp .6s ease both .4s; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    .cursor::after {
+      content: '_';
+      color: var(--blue);
+      animation: blink 1s step-end infinite;
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="logo">
+    <div class="logo-mark">₿</div>
+    <span><strong>BITCOIN</strong> <span class="logo-text">INICIANTES</span></span>
+  </a>
+  <ul>
+    <li><a href="#sobre">Sobre</a></li>
+    <li><a href="#servicos">Serviços</a></li>
+    <li><a href="#Independência Financeira">Independência Financeira</a></li>
+    <li><a href="#faq">FAQ</a></li>
+    <li><a href="#consultoria" class="nav-cta">Falar com Especialista</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div style="max-width:1300px;margin:0 auto;position:relative;z-index:1;">
+  <div class="hero">
+    <div class="hero-left">
+      <div class="hero-pretag">Consultoria especializada em Bitcoin · Pessoa física</div>
+      <h1>
+        <span class="line-dim">PROTEJA</span><br>
+        <span class="line-white">SEU</span><br>
+        <span class="line-blue">PATRIMÔNIO<span class="cursor"></span></span>
+      </h1>
+      <p class="hero-desc">
+        A BITCOIN INICIANTES guia você do zero à autocustódia com segurança, clareza e aplicação prática — sem depender de exchanges, plataformas ou intermediários.
+      </p>
+      <div class="hero-btns">
+        <a href="#consultoria" class="btn-primary">Consulta Gratuita →</a>
+        <a href="#servicos" class="btn-outline">Ver Serviços</a>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="terminal-card featured">
+        <div class="tc-label">// ativo</div>
+        <div class="tc-value">₿ Bitcoin</div>
+        <div class="tc-sub">O único ativo verdadeiramente descentralizado</div>
+      </div>
+      <div class="tc-row">
+        <div class="terminal-card">
+          <div class="tc-label">// foco</div>
+          <div class="tc-value">100%</div>
+          <div class="tc-sub">Bitcoin &amp; Blockchain</div>
+        </div>
+        <div class="terminal-card">
+          <div class="tc-label">// intermediários</div>
+          <div class="tc-value">0</div>
+          <div class="tc-sub">Entre você e seu Bitcoin</div>
+        </div>
+      </div>
+      <div class="terminal-card">
+        <div class="tc-label">// modelo</div>
+        <div class="tc-value" style="font-size:1.6rem;">Autocustódia</div>
+        <div class="tc-sub">Você no controle. Chaves privadas em suas mãos.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TICKER -->
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track">
+    <span class="ticker-item">Autocustódia Real <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Hardware Wallet <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Multisig <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Herança em Bitcoin <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Lightning Network <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Educação Bitcoin <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Soberania Financeira <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Diagnóstico Gratuito <span class="ticker-sep">///</span></span>
+    <!-- repeat for seamless loop -->
+    <span class="ticker-item">Autocustódia Real <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Hardware Wallet <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Multisig <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Herança em Bitcoin <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Lightning Network <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Educação Bitcoin <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Soberania Financeira <span class="ticker-sep">///</span></span>
+    <span class="ticker-item">Diagnóstico Gratuito <span class="ticker-sep">///</span></span>
+  </div>
+</div>
+
+<!-- ABOUT -->
+<section class="about" id="sobre">
+  <div class="section-inner">
+    <div class="about-grid">
+      <div>
+        <div class="sec-label">Quem Somos</div>
+        <h2 class="sec-title">NÃO SOMOS<br>UMA CORRETORA</h2>
+        <p class="sec-sub">Ajudamos pessoas físicas a entender, comprar e guardar Bitcoin com segurança — sem depender de terceiros, plataformas ou promessas vazias.</p>
+        <ul class="about-list">
+          <li>Consultoria 100% focada em Bitcoin e tecnologia Blockchain</li>
+          <li>Implementação real de carteiras e autocustódia (hardware wallets, multisig)</li>
+          <li>Planejamento de herança e sucessão patrimonial em Bitcoin</li>
+          <li>Educação: desde o básico até conceitos avançados sobre Bitcoin e Blockchain</li>
+          <li>Atendimento personalizado — sem scripts, sem vendas agressivas</li>
+        </ul>
+      </div>
+      <div class="about-panel">
+        <div class="btc-big">₿</div>
+        <p class="about-quote">
+          "Atendemos somente pessoas que querem entender o Bitcoin de forma prática e conquistar soberania financeira."
+          <br><br>
+          <strong>— Equipe BITCOIN INICIANTES</strong>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section id="servicos">
+  <div class="section-inner">
+    <div class="sec-label">O que fazemos</div>
+    <h2 class="sec-title">SERVIÇOS<br>ESPECIALIZADOS</h2>
+    <div class="services-grid">
+      <div class="service-card">
+        <div class="service-num">// 01</div>
+        <span class="service-icon">🔐</span>
+        <h3>Autocustódia &amp; Hardware Wallet</h3>
+        <p>Configuramos sua carteira de hardware do zero. Você aprende a usar em poucas horas e nunca mais depende de exchanges.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-num">// 02</div>
+        <span class="service-icon">🛡️</span>
+        <h3>Multisig &amp; Segurança Avançada</h3>
+        <p>Implementação de múltiplas assinaturas para proteção máxima do seu patrimônio em Bitcoin.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-num">// 03</div>
+        <span class="service-icon">📋</span>
+        <h3>Herança &amp; Protocolo Familiar</h3>
+        <p>Criamos um protocolo claro para que sua família tenha acesso ao seu Bitcoin se algo acontecer com você.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-num">// 04</div>
+        <span class="service-icon">⚡</span>
+        <h3>Lightning Network</h3>
+        <p>Aprenda a usar o Lightning Network para transações rápidas e baratas com Bitcoin no dia a dia.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-num">// 05</div>
+        <span class="service-icon">📚</span>
+        <h3>Educação Bitcoin do Zero</h3>
+        <p>Do conceito básico ao funcionamento da rede — aprenda Bitcoin de verdade, sem mitos e sem jargões desnecessários.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-num">// 06</div>
+        <span class="service-icon">🔍</span>
+        <h3>Auditoria &amp; Revisão</h3>
+        <p>Já tem Bitcoin mas não sabe se está guardando corretamente? Revisamos toda sua configuração e documentamos tudo.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how">
+  <div class="section-inner">
+    <div class="sec-label">Como funciona</div>
+    <h2 class="sec-title">SIMPLES E<br>SEM COMPLICAÇÃO</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h4>Preencha o formulário</h4>
+        <p>Conte um pouco sobre sua situação atual e seus objetivos com Bitcoin.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h4>Diagnóstico gratuito</h4>
+        <p>Nossa equipe entra em contato para entender seu caso e recomendar o melhor caminho.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h4>Implementação juntos</h4>
+        <p>Fazemos a configuração ao vivo com você — passo a passo, sem pressa, sem jargões.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <h4>Soberania real</h4>
+        <p>Você sai com documentação, protocolo e confiança para operar seu Bitcoin sozinho.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section id="Independência Financeira">
+  <div class="section-inner">
+    <div class="sec-label">Independência Financeira</div>
+
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de Independência Financeira</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Estilos Base */
+.sif__wrap * { box-sizing: border-box; margin: 0; padding: 0; }
+.sif__wrap { font-family: 'DM Sans', sans-serif; background: #ffffff; border: 1px solid #e2e4e9; border-radius: 16px; padding: 24px; max-width: 520px; width: 100%; color: #1a1d23; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin: auto; }
+.sif__header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
+.sif__title { font-size: 15px; font-weight: 600; color: #1a1d23; }
+.sif__metrics { display: flex; gap: 20px; flex-wrap: wrap; }
+.sif__metric-item { text-align: right; }
+.sif__metric-label { font-size: 9px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8a8f9e; display: block; margin-bottom: 2px; }
+.sif__metric-value { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; color: #1565c0; }
+
+/* Seção do Alvo e Progresso */
+.sif__gauge-section { background: #f7f8fa; border-radius: 12px; padding: 32px 16px 24px; margin-bottom: 20px; text-align: center; position: relative; }
+.sif__gauge-container { position: relative; width: 240px; margin: 0 auto 8px; }
+.sif__gauge-svg { width: 100%; display: block; }
+
+/* AQUI FOI FEITA A ALTERAÇÃO: top alterado de 18px para -10px */
+.sif__gauge-badge { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #e8f5e9; border: 1.5px solid #4caf50; color: #2e7d32; font-size: 11px; font-weight: 600; padding: 3px 12px; border-radius: 20px; white-space: nowrap; letter-spacing: 0.03em; }
+
+.sif__gauge-label { font-size: 11px; font-weight: 500; color: #8a8f9e; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px; }
+.sif__gauge-value { font-family: 'DM Mono', monospace; font-size: 26px; font-weight: 600; color: #1a1d23; letter-spacing: -0.5px; margin-bottom: 16px; }
+
+/* Nova Barra de Progresso */
+.sif__progress-container { max-width: 320px; margin: 0 auto; text-align: left; }
+.sif__progress-texts { display: flex; justify-content: space-between; font-size: 12px; color: #5a5f6e; margin-bottom: 6px; font-weight: 500; }
+.sif__progress-bar { height: 8px; background: #e2e4e9; border-radius: 4px; overflow: hidden; }
+.sif__progress-fill { height: 100%; background: #4caf50; width: 0%; transition: width 0.8s cubic-bezier(.4,0,.2,1); }
+
+/* Gráficos de Barras */
+.sif__chart-section { border: 1px solid #e2e4e9; border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+.sif__chart-row { display: flex; align-items: center; margin-bottom: 10px; gap: 8px; }
+.sif__bar-label { font-size: 11px; color: #5a5f6e; width: 110px; flex-shrink: 0; text-align: right; }
+.sif__bar-track { flex: 1; height: 22px; background: #f0f1f4; border-radius: 4px; overflow: hidden; position: relative; }
+.sif__bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; transition: width 0.5s cubic-bezier(.4,0,.2,1); min-width: 40px; }
+.sif__bar-fill span { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; color: #fff; white-space: nowrap; }
+.sif__bar-desp { background: #c62828; }
+.sif__bar-renda { background: #2e7d32; }
+.sif__bar-passiva { background: #00897b; }
+.sif__bar-juros { background: #1565c0; }
+.sif__chart-axis { display: flex; justify-content: space-between; padding-left: 118px; margin-top: 8px; }
+.sif__chart-axis span { font-size: 10px; color: #9aa0b0; font-family: 'DM Mono', monospace; }
+
+/* Controles */
+.sif__controls { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }
+.sif__control-row { display: flex; flex-direction: column; gap: 6px; }
+.sif__control-row.sif__full { grid-column: 1 / -1; }
+.sif__ctrl-top { display: flex; justify-content: space-between; align-items: center; }
+.sif__ctrl-label { font-size: 12px; color: #5a5f6e; font-weight: 500; }
+.sif__ctrl-val { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: #1a1d23; background: #f0f1f4; border: 1px solid #dde0e8; border-radius: 6px; padding: 2px 8px; min-width: 54px; text-align: center; }
+.sif__slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px; background: #dde0e8; outline: none; cursor: pointer; }
+.sif__slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #1565c0; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="sif__wrap" id="sif-root">
+  <div class="sif__header">
+    <div class="sif__title">Simulador de Independência Financeira</div>
+    <div class="sif__metrics">
+      <div class="sif__metric-item">
+        <span class="sif__metric-label">Juro Real Anual</span>
+        <span class="sif__metric-value" id="sif-juro-anual">—</span>
+      </div>
+      <div class="sif__metric-item">
+        <span class="sif__metric-label">Custo Líquido</span>
+        <span class="sif__metric-value" id="sif-custo-liq">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sif__gauge-section">
+    <div class="sif__gauge-container">
+      <svg class="sif__gauge-svg" viewBox="0 0 240 130">
+        <path d="M 24 124 A 96 96 0 0 1 216 124" fill="none" stroke="#dde0e8" stroke-width="22" stroke-linecap="round"/>
+        <path id="sif-gauge-arc" d="M 24 124 A 96 96 0 0 1 216 124" fill="none" stroke="#1565c0" stroke-width="22" stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="301.6" style="transition: stroke-dashoffset 0.7s;"/>
+      </svg>
+      <div class="sif__gauge-badge" id="sif-fator-badge">SEGURANÇA: —</div>
+    </div>
+    <div class="sif__gauge-label">Patrimônio Alvo Recomendado</div>
+    <div class="sif__gauge-value" id="sif-patrimonio">R$ —</div>
+    
+    <div class="sif__progress-container">
+      <div class="sif__progress-texts">
+        <span>Progresso: <strong id="sif-prog-pct" style="color: #2e7d32;">0%</strong></span>
+        <span id="sif-gap-txt">Falta Acumular: R$ 0</span>
+      </div>
+      <div class="sif__progress-bar">
+        <div class="sif__progress-fill" id="sif-prog-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sif__chart-section">
+    <div class="sif__chart-row">
+      <span class="sif__bar-label">Custo de Vida</span>
+      <div class="sif__bar-track"><div class="sif__bar-fill sif__bar-desp" id="sif-bar-desp"><span>R$</span></div></div>
+    </div>
+    <div class="sif__chart-row">
+      <span class="sif__bar-label">Renda Extra (Ativa)</span>
+      <div class="sif__bar-track"><div class="sif__bar-fill sif__bar-renda" id="sif-bar-renda"><span>R$</span></div></div>
+    </div>
+    <div class="sif__chart-row">
+      <span class="sif__bar-label">Sua Renda Passiva</span>
+      <div class="sif__bar-track"><div class="sif__bar-fill sif__bar-passiva" id="sif-bar-passiva"><span>R$</span></div></div>
+    </div>
+    <div class="sif__chart-row">
+      <span class="sif__bar-label">Juros (Alvo Faltante)</span>
+      <div class="sif__bar-track"><div class="sif__bar-fill sif__bar-juros" id="sif-bar-juros"><span>R$</span></div></div>
+    </div>
+    <div class="sif__chart-axis" id="sif-axis"></div>
+  </div>
+
+  <div class="sif__controls">
+    <div class="sif__control-row sif__full">
+      <div class="sif__ctrl-top"><span class="sif__ctrl-label">Patrimônio Atual (R$)</span><span class="sif__ctrl-val" id="sif-val-pat-atual">0</span></div>
+      <input class="sif__slider" type="range" id="sif-pat-atual" min="0" max="2000000" step="5000" value="50000">
+    </div>
+    <div class="sif__control-row">
+      <div class="sif__ctrl-top"><span class="sif__ctrl-label">Selic Nominal (%)</span><span class="sif__ctrl-val" id="sif-val-selic">14</span></div>
+      <input class="sif__slider" type="range" id="sif-selic" min="5" max="25" step="0.5" value="14">
+    </div>
+    <div class="sif__control-row">
+      <div class="sif__ctrl-top"><span class="sif__ctrl-label">Inflação IPCA (%)</span><span class="sif__ctrl-val" id="sif-val-ipca">4,5</span></div>
+      <input class="sif__slider" type="range" id="sif-ipca" min="1" max="15" step="0.5" value="4.5">
+    </div>
+    <div class="sif__control-row">
+      <div class="sif__ctrl-top"><span class="sif__ctrl-label">Dependentes</span><span class="sif__ctrl-val" id="sif-val-dep">2</span></div>
+      <input class="sif__slider" type="range" id="sif-dep" min="0" max="10" step="1" value="2">
+    </div>
+    <div class="sif__control-row">
+      <div class="sif__ctrl-top"><span class="sif__ctrl-label">Despesas (R$)</span><span class="sif__ctrl-val" id="sif-val-desp">9.000</span></div>
+      <input class="sif__slider" type="range" id="sif-desp" min="1000" max="50000" step="500" value="9000">
+    </div>
+    <div class="sif__control-row sif__full">
+      <div class="sif__ctrl-top"><span class="sif__ctrl-label">Receitas Extras (R$)</span><span class="sif__ctrl-val" id="sif-val-rec">7.000</span></div>
+      <input class="sif__slider" type="range" id="sif-rec" min="0" max="30000" step="500" value="7000">
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  function fmtFull(v) { return 'R$ ' + Math.round(v).toLocaleString('pt-BR'); }
+  function fmtBRL(v) { return v >= 1000 ? 'R$ ' + (v/1000).toFixed(1) + 'k' : 'R$ ' + Math.round(v); }
+
+  function calcular() {
+    const selic = parseFloat(document.getElementById('sif-selic').value);
+    const ipca = parseFloat(document.getElementById('sif-ipca').value);
+    const dep = parseInt(document.getElementById('sif-dep').value);
+    const desp = parseFloat(document.getElementById('sif-desp').value);
+    const rec = parseFloat(document.getElementById('sif-rec').value);
+    const patAtual = parseFloat(document.getElementById('sif-pat-atual').value);
+
+    // 1. Taxa Real (Fórmula de Fisher)
+    const taxaRealAnual = ((1 + selic/100) / (1 + ipca/100) - 1);
+    
+    // 2. Fluxo Líquido
+    const deficitMensal = Math.max(0, desp - rec);
+
+    // 3. Montante de Perpetuidade (Cálculo Base)
+    let montanteBase = taxaRealAnual > 0 ? (deficitMensal * 12) / taxaRealAnual : 0;
+
+    // 4. Margem por Dependentes (10% de capital extra por pessoa)
+    const margemSeguranca = 1 + (dep * 0.10);
+    const patrimonioFinal = montanteBase * margemSeguranca;
+
+    // 5. Cálculos de Progresso e Renda Passiva Atual
+    const gap = Math.max(0, patrimonioFinal - patAtual);
+    const progressoPct = patrimonioFinal > 0 ? Math.min(100, (patAtual / patrimonioFinal) * 100) : 100;
+    const rendaPassivaAtual = taxaRealAnual > 0 ? (patAtual * taxaRealAnual) / 12 : 0;
+    const jurosFaltante = Math.max(0, ((patrimonioFinal * taxaRealAnual) / 12) - rendaPassivaAtual);
+
+    // Atualiza Interface (Cabeçalho e Alvo)
+    document.getElementById('sif-juro-anual').textContent = (taxaRealAnual * 100).toFixed(2).replace('.',',') + '%';
+    document.getElementById('sif-custo-liq').textContent = fmtFull(deficitMensal);
+    document.getElementById('sif-patrimonio').textContent = fmtFull(patrimonioFinal);
+    document.getElementById('sif-fator-badge').textContent = 'MARGEM: +' + (dep * 10) + '%';
+
+    // Atualiza Interface (Progresso)
+    document.getElementById('sif-prog-pct').textContent = progressoPct.toFixed(1).replace('.',',') + '%';
+    document.getElementById('sif-gap-txt').textContent = 'Falta Acumular: ' + fmtFull(gap);
+    document.getElementById('sif-prog-fill').style.width = progressoPct + '%';
+
+    // Gráficos e Eixos
+    const maxVal = Math.max(desp, rec, rendaPassivaAtual + jurosFaltante, 5000);
+    const axisMax = Math.ceil(maxVal / 5000) * 5000;
+
+    const setBar = (id, val) => {
+        const pct = Math.min(100, Math.max(5, (val / axisMax) * 100));
+        document.getElementById(id).style.width = pct + '%';
+        document.getElementById(id).innerHTML = `<span>${fmtBRL(val)}</span>`;
+    };
+
+    setBar('sif-bar-desp', desp);
+    setBar('sif-bar-renda', rec);
+    setBar('sif-bar-passiva', rendaPassivaAtual);
+    setBar('sif-bar-juros', jurosFaltante);
+
+    // Gauge Arc (Arco superior baseado apenas na proporção renda passiva total vs custo de vida)
+    const rendaPassivaTotalAlvo = rendaPassivaAtual + jurosFaltante;
+    const ratio = desp > 0 ? Math.min(1, rendaPassivaTotalAlvo / desp) : 0;
+    document.getElementById('sif-gauge-arc').style.strokeDashoffset = 301.6 - (301.6 * ratio);
+
+    // Eixo X
+    const ticks = [];
+    for(let i=0; i<=4; i++) ticks.push('<span>' + fmtBRL(axisMax * i / 4) + '</span>');
+    document.getElementById('sif-axis').innerHTML = ticks.join('');
+
+    // Valores Sliders
+    document.getElementById('sif-val-pat-atual').textContent = patAtual.toLocaleString('pt-BR');
+    document.getElementById('sif-val-selic').textContent = selic.toFixed(1).replace('.',',');
+    document.getElementById('sif-val-ipca').textContent = ipca.toFixed(1).replace('.',',');
+    document.getElementById('sif-val-dep').textContent = dep;
+    document.getElementById('sif-val-desp').textContent = desp.toLocaleString('pt-BR');
+    document.getElementById('sif-val-rec').textContent = rec.toLocaleString('pt-BR');
+  }
+
+  ['sif-pat-atual', 'sif-selic', 'sif-ipca', 'sif-dep', 'sif-desp', 'sif-rec'].forEach(id => {
+    document.getElementById(id).addEventListener('input', calcular);
+  });
+
+  calcular();
+})();
+</script>
+</body>
+</html>
+
+
+
+
+
+<!-- NOT FOR EVERYONE -->
+<section class="nfe">
+  <div class="section-inner">
+    <div class="sec-label">Para quem é isso?</div>
+    <h2 class="sec-title">SOMOS SELETIVOS.<br>NOS ORGULHAMOS DISSO.</h2>
+    <div class="nfe-grid">
+      <div class="nfe-col yes">
+        <div class="nfe-col-head">✓ Atendemos quem...</div>
+        <ul>
+          <li>Quer entender Bitcoin de verdade e com profundidade</li>
+          <li>Busca soberania e autocustódia sem depender de exchanges</li>
+          <li>Quer proteger patrimônio familiar com segurança</li>
+          <li>Está começando e quer fazer certo desde o início</li>
+          <li>Tem Bitcoin na exchange e quer migrar para autocustódia</li>
+          <li>Quer revisar e auditar o que já tem configurado</li>
+        </ul>
+      </div>
+      <div class="nfe-col no">
+        <div class="nfe-col-head">✗ Não atendemos quem...</div>
+        <ul>
+          <li>Quer ficar rico rápido com especulação</li>
+          <li>Busca dicas de altcoins ou "próxima moeda que vai subir"</li>
+          <li>Não tem interesse em aprender, só em delegar</li>
+          <li>Quer serviço de custódia (não custodiamos ativos)</li>
+          <li>Está procurando corretora ou exchange</li>
+          <li>Não leva segurança financeira a sério</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FORM -->
+<section id="consultoria" class="form-section">
+  <div class="section-inner">
+    <div class="form-wrap">
+      <div class="form-info">
+        <div class="sec-label">Fale Conosco</div>
+        <h2 class="sec-title">SOLICITE SUA<br>CONSULTORIA</h2>
+        <p>Preencha o formulário e nossa equipe de especialistas em Bitcoin entrará em contato em até 24 horas para entender sua situação e propor o melhor caminho.</p>
+        <p>O atendimento é personalizado — sem scripts, sem pressão, sem vendas forçadas.</p>
+        <div class="form-promises">
+          <div class="promise-item">Diagnóstico inicial gratuito e sem compromisso</div>
+          <div class="promise-item">Especialistas reais em Bitcoin</div>
+          <div class="promise-item">Implementação prática e documentada</div>
+          <div class="promise-item">Confidencialidade total das suas informações</div>
+          <div class="promise-item">Contato: bitcoiniciantes@proton.me</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="form-box">
+          <div class="form-heading">// Formulário de Consulta — Seguro e Confidencial</div>
+          <form id="consultForm" novalidate>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="nome">Nome completo *</label>
+                <input type="text" id="nome" name="nome" placeholder="Seu nome" required/>
+              </div>
+              <div class="form-group">
+                <label for="email">E-mail *</label>
+                <input type="email" id="email" name="email" placeholder="seu@email.com" required/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="whatsapp">WhatsApp</label>
+                <input type="tel" id="whatsapp" name="whatsapp" placeholder="(11) 99999-0000"/>
+              </div>
+              <div class="form-group">
+                <label for="cidade">Cidade / Estado</label>
+                <input type="text" id="cidade" name="cidade" placeholder="São Paulo, SP"/>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="servico">Qual serviço te interessa? *</label>
+              <select id="servico" name="servico" required>
+                <option value="" disabled selected>Selecione uma opção</option>
+                <option>Começar do zero com Bitcoin</option>
+                <option>Autocustódia e Hardware Wallet</option>
+                <option>Multisig e Segurança Avançada</option>
+                <option>Herança e Protocolo Familiar</option>
+                <option>Auditoria da minha configuração atual</option>
+                <option>Educação e Treinamento em Bitcoin</option>
+                <option>Outro / Não sei ainda</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="nivel">Seu nível atual de conhecimento em Bitcoin</label>
+              <select id="nivel" name="nivel">
+                <option value="" disabled selected>Selecione</option>
+                <option>Zero — nunca toquei em Bitcoin</option>
+                <option>Básico — já ouvi falar, sei o que é</option>
+                <option>Intermediário — já comprei, tenho em exchange</option>
+                <option>Avançado — já uso carteira própria</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="mensagem">Conta um pouco sobre sua situação *</label>
+              <textarea id="mensagem" name="mensagem" placeholder="Descreva o que você precisa, suas dúvidas ou objetivos com Bitcoin..." required></textarea>
+            </div>
+            <button type="submit" class="form-submit">Enviar para a Equipe de Especialistas →</button>
+            <p class="form-note">// Suas informações são enviadas para bitcoiniciantes@proton.me — confidencialidade garantida.</p>
+          </form>
+          <div class="form-success" id="formSuccess">
+            <div class="success-icon">✅</div>
+            <h4>Mensagem enviada!</h4>
+            <p>Nossa equipe receberá seu contato em <strong>bitcoiniciantes@proton.me</strong> e retornará em até 24 horas úteis. Obrigado por confiar na BITCOIN INICIANTES!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="faq">
+  <div class="section-inner">
+    <div class="sec-label">Perguntas Frequentes</div>
+    <h2 class="sec-title">TEM DÚVIDAS?<br>TEMOS RESPOSTAS.</h2>
+    <div class="faq-list">
+      <div class="faq-item">
+        <button class="faq-q">A BITCOIN INICIANTES guarda meu Bitcoin? <span class="faq-q-icon">+</span></button>
+        <div class="faq-a">Não. Nossa proposta é exatamente o oposto: ensinamos você a guardar seu próprio Bitcoin com total autonomia, sem depender de nenhuma empresa, incluindo a nós. Autocustódia real.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">Preciso ter muito dinheiro para contratar a consultoria? <span class="faq-q-icon">+</span></button>
+        <div class="faq-a">Não existe valor mínimo. Nosso serviço é focado em quem leva Bitcoin a sério — seja você começando com pouco ou protegendo um patrimônio maior. O que importa é a seriedade, não o valor.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">Vocês recomendam outras criptomoedas além do Bitcoin? <span class="faq-q-icon">+</span></button>
+        <div class="faq-a">Não. A BITCOIN INICIANTES é focada 100% em Bitcoin para pessoa física. Não fazemos recomendações de altcoins, tokens ou qualquer outro ativo especulativo.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">A consultoria é presencial ou online? <span class="faq-q-icon">+</span></button>
+        <div class="faq-a">Atendemos de forma online por videochamada, o que nos permite atender clientes em todo o Brasil e no exterior. Cada passo é documentado e entregue para você ao final.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">Como funciona o processo após preencher o formulário? <span class="faq-q-icon">+</span></button>
+        <div class="faq-a">Após receber seu formulário em bitcoiniciantes@proton.me, um especialista entrará em contato em até 24 horas para um diagnóstico gratuito. Se houver fit, apresentamos a proposta mais adequada para o seu caso.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="f-blue">BITCOIN</span> INICIANTES<br>
+      <span style="color:var(--text-faint);font-size:0.65rem;">Consultoria especializada em Bitcoin para pessoa física</span>
+    </div>
+    <div class="footer-links">
+      <a href="#sobre">Sobre</a>
+      <a href="#servicos">Serviços</a>
+      <a href="#Independência Financeira">Independência Financeira</a>
+      <a href="#faq">FAQ</a>
+      <a href="mailto:bitcoiniciantes@proton.me">bitcoiniciantes@proton.me</a>
+    </div>
+    <p class="footer-copy">
+      © 2025 BITCOIN INICIANTES — Todos os direitos reservados. &nbsp;|&nbsp;
+      Não somos uma corretora. Não guardamos seus ativos. Não fazemos recomendações de investimento.
+    </p>
+  </div>
+</footer>
+
+<script>
+  // FAQ accordion
+  document.querySelectorAll('.faq-q').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.parentElement;
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    });
+  });
+
+  // Form submission
+  document.getElementById('consultForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = this.querySelector('.form-submit');
+    const textoOriginal = btn.textContent;
+    btn.textContent = 'Enviando…';
+    btn.disabled = true;
+
+    const data = {
+      nome:     document.getElementById('nome').value,
+      email:    document.getElementById('email').value,
+      whatsapp: document.getElementById('whatsapp').value || 'não informado',
+      cidade:   document.getElementById('cidade').value   || 'não informado',
+      servico:  document.getElementById('servico').value,
+      nivel:    document.getElementById('nivel').value    || 'não informado',
+      mensagem: document.getElementById('mensagem').value,
+      _subject: '[BITCOIN INICIANTES] Nova Consulta – ' + document.getElementById('nome').value,
+      _replyto: document.getElementById('email').value,
+    };
+
+    try {
+      const FORMSPREE_ID = 'xaqvwpak';
+      const res = await fetch('https://formspree.io/f/' + FORMSPREE_ID, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (res.ok) {
+        document.getElementById('consultForm').style.display = 'none';
+        document.getElementById('formSuccess').style.display = 'block';
+      } else {
+        const json = await res.json();
+        const erros = json.errors ? json.errors.map(function(e){ return e.message; }).join(', ') : 'Tente novamente.';
+        alert('Erro ao enviar: ' + erros);
+        btn.textContent = textoOriginal;
+        btn.disabled = false;
+      }
+    } catch (err) {
+      alert('Erro de conexão. Verifique sua internet e tente novamente.');
+      btn.textContent = textoOriginal;
+      btn.disabled = false;
+    }
+  });
+</script>
+
+<p>
+
+</body>
+</html>
