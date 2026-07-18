@@ -57,6 +57,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      margin-left: 12px;
     }
     .dash-logo .logo-icon {
       width: 28px; height: 28px;
@@ -66,104 +67,126 @@
       color: #fff; font-size: 0.85rem; font-weight: 800;
     }
     .dash-logo span { color: #F7931A; }
-    .dash-badge {
-      font-size: 0.68rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: #10b981;
-      background: rgba(16,185,129,0.15);
-      padding: 5px 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(16,185,129,0.3);
-    }
-
     /* ── MENU ── */
-    .dash-menu { position: relative; }
+    .dash-menu { position: relative; margin-left: auto; margin-right: 14px; }
     .dash-menu-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
       font-size: 0.72rem;
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: #F7931A;
-      background: rgba(247,147,26,0.1);
-      padding: 6px 14px;
-      border-radius: 8px;
-      border: 1px solid rgba(247,147,26,0.3);
+      color: #ffad42;
+      background: linear-gradient(135deg, rgba(247,147,26,0.18), rgba(247,147,26,0.07));
+      padding: 7px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(247,147,26,0.45);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.22);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: transform 0.2s, border-color 0.2s, background 0.2s;
       user-select: none;
     }
+    .dash-menu-btn::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #F7931A;
+      box-shadow: 0 0 10px rgba(247,147,26,0.8);
+    }
     .dash-menu-btn:hover, .dash-menu-btn.active {
-      color: #F7931A;
-      border-color: rgba(247,147,26,0.4);
-      background: rgba(247,147,26,0.1);
+      transform: translateY(-1px);
+      color: #fff;
+      border-color: #F7931A;
+      background: linear-gradient(135deg, rgba(247,147,26,0.32), rgba(247,147,26,0.12));
     }
     .dash-menu-dropdown {
       display: none;
       position: absolute;
-      top: calc(100% + 6px);
+      top: calc(100% + 10px);
       right: 0;
-      min-width: 220px;
-      background: #1a1a1a;
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 10px;
-      padding: 6px 0;
+      width: min(420px, calc(100vw - 28px));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      background: linear-gradient(145deg, rgba(30,30,32,0.97), rgba(17,17,18,0.98));
+      border: 1px solid rgba(247,147,26,0.28);
+      border-radius: 18px;
+      padding: 46px 10px 12px;
       z-index: 1000;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+      box-shadow: 0 22px 55px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.06);
+      backdrop-filter: blur(18px);
     }
-    .dash-menu-dropdown.open { display: block; }
+    .dash-menu-dropdown.open { display: grid; }
     .dash-menu-dropdown a {
-      display: block;
-      padding: 9px 16px;
-      color: #ccc;
+      display: flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 9px 12px;
+      color: #d7d7da;
       text-decoration: none;
       font-size: 0.78rem;
-      font-weight: 500;
-      transition: all 0.15s;
-      white-space: nowrap;
+      font-weight: 600;
+      line-height: 1.25;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      transition: color 0.15s, background 0.15s, border-color 0.15s, transform 0.15s;
+    }
+    .dash-menu-dropdown a::before {
+      content: '';
+      flex: 0 0 auto;
+      width: 5px;
+      height: 5px;
+      margin-right: 9px;
+      border-radius: 50%;
+      background: rgba(247,147,26,0.7);
     }
     .dash-menu-dropdown a:hover {
+      color: #fff;
       background: rgba(247,147,26,0.12);
-      color: #F7931A;
+      border-color: rgba(247,147,26,0.22);
+      transform: translateX(2px);
     }
+    .dash-menu-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      color: #aaa;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .dash-menu-close:hover { color: #fff; background: rgba(247,147,26,0.18); }
 
     @media (max-width: 640px) {
+      .dash-logo { margin-left: 2px; }
+      .dash-menu { margin-right: 12px; }
       .dash-menu-dropdown {
         position: fixed;
-        top: 0; right: 0;
-        width: 100%; height: 100%;
-        min-width: 0;
-        border-radius: 0;
-        border: none;
-        background: #111;
-        padding: 60px 0 20px;
+        top: 58px;
+        right: 12px;
+        width: min(340px, calc(100vw - 24px));
+        max-height: calc(100vh - 72px);
+        grid-template-columns: 1fr;
+        gap: 3px;
+        padding: 44px 9px 10px;
+        border-radius: 18px;
         overflow-y: auto;
-        transform: translateX(100%);
-        transition: transform 0.25s ease;
-      }
-      .dash-menu-dropdown.open {
-        display: block;
-        transform: translateX(0);
       }
       .dash-menu-dropdown a {
-        font-size: 1rem;
-        padding: 14px 24px;
-        border-bottom: 1px solid rgba(255,255,255,0.06);
-      }
-      .dash-menu-close {
-        display: block;
-        position: absolute;
-        top: 14px; right: 16px;
-        font-size: 1.4rem;
-        color: #ccc;
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 4px 8px;
+        min-height: 38px;
+        padding: 8px 11px;
+        font-size: 0.82rem;
       }
     }
-
     /* ── WIDGET GRID ── */
     .widget-grid {
       padding-bottom: 20px;
@@ -346,9 +369,9 @@
     BITCOIN&nbsp;<span>INICIANTES</span>
   </a>
   <div class="dash-menu">
-    <button class="dash-menu-btn" id="dashMenuBtn">MENU</button>
+    <button type="button" class="dash-menu-btn" id="dashMenuBtn" aria-expanded="false" aria-controls="dashMenuDrop">MENU</button>
     <div class="dash-menu-dropdown" id="dashMenuDrop">
-      <button class="dash-menu-close" id="dashMenuClose">&times;</button>
+      <button type="button" class="dash-menu-close" id="dashMenuClose" aria-label="Fechar menu">&times;</button>
       <a href="#btcTickerCard">Cotação BTC</a>
       <a href="#mempool-root">Taxa Transação</a>
       <a href="#halving-root">Halving</a>
@@ -362,7 +385,6 @@
       <a href="#projecoes">Projeções</a>
     </div>
   </div>
-  <div class="dash-badge">Dashboard ao vivo</div>
 </div>
 </div>
 </header>
@@ -912,28 +934,34 @@
   var drop = document.getElementById('dashMenuDrop');
   var close = document.getElementById('dashMenuClose');
 
+  function setMenu(open){
+    drop.classList.toggle('open', open);
+    btn.classList.toggle('active', open);
+    btn.setAttribute('aria-expanded', String(open));
+  }
+
   btn.addEventListener('click', function(e){
     e.stopPropagation();
-    drop.classList.toggle('open');
-    btn.classList.toggle('active');
+    setMenu(!drop.classList.contains('open'));
   });
 
   if(close) close.addEventListener('click', function(){
-    drop.classList.remove('open');
-    btn.classList.remove('active');
+    setMenu(false);
+    btn.focus();
   });
 
   drop.addEventListener('click', function(e){
-    if(e.target.tagName === 'A'){
-      drop.classList.remove('open');
-      btn.classList.remove('active');
-    }
+    if(e.target.tagName === 'A') setMenu(false);
   });
 
   document.addEventListener('click', function(e){
-    if(!drop.contains(e.target) && e.target !== btn){
-      drop.classList.remove('open');
-      btn.classList.remove('active');
+    if(!drop.contains(e.target) && e.target !== btn) setMenu(false);
+  });
+
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && drop.classList.contains('open')){
+      setMenu(false);
+      btn.focus();
     }
   });
 })();
