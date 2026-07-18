@@ -56,7 +56,7 @@ window.BIWidgets.dca = function initDca() {
       if (typeof Chart !== 'undefined') return resolve();
       console.log("[DCA] Baixando biblioteca de Gráficos (Chart.js)...");
       var script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+      script.src = CFG.cdn.chartjs;
       script.onload = function() { console.log("[DCA] Chart.js carregado!"); resolve(); };
       script.onerror = function() { reject(new Error("Falha ao carregar o Chart.js.")); };
       document.head.appendChild(script);
@@ -103,10 +103,7 @@ window.BIWidgets.dca = function initDca() {
     if (historicoDiarioCache) return historicoDiarioCache;
     if (historicoDiarioPromise) return historicoDiarioPromise;
 
-    let urls = [
-      './dados/historico_dca.json',
-      'https://raw.githubusercontent.com/Bitcoiniciantes/bitcoiniciante/main/dados/historico_dca.json'
-    ];
+    let urls = [CFG.data.dcaHistory];
 
     historicoDiarioPromise = (async function() {
       for (let url of urls) {

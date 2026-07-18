@@ -36,9 +36,16 @@ window.BI_CONFIG = {
     appId: '1:725960603784:web:00b9a802e76afd593c873d'
   },
 
+  // Dados versionados junto com o site. Os widgets sempre usam estes
+  // arquivos locais, garantindo que a interface reflita o conteúdo de /dados.
+  data: {
+    dcaHistory: 'dados/historico_dca.json',
+    etfHistory: 'dados/historico_etf.json'
+  },
+
   // CDNs carregados sob demanda
   cdn: {
-    chartjs: 'https://cdn.jsdelivr.net/npm/chart.js',
+    chartjs: 'https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js',
     firebaseApp: 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',
     firebaseDb: 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js'
   }

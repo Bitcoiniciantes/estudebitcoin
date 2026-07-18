@@ -59,30 +59,24 @@ window.BIWidgets.etfWidget = async function () {
 
     if (typeof Chart === 'undefined') {
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+        script.src = window.BI_CONFIG.cdn.chartjs;
         script.onload = carregarHistorico;
         document.head.appendChild(script);
     } else {
         carregarHistorico();
     }
 
-    // Busca com fallback: tenta o caminho local primeiro, depois o raw do GitHub
-    async function buscarJson(caminhoLocal, urlRaw) {
-        var urls = [caminhoLocal, urlRaw];
-        for (var i = 0; i < urls.length; i++) {
-            try {
-                var resposta = await fetch(urls[i]);
-                if (resposta.ok) return await resposta.json();
-            } catch (e) {}
-        }
+    // Os históricos publicados com o site são a fonte única dos widgets.
+    async function buscarJson(caminhoLocal) {
+        try {
+            var resposta = await fetch(caminhoLocal);
+            if (resposta.ok) return await resposta.json();
+        } catch (e) {}
         return null;
     }
 
     async function carregarHistorico() {
-        var etfJson = await buscarJson(
-            './dados/historico_etf.json',
-            'https://raw.githubusercontent.com/Bitcoiniciantes/bitcoiniciante/main/dados/historico_etf.json'
-        );
+        var etfJson = await buscarJson(window.BI_CONFIG.data.etfHistory);
 
         if (!etfJson) {
             console.error('[ETF] histórico não encontrado em nenhuma das fontes.');
@@ -96,10 +90,7 @@ window.BIWidgets.etfWidget = async function () {
         atualizarStats(historico);
 
         // Preço do BTC é "best effort": se não carregar, o gráfico funciona igual, só sem a linha
-        var dcaJson = await buscarJson(
-            './dados/historico_dca.json',
-            'https://raw.githubusercontent.com/Bitcoiniciantes/bitcoiniciante/main/dados/historico_dca.json'
-        );
+        var dcaJson = await buscarJson(window.BI_CONFIG.data.dcaHistory);
         if (Array.isArray(dcaJson)) {
             dcaJson.forEach(function (item) {
                 if (item.data && typeof item.precoBtcUsd === 'number') {

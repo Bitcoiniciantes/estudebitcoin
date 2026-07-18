@@ -273,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
     coords.forEach(c => ctx.lineTo(c.x, c.y));
     ctx.lineTo(coords[coords.length-1].x, h); ctx.closePath();
     const grad = ctx.createLinearGradient(0,0,0,h);
-    grad.addColorStop(0, isBullish ? 'rgba(52, 211, 153, 0.19)' : 'rgba(248, 113, 113, 0.19)');
+    grad.addColorStop(0, isBullish ? 'rgba(52, 211, 153, 0.45)' : 'rgba(248, 113, 113, 0.45)');
     grad.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = grad; ctx.fill();
 

@@ -229,7 +229,7 @@
 .sif__progress-texts { display: flex; justify-content: space-between; font-size: 12px; color: #5a5f6e; margin-bottom: 6px; font-weight: 500; }
 .sif__progress-bar { height: 8px; background: #e2e4e9; border-radius: 4px; overflow: hidden; }
 .sif__progress-fill { height: 100%; background: #4caf50; width: 0%; transition: width 0.8s cubic-bezier(.4,0,.2,1); }
-.sif__chart-section { border: 1px solid #e2e4e9; border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+.sif__chart-section { border: 1px solid #e2e4e9; border-radius: 12px; padding: 16px; margin-bottom: 0; }
 .sif__chart-row { display: flex; align-items: center; margin-bottom: 10px; gap: 8px; }
 .sif__bar-label { font-size: 11px; color: #5a5f6e; width: 110px; flex-shrink: 0; text-align: right; }
 .sif__bar-track { flex: 1; height: 22px; background: #f0f1f4; border-radius: 4px; overflow: hidden; position: relative; }
@@ -686,10 +686,11 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   position: relative;
   z-index: 1;
   margin-bottom: 50px;
+  flex-wrap: nowrap;
 }
 
 .preev__box {
@@ -706,21 +707,23 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
 }
 
 .preev__val {
-  width: 280px; 
+  flex: 1;
+  min-width: 0;
   font-family: var(--font-body);
-  font-size: clamp(24px, 3.5vw, 38px); /* Reduzi um pouco o tamanho máximo para caber 8 casas */
-  font-weight: 400; /* Aumentei levemente o peso para compensar o tamanho menor */
+  font-size: clamp(20px, 3vw, 34px);
+  font-weight: 400;
   text-align: center;
   outline: none;
-  padding: 0 8px; /* Reduzi o padding lateral para ganhar mais espaço interno */
-  letter-spacing: -0.02em; /* Aproxima levemente os números para economizar espaço */
+  padding: 0 6px;
+  letter-spacing: -0.02em;
 }
 .preev__val:focus { border-color: #a0a5b1; }
 
 .preev__lbl, .select-asset {
-  width: 120px;
+  width: 90px;
+  flex-shrink: 0;
   font-family: var(--font-body);
-  font-size: clamp(24px, 3.5vw, 36px);
+  font-size: clamp(18px, 2.5vw, 28px);
   font-weight: 300;
   user-select: none;
 }
@@ -810,14 +813,14 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
 @media (max-width: 820px) {
   .preev__container { padding: 40px 15px; }
   .preev__inputs-row { gap: 8px; }
-  .preev__val { width: 160px; font-size: 28px; height: 70px; }
-  .preev__lbl { width: 90px; font-size: 24px; height: 70px; }
+  .preev__val { flex: 1; font-size: 24px; height: 70px; }
+  .preev__lbl { width: 80px; font-size: 22px; height: 70px; }
   .preev__vertical-divider { display: none; }
 }
 @media (max-width: 480px) {
   .preev__inputs-row { flex-wrap: wrap; }
-  .preev__val { width: 55%; height: 60px; font-size: 24px; }
-  .preev__lbl { width: 38%; height: 60px; font-size: 22px; }
+  .preev__val { flex: 1 1 55%; height: 60px; font-size: 22px; }
+  .preev__lbl { width: 38%; height: 60px; font-size: 20px; }
   .preev__live-badge { top: 14px; right: 14px; }
   .preev__live-text { display: none; }
 }
