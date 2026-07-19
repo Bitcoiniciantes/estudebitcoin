@@ -222,7 +222,7 @@
 .sif__gauge-section { background: #f7f8fa; border-radius: 12px; padding: 24px 16px; margin-bottom: 20px; text-align: center; position: relative; }
 .sif__gauge-container { position: relative; width: 240px; margin: 0 auto 8px; }
 .sif__gauge-svg { width: 100%; display: block; }
-.sif__gauge-badge { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #e8f5e9; border: 1.5px solid #4caf50; color: #2e7d32; font-size: 11px; font-weight: 600; padding: 3px 12px; border-radius: 20px; white-space: nowrap; letter-spacing: 0.03em; }
+.sif__gauge-badge { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #c8e6c9; border: 1.5px solid #2e7d32; color: #1b5e20; font-size: 11px; font-weight: 700; padding: 3px 12px; border-radius: 20px; white-space: nowrap; letter-spacing: 0.03em; }
 .sif__gauge-label { font-size: 11px; font-weight: 500; color: #8a8f9e; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px; }
 .sif__gauge-value { font-family: var(--font-mono); font-size: 26px; font-weight: 600; color: #1a1d23; letter-spacing: -0.5px; margin-bottom: 16px; }
 .sif__progress-container { max-width: 320px; margin: 0 auto; text-align: left; }
