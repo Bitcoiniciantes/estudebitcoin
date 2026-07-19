@@ -132,6 +132,13 @@ window.BIWidgets.strategyTreasury = async function () {
     return new Date(value.slice(0, 10) + 'T12:00:00Z').toLocaleDateString('pt-BR');
   }
 
+  function fmtDateShort(value) {
+    if (!value) return '—';
+    return new Date(value.slice(0, 10) + 'T12:00:00Z').toLocaleDateString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: '2-digit'
+    });
+  }
+
   function setText(id, value) {
     var el = document.getElementById(id);
     if (el) el.textContent = value;
@@ -300,7 +307,7 @@ window.BIWidgets.strategyTreasury = async function () {
         responsive: true, maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         scales: {
-          x: { grid: { display: false }, ticks: { color: '#8a8f9e', maxTicksLimit: 7, maxRotation: 0, callback: function (value) { return fmtDate(this.getLabelForValue(value)); } } },
+          x: { grid: { display: false }, ticks: { color: '#8a8f9e', maxTicksLimit: 7, maxRotation: 0, callback: function (value) { return fmtDateShort(this.getLabelForValue(value)); } } },
           y: { position: 'left', grid: { color: function (c) { return c.tick.value === 1 ? 'rgba(247,147,26,0.35)' : 'rgba(255,255,255,0.07)'; } }, ticks: { color: '#c9ccd4', callback: function (v) { return Number(v).toFixed(2) + 'x'; } } },
           y1: { display: false, position: 'right', grid: { display: false } }
         },
