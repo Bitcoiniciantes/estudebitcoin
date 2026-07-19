@@ -1,6 +1,6 @@
 window.BI_STRATEGY_DATA = {
   "fonte": "https://www.strategy.com/purchases",
-  "atualizadoEm": "2026-07-19T02:15:39.343Z",
+  "atualizadoEm": "2026-07-19T06:14:52.413Z",
   "primeiraData": "2020-08-10",
   "ultimaData": "2026-07-06",
   "snapshot": {
@@ -50,40 +50,40 @@ window.BI_STRATEGY_DATA = {
       }
     },
     "bitcoin": {
-      "ufPrice": 64864.97,
-      "msTimestamp": 1784427321385,
-      "latestPrice": 64865,
-      "latestPriceString": "64,865",
-      "prevDayPrice": 63971,
-      "prevDayPriceString": "63,971",
-      "priceVarVal": "894",
-      "priceVarPerc": "1.40",
+      "ufPrice": 64683.35,
+      "msTimestamp": 1784441676327,
+      "latestPrice": 64683,
+      "latestPriceString": "64,683",
+      "prevDayPrice": 64670,
+      "prevDayPriceString": "64,670",
+      "priceVarVal": "13",
+      "priceVarPerc": "0.02",
       "btcHoldings": "843,775",
       "pctOfBtcTotalSupply": 4.018,
       "satsPerShare": 207775.6902,
-      "btcNav": "54,731",
-      "btcNavNumber": 54731,
-      "prevBtcNav": "53,977",
+      "btcNav": "54,578",
+      "btcNavNumber": 54578,
+      "prevBtcNav": "54,567",
       "btcNavNeg": false,
-      "btcNavVarVal": "755",
+      "btcNavVarVal": "11",
       "debtByBN": 7,
       "prefByBN": 28,
       "debtPrefByBN": 41,
-      "btcGainQtd": "-856",
-      "btcGainYTD": "2,861",
+      "btcGainQtd": "-854",
+      "btcGainYTD": "2,853",
       "totalAnnualDividends": 1762789074.5,
-      "btcYearsOfDividends": 31.04820698827743,
+      "btcYearsOfDividends": 30.961272925821053,
       "usdMonthsOfDividends": 20.422182393098332,
-      "dailyVolume": "15,275",
-      "averageVolume": "26,886",
-      "totalOi": "79,870"
+      "dailyVolume": "15,241",
+      "averageVolume": "26,885",
+      "totalOi": "79,925"
     },
-    "timestamp": "2026-07-19T02:15:00"
+    "timestamp": "2026-07-19T06:14:00"
   },
   "mnavHistorico": [
     {
       "date": "2026-07-17T00:00:00",
-      "mNav": 1
+      "mNav": 1.01
     },
     {
       "date": "2026-07-16T00:00:00",
