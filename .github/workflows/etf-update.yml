@@ -21,6 +21,6 @@ jobs:
       - run: |
           git config --global user.name "GitHub Action Bot"
           git config --global user.email "action@github.com"
-          git add dados/historico_etf.json
+          git add dados/historico_etf.json dados/historico_etf-data.js
           git commit -m "Atualiza historico do ETF BTC" || echo "Sem mudanças"
           git push

@@ -60,7 +60,10 @@ async function atualizarHistoricoETF() {
 
     // 4. Salva
     if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(historicoFinal, null, 2));
+    const historicoJson = JSON.stringify(historicoFinal, null, 2);
+    const scriptPath = path.join(dirPath, 'historico_etf-data.js');
+    fs.writeFileSync(filePath, historicoJson + '\n', 'utf8');
+    fs.writeFileSync(scriptPath, 'window.BI_ETF_HISTORY = ' + historicoJson + ';\n', 'utf8');
 
     console.log(`Histórico do ETF atualizado: ${historicoFinal.length} dias acumulados no total (${novosRegistros.length} vieram da API nesta execução).`);
 

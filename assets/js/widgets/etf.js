@@ -67,16 +67,24 @@ window.BIWidgets.etfWidget = async function () {
     }
 
     // Os históricos publicados com o site são a fonte única dos widgets.
-    async function buscarJson(caminhoLocal) {
-        try {
-            var resposta = await fetch(caminhoLocal);
-            if (resposta.ok) return await resposta.json();
-        } catch (e) {}
+    async function buscarJson(caminhoLocal, caminhoScript, nomeGlobal) {
+        if (location.protocol !== 'file:') {
+            try {
+                var resposta = await fetch(caminhoLocal);
+                if (resposta.ok) return await resposta.json();
+            } catch (e) {}
+        }
+        if (caminhoScript && nomeGlobal) {
+            try {
+                await BI.loadScript(caminhoScript);
+                return window[nomeGlobal] || null;
+            } catch (e) {}
+        }
         return null;
     }
 
     async function carregarHistorico() {
-        var etfJson = await buscarJson(window.BI_CONFIG.data.etfHistory);
+        var etfJson = await buscarJson(window.BI_CONFIG.data.etfHistory, window.BI_CONFIG.data.etfHistoryScript, 'BI_ETF_HISTORY');
 
         if (!etfJson) {
             console.error('[ETF] histórico não encontrado em nenhuma das fontes.');
@@ -90,7 +98,7 @@ window.BIWidgets.etfWidget = async function () {
         atualizarStats(historico);
 
         // Preço do BTC é "best effort": se não carregar, o gráfico funciona igual, só sem a linha
-        var dcaJson = await buscarJson(window.BI_CONFIG.data.dcaHistory);
+        var dcaJson = await buscarJson(window.BI_CONFIG.data.dcaHistory, window.BI_CONFIG.data.dcaHistoryScript, 'BI_DCA_HISTORY');
         if (Array.isArray(dcaJson)) {
             dcaJson.forEach(function (item) {
                 if (item.data && typeof item.precoBtcUsd === 'number') {

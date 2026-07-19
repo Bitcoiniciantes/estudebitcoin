@@ -56,8 +56,11 @@ async function gerarHistorico() {
       fs.mkdirSync(dirPath, { recursive: true });
     }
 
+    const historicoJson = JSON.stringify(historicoDiario, null, 2);
     const filePath = path.join(dirPath, 'historico_dca.json');
-    fs.writeFileSync(filePath, JSON.stringify(historicoDiario, null, 2));
+    const scriptPath = path.join(dirPath, 'historico_dca-data.js');
+    fs.writeFileSync(filePath, historicoJson + '\n', 'utf8');
+    fs.writeFileSync(scriptPath, 'window.BI_DCA_HISTORY = ' + historicoJson + ';\n', 'utf8');
 
     console.log(`Histórico gerado com ${historicoDiario.length} dias, salvo em ${filePath}`);
 

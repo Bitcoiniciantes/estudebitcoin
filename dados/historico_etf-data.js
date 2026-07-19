@@ -1,0 +1,132 @@
+window.BI_ETF_HISTORY = [
+  {
+    "data": "2026-06-10",
+    "fluxoLiquidoUsd": -213849719.5,
+    "ativosTotaisUsd": 77331190856.56956
+  },
+  {
+    "data": "2026-06-11",
+    "fluxoLiquidoUsd": -19026463.759999998,
+    "ativosTotaisUsd": 79497876550.62064
+  },
+  {
+    "data": "2026-06-12",
+    "fluxoLiquidoUsd": 85849837.77499999,
+    "ativosTotaisUsd": 79649743122.316
+  },
+  {
+    "data": "2026-06-15",
+    "fluxoLiquidoUsd": -64086225.69999999,
+    "ativosTotaisUsd": 83329430145.11284
+  },
+  {
+    "data": "2026-06-16",
+    "fluxoLiquidoUsd": 10064258.775,
+    "ativosTotaisUsd": 82062395461.13255
+  },
+  {
+    "data": "2026-06-17",
+    "fluxoLiquidoUsd": -82163664.86,
+    "ativosTotaisUsd": 80658373011.87135
+  },
+  {
+    "data": "2026-06-18",
+    "fluxoLiquidoUsd": -90656608.71999998,
+    "ativosTotaisUsd": 78324842891.71603
+  },
+  {
+    "data": "2026-06-22",
+    "fluxoLiquidoUsd": -68175739.77999997,
+    "ativosTotaisUsd": 80217154607.27615
+  },
+  {
+    "data": "2026-06-23",
+    "fluxoLiquidoUsd": -113780200.575,
+    "ativosTotaisUsd": 77540403017.47968
+  },
+  {
+    "data": "2026-06-24",
+    "fluxoLiquidoUsd": -469075417.85,
+    "ativosTotaisUsd": 73866992711.05624
+  },
+  {
+    "data": "2026-06-25",
+    "fluxoLiquidoUsd": -696292055.9300001,
+    "ativosTotaisUsd": 72573414830.81184
+  },
+  {
+    "data": "2026-06-26",
+    "fluxoLiquidoUsd": -444505600.00000006,
+    "ativosTotaisUsd": 72818058131.40443
+  },
+  {
+    "data": "2026-06-29",
+    "fluxoLiquidoUsd": -231098221.08,
+    "ativosTotaisUsd": 73189471574.2958
+  },
+  {
+    "data": "2026-06-30",
+    "fluxoLiquidoUsd": -222644311.4,
+    "ativosTotaisUsd": 70949909201.71736
+  },
+  {
+    "data": "2026-07-01",
+    "fluxoLiquidoUsd": -294619481.90999997,
+    "ativosTotaisUsd": 72459753555.12148
+  },
+  {
+    "data": "2026-07-02",
+    "fluxoLiquidoUsd": 221719273.5,
+    "ativosTotaisUsd": 74369324122.5644
+  },
+  {
+    "data": "2026-07-06",
+    "fluxoLiquidoUsd": 265686935.35,
+    "ativosTotaisUsd": 77317665366.75008
+  },
+  {
+    "data": "2026-07-07",
+    "fluxoLiquidoUsd": 21435004.250000004,
+    "ativosTotaisUsd": 77259139787.99992
+  },
+  {
+    "data": "2026-07-08",
+    "fluxoLiquidoUsd": -84860056,
+    "ativosTotaisUsd": 75339109500.3942
+  },
+  {
+    "data": "2026-07-09",
+    "fluxoLiquidoUsd": -95301696.51,
+    "ativosTotaisUsd": 76505863364.55904
+  },
+  {
+    "data": "2026-07-10",
+    "fluxoLiquidoUsd": 90439970,
+    "ativosTotaisUsd": 77421550348.27
+  },
+  {
+    "data": "2026-07-13",
+    "fluxoLiquidoUsd": -424661225.9,
+    "ativosTotaisUsd": 74790248920.86284
+  },
+  {
+    "data": "2026-07-14",
+    "fluxoLiquidoUsd": 181083537.89,
+    "ativosTotaisUsd": 77959739410.09372
+  },
+  {
+    "data": "2026-07-15",
+    "fluxoLiquidoUsd": 107804553.79999958,
+    "ativosTotaisUsd": 78467912770.83908
+  },
+  {
+    "data": "2026-07-16",
+    "fluxoLiquidoUsd": 79150022.97999999,
+    "ativosTotaisUsd": 77720254048.59807
+  },
+  {
+    "data": "2026-07-17",
+    "fluxoLiquidoUsd": 132296394.775,
+    "ativosTotaisUsd": 77736218493.03545
+  }
+];

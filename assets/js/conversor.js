@@ -212,14 +212,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (data && data.length > 0) {
         let closes = data.map(c => parseFloat(c[4]));
+        let highs = data.map(c => parseFloat(c[2]));
+        let lows = data.map(c => parseFloat(c[3]));
         let openRef = parseFloat(data[0][1]);
         if (config.invert) {
             closes = closes.map(v => 1 / v);
+            const invertedHighs = lows.map(v => 1 / v);
+            const invertedLows = highs.map(v => 1 / v);
+            highs = invertedHighs;
+            lows = invertedLows;
             openRef = 1 / openRef;
         }
         openPriceReference = openRef;
         pricesHistory = closes;
-        renderStats(Math.max(...closes), Math.min(...closes), ((closes[closes.length-1] - openRef) / openRef) * 100);
+        renderStats(Math.max(...highs), Math.min(...lows), ((closes[closes.length-1] - openRef) / openRef) * 100);
         drawTrendChart(closes, closes[closes.length-1] >= openRef);
       }
     } catch (err) {
@@ -273,8 +279,9 @@ document.addEventListener('DOMContentLoaded', () => {
     coords.forEach(c => ctx.lineTo(c.x, c.y));
     ctx.lineTo(coords[coords.length-1].x, h); ctx.closePath();
     const grad = ctx.createLinearGradient(0,0,0,h);
-    grad.addColorStop(0, isBullish ? 'rgba(52, 211, 153, 0.45)' : 'rgba(248, 113, 113, 0.45)');
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    grad.addColorStop(0, isBullish ? 'rgba(52, 211, 153, 0.24)' : 'rgba(248, 113, 113, 0.24)');
+    grad.addColorStop(0.65, isBullish ? 'rgba(52, 211, 153, 0.10)' : 'rgba(248, 113, 113, 0.10)');
+    grad.addColorStop(1, isBullish ? 'rgba(52, 211, 153, 0.04)' : 'rgba(248, 113, 113, 0.04)');
     ctx.fillStyle = grad; ctx.fill();
 
     ctx.beginPath(); coords.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));

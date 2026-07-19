@@ -1,0 +1,3315 @@
+window.BI_STRATEGY_DATA = {
+  "fonte": "https://www.strategy.com/purchases",
+  "atualizadoEm": "2026-07-19T02:15:39.343Z",
+  "primeiraData": "2020-08-10",
+  "ultimaData": "2026-07-06",
+  "snapshot": {
+    "mstr": {
+      "company": "MSTR",
+      "ufPrice": 94.85,
+      "sharesVolume": 12574574.891529,
+      "msTimeStamp": 1784318400000,
+      "timeStamp": "07/17/2026 04:00 PM",
+      "timeStampUtc": "2026-07-17T20:00:00",
+      "price": "94.85",
+      "priceVarVal": "0.82",
+      "priceVarPerc": "0.87",
+      "negative": false,
+      "threeMonth": "-43",
+      "oneYear": "-79",
+      "bse": "667",
+      "bseAnnualized": 41,
+      "bseAnnualizedString": "41%",
+      "dailyVolume": "1,193",
+      "averageVolume": "2,557",
+      "averageVolumeVariance": "49",
+      "averageVolumePerc": "-1.90",
+      "averageVolumeNeg": true,
+      "marketCap": "35,704",
+      "marketCapVarVal": "309",
+      "marketCapVarPerc": "0.87",
+      "marketCapNeg": false,
+      "entVal": "54,922",
+      "prevEntVal": "54,614",
+      "entValPerc": "0.57",
+      "debt": "6,754",
+      "pref": "15,464",
+      "debtPrefByMC": 62,
+      "historicVolatility": 89,
+      "annualizedVolatility": 74,
+      "btcCor": 80,
+      "extendedSession": {
+        "sessionType": "Post-Market",
+        "price": "94.98",
+        "ufPrice": 94.98,
+        "priceVarVal": "0.13",
+        "priceVarPerc": "0.14",
+        "negative": false,
+        "sessionVolume": "46.5",
+        "timeStamp": "07/17/2026 07:59 PM"
+      }
+    },
+    "bitcoin": {
+      "ufPrice": 64864.97,
+      "msTimestamp": 1784427321385,
+      "latestPrice": 64865,
+      "latestPriceString": "64,865",
+      "prevDayPrice": 63971,
+      "prevDayPriceString": "63,971",
+      "priceVarVal": "894",
+      "priceVarPerc": "1.40",
+      "btcHoldings": "843,775",
+      "pctOfBtcTotalSupply": 4.018,
+      "satsPerShare": 207775.6902,
+      "btcNav": "54,731",
+      "btcNavNumber": 54731,
+      "prevBtcNav": "53,977",
+      "btcNavNeg": false,
+      "btcNavVarVal": "755",
+      "debtByBN": 7,
+      "prefByBN": 28,
+      "debtPrefByBN": 41,
+      "btcGainQtd": "-856",
+      "btcGainYTD": "2,861",
+      "totalAnnualDividends": 1762789074.5,
+      "btcYearsOfDividends": 31.04820698827743,
+      "usdMonthsOfDividends": 20.422182393098332,
+      "dailyVolume": "15,275",
+      "averageVolume": "26,886",
+      "totalOi": "79,870"
+    },
+    "timestamp": "2026-07-19T02:15:00"
+  },
+  "mnavHistorico": [
+    {
+      "date": "2026-07-17T00:00:00",
+      "mNav": 1
+    },
+    {
+      "date": "2026-07-16T00:00:00",
+      "mNav": 1.02
+    },
+    {
+      "date": "2026-07-15T00:00:00",
+      "mNav": 1.03
+    },
+    {
+      "date": "2026-07-14T00:00:00",
+      "mNav": 1.02
+    },
+    {
+      "date": "2026-07-13T00:00:00",
+      "mNav": 1.02
+    },
+    {
+      "date": "2026-07-10T00:00:00",
+      "mNav": 1.01
+    },
+    {
+      "date": "2026-07-09T00:00:00",
+      "mNav": 1.01
+    },
+    {
+      "date": "2026-07-08T00:00:00",
+      "mNav": 1.04
+    },
+    {
+      "date": "2026-07-07T00:00:00",
+      "mNav": 1.06
+    },
+    {
+      "date": "2026-07-06T00:00:00",
+      "mNav": 1.07
+    },
+    {
+      "date": "2026-07-02T00:00:00",
+      "mNav": 1.1
+    },
+    {
+      "date": "2026-07-01T00:00:00",
+      "mNav": 1.05
+    },
+    {
+      "date": "2026-06-30T00:00:00",
+      "mNav": 1.04
+    },
+    {
+      "date": "2026-06-29T00:00:00",
+      "mNav": 1.07
+    },
+    {
+      "date": "2026-06-26T00:00:00",
+      "mNav": 0.99
+    },
+    {
+      "date": "2026-06-25T00:00:00",
+      "mNav": 1.01
+    },
+    {
+      "date": "2026-06-24T00:00:00",
+      "mNav": 1.06
+    },
+    {
+      "date": "2026-06-23T00:00:00",
+      "mNav": 1.09
+    },
+    {
+      "date": "2026-06-22T00:00:00",
+      "mNav": 1.11
+    },
+    {
+      "date": "2026-06-18T00:00:00",
+      "mNav": 1.15
+    },
+    {
+      "date": "2026-06-17T00:00:00",
+      "mNav": 1.15
+    },
+    {
+      "date": "2026-06-16T00:00:00",
+      "mNav": 1.16
+    },
+    {
+      "date": "2026-06-15T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-06-12T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-06-11T00:00:00",
+      "mNav": 1.19
+    },
+    {
+      "date": "2026-06-10T00:00:00",
+      "mNav": 1.17
+    },
+    {
+      "date": "2026-06-09T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-06-08T00:00:00",
+      "mNav": 1.25
+    },
+    {
+      "date": "2026-06-05T00:00:00",
+      "mNav": 1.25
+    },
+    {
+      "date": "2026-06-04T00:00:00",
+      "mNav": 1.27
+    },
+    {
+      "date": "2026-06-03T00:00:00",
+      "mNav": 1.22
+    },
+    {
+      "date": "2026-06-02T00:00:00",
+      "mNav": 1.25
+    },
+    {
+      "date": "2026-06-01T00:00:00",
+      "mNav": 1.24
+    },
+    {
+      "date": "2026-05-29T00:00:00",
+      "mNav": 1.25
+    },
+    {
+      "date": "2026-05-28T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-05-27T00:00:00",
+      "mNav": 1.23
+    },
+    {
+      "date": "2026-05-26T00:00:00",
+      "mNav": 1.22
+    },
+    {
+      "date": "2026-05-22T00:00:00",
+      "mNav": 1.22
+    },
+    {
+      "date": "2026-05-21T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-05-20T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-05-19T00:00:00",
+      "mNav": 1.23
+    },
+    {
+      "date": "2026-05-18T00:00:00",
+      "mNav": 1.24
+    },
+    {
+      "date": "2026-05-15T00:00:00",
+      "mNav": 1.26
+    },
+    {
+      "date": "2026-05-14T00:00:00",
+      "mNav": 1.28
+    },
+    {
+      "date": "2026-05-13T00:00:00",
+      "mNav": 1.27
+    },
+    {
+      "date": "2026-05-12T00:00:00",
+      "mNav": 1.27
+    },
+    {
+      "date": "2026-05-11T00:00:00",
+      "mNav": 1.33
+    },
+    {
+      "date": "2026-05-08T00:00:00",
+      "mNav": 1.3
+    },
+    {
+      "date": "2026-05-07T00:00:00",
+      "mNav": 1.27
+    },
+    {
+      "date": "2026-05-06T00:00:00",
+      "mNav": 1.29
+    },
+    {
+      "date": "2026-05-05T00:00:00",
+      "mNav": 1.28
+    },
+    {
+      "date": "2026-05-04T00:00:00",
+      "mNav": 1.27
+    },
+    {
+      "date": "2026-05-01T00:00:00",
+      "mNav": 1.27
+    },
+    {
+      "date": "2026-04-30T00:00:00",
+      "mNav": 1.23
+    },
+    {
+      "date": "2026-04-29T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-04-28T00:00:00",
+      "mNav": 1.23
+    },
+    {
+      "date": "2026-04-27T00:00:00",
+      "mNav": 1.25
+    },
+    {
+      "date": "2026-04-24T00:00:00",
+      "mNav": 1.25
+    },
+    {
+      "date": "2026-04-23T00:00:00",
+      "mNav": 1.26
+    },
+    {
+      "date": "2026-04-22T00:00:00",
+      "mNav": 1.3
+    },
+    {
+      "date": "2026-04-21T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-04-20T00:00:00",
+      "mNav": 1.28
+    },
+    {
+      "date": "2026-04-17T00:00:00",
+      "mNav": 1.25
+    },
+    {
+      "date": "2026-04-16T00:00:00",
+      "mNav": 1.18
+    },
+    {
+      "date": "2026-04-15T00:00:00",
+      "mNav": 1.15
+    },
+    {
+      "date": "2026-04-14T00:00:00",
+      "mNav": 1.12
+    },
+    {
+      "date": "2026-04-13T00:00:00",
+      "mNav": 1.09
+    },
+    {
+      "date": "2026-04-10T00:00:00",
+      "mNav": 1.09
+    },
+    {
+      "date": "2026-04-09T00:00:00",
+      "mNav": 1.11
+    },
+    {
+      "date": "2026-04-08T00:00:00",
+      "mNav": 1.12
+    },
+    {
+      "date": "2026-04-07T00:00:00",
+      "mNav": 1.08
+    },
+    {
+      "date": "2026-04-06T00:00:00",
+      "mNav": 1.15
+    },
+    {
+      "date": "2026-04-02T00:00:00",
+      "mNav": 1.13
+    },
+    {
+      "date": "2026-04-01T00:00:00",
+      "mNav": 1.15
+    },
+    {
+      "date": "2026-03-31T00:00:00",
+      "mNav": 1.14
+    },
+    {
+      "date": "2026-03-30T00:00:00",
+      "mNav": 1.12
+    },
+    {
+      "date": "2026-03-27T00:00:00",
+      "mNav": 1.18
+    },
+    {
+      "date": "2026-03-26T00:00:00",
+      "mNav": 1.18
+    },
+    {
+      "date": "2026-03-25T00:00:00",
+      "mNav": 1.19
+    },
+    {
+      "date": "2026-03-24T00:00:00",
+      "mNav": 1.17
+    },
+    {
+      "date": "2026-03-23T00:00:00",
+      "mNav": 1.19
+    },
+    {
+      "date": "2026-03-20T00:00:00",
+      "mNav": 1.17
+    },
+    {
+      "date": "2026-03-19T00:00:00",
+      "mNav": 1.18
+    },
+    {
+      "date": "2026-03-18T00:00:00",
+      "mNav": 1.19
+    },
+    {
+      "date": "2026-03-17T00:00:00",
+      "mNav": 1.2
+    },
+    {
+      "date": "2026-03-16T00:00:00",
+      "mNav": 1.18
+    },
+    {
+      "date": "2026-03-13T00:00:00",
+      "mNav": 1.19
+    },
+    {
+      "date": "2026-03-12T00:00:00",
+      "mNav": 1.17
+    },
+    {
+      "date": "2026-03-11T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-03-10T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-03-09T00:00:00",
+      "mNav": 1.22
+    },
+    {
+      "date": "2026-03-06T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-03-05T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-03-04T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-03-03T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-03-02T00:00:00",
+      "mNav": 1.24
+    },
+    {
+      "date": "2026-02-27T00:00:00",
+      "mNav": 1.22
+    },
+    {
+      "date": "2026-02-26T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-02-25T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-02-24T00:00:00",
+      "mNav": 1.19
+    },
+    {
+      "date": "2026-02-23T00:00:00",
+      "mNav": 1.23
+    },
+    {
+      "date": "2026-02-20T00:00:00",
+      "mNav": 1.2
+    },
+    {
+      "date": "2026-02-19T00:00:00",
+      "mNav": 1.2
+    },
+    {
+      "date": "2026-02-18T00:00:00",
+      "mNav": 1.17
+    },
+    {
+      "date": "2026-02-17T00:00:00",
+      "mNav": 1.18
+    },
+    {
+      "date": "2026-02-13T00:00:00",
+      "mNav": 1.2
+    },
+    {
+      "date": "2026-02-12T00:00:00",
+      "mNav": 1.17
+    },
+    {
+      "date": "2026-02-11T00:00:00",
+      "mNav": 1.18
+    },
+    {
+      "date": "2026-02-10T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-02-09T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2026-02-06T00:00:00",
+      "mNav": 1.17
+    },
+    {
+      "date": "2026-02-05T00:00:00",
+      "mNav": 1.08
+    },
+    {
+      "date": "2026-02-04T00:00:00",
+      "mNav": 1.14
+    },
+    {
+      "date": "2026-02-03T00:00:00",
+      "mNav": 1.08
+    },
+    {
+      "date": "2026-02-02T00:00:00",
+      "mNav": 1.08
+    },
+    {
+      "date": "2026-01-30T00:00:00",
+      "mNav": 1.07
+    },
+    {
+      "date": "2026-01-29T00:00:00",
+      "mNav": 1.05
+    },
+    {
+      "date": "2026-01-28T00:00:00",
+      "mNav": 1.07
+    },
+    {
+      "date": "2026-01-27T00:00:00",
+      "mNav": 1.07
+    },
+    {
+      "date": "2026-01-26T00:00:00",
+      "mNav": 1.07
+    },
+    {
+      "date": "2026-01-23T00:00:00",
+      "mNav": 1.07
+    },
+    {
+      "date": "2026-01-22T00:00:00",
+      "mNav": 1.06
+    },
+    {
+      "date": "2026-01-21T00:00:00",
+      "mNav": 1.07
+    },
+    {
+      "date": "2026-01-20T00:00:00",
+      "mNav": 1.06
+    },
+    {
+      "date": "2026-01-16T00:00:00",
+      "mNav": 1.06
+    },
+    {
+      "date": "2026-01-15T00:00:00",
+      "mNav": 1.05
+    },
+    {
+      "date": "2026-01-14T00:00:00",
+      "mNav": 1.08
+    },
+    {
+      "date": "2026-01-13T00:00:00",
+      "mNav": 1.06
+    },
+    {
+      "date": "2026-01-12T00:00:00",
+      "mNav": 1.05
+    },
+    {
+      "date": "2026-01-09T00:00:00",
+      "mNav": 1.04
+    },
+    {
+      "date": "2026-01-08T00:00:00",
+      "mNav": 1.08
+    },
+    {
+      "date": "2026-01-07T00:00:00",
+      "mNav": 1.05
+    },
+    {
+      "date": "2026-01-06T00:00:00",
+      "mNav": 1.02
+    },
+    {
+      "date": "2026-01-05T00:00:00",
+      "mNav": 1.04
+    },
+    {
+      "date": "2026-01-02T00:00:00",
+      "mNav": 1.04
+    },
+    {
+      "date": "2025-12-31T00:00:00",
+      "mNav": 1.04
+    },
+    {
+      "date": "2025-12-30T00:00:00",
+      "mNav": 1.05
+    },
+    {
+      "date": "2025-12-29T00:00:00",
+      "mNav": 1.06
+    },
+    {
+      "date": "2025-12-26T00:00:00",
+      "mNav": 1.08
+    },
+    {
+      "date": "2025-12-24T00:00:00",
+      "mNav": 1.07
+    },
+    {
+      "date": "2025-12-23T00:00:00",
+      "mNav": 1.08
+    },
+    {
+      "date": "2025-12-22T00:00:00",
+      "mNav": 1.1
+    },
+    {
+      "date": "2025-12-19T00:00:00",
+      "mNav": 1.1
+    },
+    {
+      "date": "2025-12-18T00:00:00",
+      "mNav": 1.08
+    },
+    {
+      "date": "2025-12-17T00:00:00",
+      "mNav": 1.1
+    },
+    {
+      "date": "2025-12-16T00:00:00",
+      "mNav": 1.13
+    },
+    {
+      "date": "2025-12-15T00:00:00",
+      "mNav": 1.12
+    },
+    {
+      "date": "2025-12-12T00:00:00",
+      "mNav": 1.13
+    },
+    {
+      "date": "2025-12-11T00:00:00",
+      "mNav": 1.14
+    },
+    {
+      "date": "2025-12-10T00:00:00",
+      "mNav": 1.17
+    },
+    {
+      "date": "2025-12-09T00:00:00",
+      "mNav": 1.17
+    },
+    {
+      "date": "2025-12-08T00:00:00",
+      "mNav": 1.18
+    },
+    {
+      "date": "2025-12-05T00:00:00",
+      "mNav": 1.16
+    },
+    {
+      "date": "2025-12-04T00:00:00",
+      "mNav": 1.16
+    },
+    {
+      "date": "2025-12-03T00:00:00",
+      "mNav": 1.16
+    },
+    {
+      "date": "2025-12-02T00:00:00",
+      "mNav": 1.12
+    },
+    {
+      "date": "2025-12-01T00:00:00",
+      "mNav": 1.15
+    },
+    {
+      "date": "2025-11-28T00:00:00",
+      "mNav": 1.13
+    },
+    {
+      "date": "2025-11-26T00:00:00",
+      "mNav": 1.12
+    },
+    {
+      "date": "2025-11-25T00:00:00",
+      "mNav": 1.16
+    },
+    {
+      "date": "2025-11-24T00:00:00",
+      "mNav": 1.17
+    },
+    {
+      "date": "2025-11-21T00:00:00",
+      "mNav": 1.19
+    },
+    {
+      "date": "2025-11-20T00:00:00",
+      "mNav": 1.2
+    },
+    {
+      "date": "2025-11-19T00:00:00",
+      "mNav": 1.15
+    },
+    {
+      "date": "2025-11-18T00:00:00",
+      "mNav": 1.27
+    },
+    {
+      "date": "2025-11-17T00:00:00",
+      "mNav": 1.23
+    },
+    {
+      "date": "2025-11-14T00:00:00",
+      "mNav": 1.19
+    },
+    {
+      "date": "2025-11-13T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2025-11-12T00:00:00",
+      "mNav": 1.21
+    },
+    {
+      "date": "2025-11-11T00:00:00",
+      "mNav": 1.23
+    },
+    {
+      "date": "2025-11-10T00:00:00",
+      "mNav": 1.23
+    },
+    {
+      "date": "2025-11-07T00:00:00",
+      "mNav": 1.28
+    },
+    {
+      "date": "2025-11-06T00:00:00",
+      "mNav": 1.27
+    },
+    {
+      "date": "2025-11-05T00:00:00",
+      "mNav": 1.32
+    },
+    {
+      "date": "2025-11-04T00:00:00",
+      "mNav": 1.31
+    },
+    {
+      "date": "2025-11-03T00:00:00",
+      "mNav": 1.33
+    },
+    {
+      "date": "2025-10-31T00:00:00",
+      "mNav": 1.31
+    },
+    {
+      "date": "2025-10-30T00:00:00",
+      "mNav": 1.26
+    },
+    {
+      "date": "2025-10-29T00:00:00",
+      "mNav": 1.32
+    },
+    {
+      "date": "2025-10-28T00:00:00",
+      "mNav": 1.34
+    },
+    {
+      "date": "2025-10-27T00:00:00",
+      "mNav": 1.37
+    },
+    {
+      "date": "2025-10-24T00:00:00",
+      "mNav": 1.38
+    },
+    {
+      "date": "2025-10-23T00:00:00",
+      "mNav": 1.37
+    },
+    {
+      "date": "2025-10-22T00:00:00",
+      "mNav": 1.38
+    },
+    {
+      "date": "2025-10-21T00:00:00",
+      "mNav": 1.46
+    },
+    {
+      "date": "2025-10-20T00:00:00",
+      "mNav": 1.43
+    },
+    {
+      "date": "2025-10-17T00:00:00",
+      "mNav": 1.43
+    },
+    {
+      "date": "2025-10-16T00:00:00",
+      "mNav": 1.38
+    },
+    {
+      "date": "2025-10-15T00:00:00",
+      "mNav": 1.4
+    },
+    {
+      "date": "2025-10-14T00:00:00",
+      "mNav": 1.41
+    },
+    {
+      "date": "2025-10-13T00:00:00",
+      "mNav": 1.45
+    },
+    {
+      "date": "2025-10-10T00:00:00",
+      "mNav": 1.42
+    },
+    {
+      "date": "2025-10-09T00:00:00",
+      "mNav": 1.38
+    },
+    {
+      "date": "2025-10-08T00:00:00",
+      "mNav": 1.4
+    },
+    {
+      "date": "2025-10-07T00:00:00",
+      "mNav": 1.4
+    },
+    {
+      "date": "2025-10-06T00:00:00",
+      "mNav": 1.48
+    },
+    {
+      "date": "2025-10-03T00:00:00",
+      "mNav": 1.48
+    },
+    {
+      "date": "2025-10-02T00:00:00",
+      "mNav": 1.51
+    },
+    {
+      "date": "2025-10-01T00:00:00",
+      "mNav": 1.47
+    },
+    {
+      "date": "2025-09-30T00:00:00",
+      "mNav": 1.47
+    },
+    {
+      "date": "2025-09-29T00:00:00",
+      "mNav": 1.48
+    },
+    {
+      "date": "2025-09-26T00:00:00",
+      "mNav": 1.47
+    },
+    {
+      "date": "2025-09-25T00:00:00",
+      "mNav": 1.44
+    },
+    {
+      "date": "2025-09-24T00:00:00",
+      "mNav": 1.49
+    },
+    {
+      "date": "2025-09-23T00:00:00",
+      "mNav": 1.52
+    },
+    {
+      "date": "2025-09-22T00:00:00",
+      "mNav": 1.54
+    },
+    {
+      "date": "2025-09-19T00:00:00",
+      "mNav": 1.54
+    },
+    {
+      "date": "2025-09-18T00:00:00",
+      "mNav": 1.54
+    },
+    {
+      "date": "2025-09-17T00:00:00",
+      "mNav": 1.45
+    },
+    {
+      "date": "2025-09-16T00:00:00",
+      "mNav": 1.49
+    },
+    {
+      "date": "2025-09-15T00:00:00",
+      "mNav": 1.47
+    },
+    {
+      "date": "2025-09-12T00:00:00",
+      "mNav": 1.48
+    },
+    {
+      "date": "2025-09-11T00:00:00",
+      "mNav": 1.47
+    },
+    {
+      "date": "2025-09-10T00:00:00",
+      "mNav": 1.48
+    },
+    {
+      "date": "2025-09-09T00:00:00",
+      "mNav": 1.53
+    },
+    {
+      "date": "2025-09-08T00:00:00",
+      "mNav": 1.53
+    },
+    {
+      "date": "2025-09-05T00:00:00",
+      "mNav": 1.57
+    },
+    {
+      "date": "2025-09-04T00:00:00",
+      "mNav": 1.53
+    },
+    {
+      "date": "2025-09-03T00:00:00",
+      "mNav": 1.54
+    },
+    {
+      "date": "2025-09-02T00:00:00",
+      "mNav": 1.59
+    },
+    {
+      "date": "2025-08-29T00:00:00",
+      "mNav": 1.6
+    },
+    {
+      "date": "2025-08-28T00:00:00",
+      "mNav": 1.57
+    },
+    {
+      "date": "2025-08-27T00:00:00",
+      "mNav": 1.58
+    },
+    {
+      "date": "2025-08-26T00:00:00",
+      "mNav": 1.63
+    },
+    {
+      "date": "2025-08-25T00:00:00",
+      "mNav": 1.62
+    },
+    {
+      "date": "2025-08-22T00:00:00",
+      "mNav": 1.6
+    },
+    {
+      "date": "2025-08-21T00:00:00",
+      "mNav": 1.55
+    },
+    {
+      "date": "2025-08-20T00:00:00",
+      "mNav": 1.57
+    },
+    {
+      "date": "2025-08-19T00:00:00",
+      "mNav": 1.54
+    },
+    {
+      "date": "2025-08-18T00:00:00",
+      "mNav": 1.63
+    },
+    {
+      "date": "2025-08-15T00:00:00",
+      "mNav": 1.6
+    },
+    {
+      "date": "2025-08-14T00:00:00",
+      "mNav": 1.61
+    },
+    {
+      "date": "2025-08-13T00:00:00",
+      "mNav": 1.61
+    },
+    {
+      "date": "2025-08-12T00:00:00",
+      "mNav": 1.68
+    },
+    {
+      "date": "2025-08-11T00:00:00",
+      "mNav": 1.71
+    },
+    {
+      "date": "2025-08-08T00:00:00",
+      "mNav": 1.73
+    },
+    {
+      "date": "2025-08-07T00:00:00",
+      "mNav": 1.75
+    },
+    {
+      "date": "2025-08-06T00:00:00",
+      "mNav": 1.71
+    },
+    {
+      "date": "2025-08-05T00:00:00",
+      "mNav": 1.7
+    },
+    {
+      "date": "2025-08-04T00:00:00",
+      "mNav": 1.74
+    },
+    {
+      "date": "2025-08-01T00:00:00",
+      "mNav": 1.65
+    },
+    {
+      "date": "2025-07-31T00:00:00",
+      "mNav": 1.77
+    },
+    {
+      "date": "2025-07-30T00:00:00",
+      "mNav": 1.7
+    },
+    {
+      "date": "2025-07-29T00:00:00",
+      "mNav": 1.7
+    },
+    {
+      "date": "2025-07-28T00:00:00",
+      "mNav": 1.75
+    },
+    {
+      "date": "2025-07-25T00:00:00",
+      "mNav": 1.77
+    },
+    {
+      "date": "2025-07-24T00:00:00",
+      "mNav": 1.84
+    },
+    {
+      "date": "2025-07-23T00:00:00",
+      "mNav": 1.79
+    },
+    {
+      "date": "2025-07-22T00:00:00",
+      "mNav": 1.84
+    },
+    {
+      "date": "2025-07-21T00:00:00",
+      "mNav": 1.86
+    },
+    {
+      "date": "2025-07-18T00:00:00",
+      "mNav": 1.84
+    },
+    {
+      "date": "2025-07-17T00:00:00",
+      "mNav": 1.92
+    },
+    {
+      "date": "2025-07-16T00:00:00",
+      "mNav": 1.97
+    },
+    {
+      "date": "2025-07-15T00:00:00",
+      "mNav": 1.93
+    },
+    {
+      "date": "2025-07-14T00:00:00",
+      "mNav": 1.97
+    },
+    {
+      "date": "2025-07-11T00:00:00",
+      "mNav": 1.9
+    },
+    {
+      "date": "2025-07-10T00:00:00",
+      "mNav": 1.86
+    },
+    {
+      "date": "2025-07-09T00:00:00",
+      "mNav": 1.93
+    },
+    {
+      "date": "2025-07-08T00:00:00",
+      "mNav": 1.9
+    },
+    {
+      "date": "2025-07-07T00:00:00",
+      "mNav": 1.9
+    },
+    {
+      "date": "2025-07-03T00:00:00",
+      "mNav": 1.92
+    },
+    {
+      "date": "2025-07-02T00:00:00",
+      "mNav": 1.92
+    },
+    {
+      "date": "2025-07-01T00:00:00",
+      "mNav": 1.84
+    },
+    {
+      "date": "2025-06-30T00:00:00",
+      "mNav": 1.95
+    },
+    {
+      "date": "2025-06-27T00:00:00",
+      "mNav": 1.87
+    },
+    {
+      "date": "2025-06-26T00:00:00",
+      "mNav": 1.88
+    },
+    {
+      "date": "2025-06-25T00:00:00",
+      "mNav": 1.88
+    },
+    {
+      "date": "2025-06-24T00:00:00",
+      "mNav": 1.86
+    },
+    {
+      "date": "2025-06-23T00:00:00",
+      "mNav": 1.84
+    },
+    {
+      "date": "2025-06-20T00:00:00",
+      "mNav": 1.87
+    },
+    {
+      "date": "2025-06-18T00:00:00",
+      "mNav": 1.84
+    },
+    {
+      "date": "2025-06-17T00:00:00",
+      "mNav": 1.87
+    },
+    {
+      "date": "2025-06-16T00:00:00",
+      "mNav": 1.86
+    },
+    {
+      "date": "2025-06-13T00:00:00",
+      "mNav": 1.93
+    },
+    {
+      "date": "2025-06-12T00:00:00",
+      "mNav": 1.94
+    },
+    {
+      "date": "2025-06-11T00:00:00",
+      "mNav": 1.91
+    },
+    {
+      "date": "2025-06-10T00:00:00",
+      "mNav": 1.89
+    },
+    {
+      "date": "2025-06-09T00:00:00",
+      "mNav": 1.9
+    },
+    {
+      "date": "2025-06-06T00:00:00",
+      "mNav": 1.88
+    },
+    {
+      "date": "2025-06-05T00:00:00",
+      "mNav": 1.9
+    },
+    {
+      "date": "2025-06-04T00:00:00",
+      "mNav": 1.9
+    },
+    {
+      "date": "2025-06-03T00:00:00",
+      "mNav": 1.93
+    },
+    {
+      "date": "2025-06-02T00:00:00",
+      "mNav": 1.86
+    },
+    {
+      "date": "2025-05-30T00:00:00",
+      "mNav": 1.88
+    },
+    {
+      "date": "2025-05-29T00:00:00",
+      "mNav": 1.85
+    },
+    {
+      "date": "2025-05-28T00:00:00",
+      "mNav": 1.78
+    },
+    {
+      "date": "2025-05-27T00:00:00",
+      "mNav": 1.81
+    },
+    {
+      "date": "2025-05-23T00:00:00",
+      "mNav": 1.81
+    },
+    {
+      "date": "2025-05-22T00:00:00",
+      "mNav": 1.89
+    },
+    {
+      "date": "2025-05-21T00:00:00",
+      "mNav": 1.9
+    },
+    {
+      "date": "2025-05-20T00:00:00",
+      "mNav": 2.05
+    },
+    {
+      "date": "2025-05-19T00:00:00",
+      "mNav": 2.05
+    },
+    {
+      "date": "2025-05-16T00:00:00",
+      "mNav": 2.05
+    },
+    {
+      "date": "2025-05-15T00:00:00",
+      "mNav": 2.02
+    },
+    {
+      "date": "2025-05-14T00:00:00",
+      "mNav": 2.14
+    },
+    {
+      "date": "2025-05-13T00:00:00",
+      "mNav": 2.15
+    },
+    {
+      "date": "2025-05-12T00:00:00",
+      "mNav": 2.11
+    },
+    {
+      "date": "2025-05-09T00:00:00",
+      "mNav": 2.16
+    },
+    {
+      "date": "2025-05-08T00:00:00",
+      "mNav": 2.17
+    },
+    {
+      "date": "2025-05-07T00:00:00",
+      "mNav": 2.13
+    },
+    {
+      "date": "2025-05-06T00:00:00",
+      "mNav": 2.15
+    },
+    {
+      "date": "2025-05-05T00:00:00",
+      "mNav": 2.2
+    },
+    {
+      "date": "2025-05-02T00:00:00",
+      "mNav": 2.21
+    },
+    {
+      "date": "2025-05-01T00:00:00",
+      "mNav": 2.12
+    },
+    {
+      "date": "2025-04-30T00:00:00",
+      "mNav": 2.17
+    },
+    {
+      "date": "2025-04-29T00:00:00",
+      "mNav": 2.17
+    },
+    {
+      "date": "2025-04-28T00:00:00",
+      "mNav": 2.11
+    },
+    {
+      "date": "2025-04-25T00:00:00",
+      "mNav": 2.14
+    },
+    {
+      "date": "2025-04-24T00:00:00",
+      "mNav": 2.07
+    },
+    {
+      "date": "2025-04-23T00:00:00",
+      "mNav": 2.06
+    },
+    {
+      "date": "2025-04-22T00:00:00",
+      "mNav": 2.03
+    },
+    {
+      "date": "2025-04-21T00:00:00",
+      "mNav": 2.01
+    },
+    {
+      "date": "2025-04-17T00:00:00",
+      "mNav": 2.1
+    },
+    {
+      "date": "2025-04-16T00:00:00",
+      "mNav": 2.08
+    },
+    {
+      "date": "2025-04-15T00:00:00",
+      "mNav": 2.09
+    },
+    {
+      "date": "2025-04-14T00:00:00",
+      "mNav": 2.05
+    },
+    {
+      "date": "2025-04-11T00:00:00",
+      "mNav": 2.05
+    },
+    {
+      "date": "2025-04-10T00:00:00",
+      "mNav": 1.93
+    },
+    {
+      "date": "2025-04-09T00:00:00",
+      "mNav": 2.06
+    },
+    {
+      "date": "2025-04-08T00:00:00",
+      "mNav": 1.85
+    },
+    {
+      "date": "2025-04-07T00:00:00",
+      "mNav": 1.92
+    },
+    {
+      "date": "2025-04-04T00:00:00",
+      "mNav": 1.99
+    },
+    {
+      "date": "2025-04-03T00:00:00",
+      "mNav": 1.94
+    },
+    {
+      "date": "2025-04-02T00:00:00",
+      "mNav": 2.11
+    },
+    {
+      "date": "2025-04-01T00:00:00",
+      "mNav": 2.04
+    },
+    {
+      "date": "2025-03-31T00:00:00",
+      "mNav": 1.98
+    },
+    {
+      "date": "2025-03-28T00:00:00",
+      "mNav": 2.01
+    },
+    {
+      "date": "2025-03-27T00:00:00",
+      "mNav": 2.16
+    },
+    {
+      "date": "2025-03-26T00:00:00",
+      "mNav": 2.17
+    },
+    {
+      "date": "2025-03-25T00:00:00",
+      "mNav": 2.25
+    },
+    {
+      "date": "2025-03-24T00:00:00",
+      "mNav": 2.23
+    },
+    {
+      "date": "2025-03-21T00:00:00",
+      "mNav": 2.1
+    },
+    {
+      "date": "2025-03-20T00:00:00",
+      "mNav": 2.08
+    },
+    {
+      "date": "2025-03-19T00:00:00",
+      "mNav": 2.06
+    },
+    {
+      "date": "2025-03-18T00:00:00",
+      "mNav": 1.99
+    },
+    {
+      "date": "2025-03-17T00:00:00",
+      "mNav": 2.06
+    },
+    {
+      "date": "2025-03-14T00:00:00",
+      "mNav": 1.99
+    },
+    {
+      "date": "2025-03-13T00:00:00",
+      "mNav": 1.84
+    },
+    {
+      "date": "2025-03-12T00:00:00",
+      "mNav": 1.8
+    },
+    {
+      "date": "2025-03-11T00:00:00",
+      "mNav": 1.82
+    },
+    {
+      "date": "2025-03-10T00:00:00",
+      "mNav": 1.74
+    },
+    {
+      "date": "2025-03-07T00:00:00",
+      "mNav": 1.89
+    },
+    {
+      "date": "2025-03-06T00:00:00",
+      "mNav": 1.96
+    },
+    {
+      "date": "2025-03-05T00:00:00",
+      "mNav": 1.89
+    },
+    {
+      "date": "2025-03-04T00:00:00",
+      "mNav": 1.8
+    },
+    {
+      "date": "2025-03-03T00:00:00",
+      "mNav": 1.73
+    },
+    {
+      "date": "2025-02-28T00:00:00",
+      "mNav": 1.7
+    },
+    {
+      "date": "2025-02-27T00:00:00",
+      "mNav": 1.73
+    },
+    {
+      "date": "2025-02-26T00:00:00",
+      "mNav": 1.77
+    },
+    {
+      "date": "2025-02-25T00:00:00",
+      "mNav": 1.63
+    },
+    {
+      "date": "2025-02-24T00:00:00",
+      "mNav": 1.75
+    },
+    {
+      "date": "2025-02-21T00:00:00",
+      "mNav": 1.85
+    },
+    {
+      "date": "2025-02-20T00:00:00",
+      "mNav": 1.95
+    },
+    {
+      "date": "2025-02-19T00:00:00",
+      "mNav": 1.94
+    },
+    {
+      "date": "2025-02-18T00:00:00",
+      "mNav": 2.07
+    },
+    {
+      "date": "2025-02-14T00:00:00",
+      "mNav": 2.04
+    },
+    {
+      "date": "2025-02-13T00:00:00",
+      "mNav": 1.98
+    },
+    {
+      "date": "2025-02-12T00:00:00",
+      "mNav": 1.99
+    },
+    {
+      "date": "2025-02-11T00:00:00",
+      "mNav": 1.98
+    },
+    {
+      "date": "2025-02-10T00:00:00",
+      "mNav": 2.01
+    },
+    {
+      "date": "2025-02-07T00:00:00",
+      "mNav": 1.98
+    },
+    {
+      "date": "2025-02-06T00:00:00",
+      "mNav": 1.95
+    },
+    {
+      "date": "2025-02-05T00:00:00",
+      "mNav": 2
+    },
+    {
+      "date": "2025-02-04T00:00:00",
+      "mNav": 2.06
+    },
+    {
+      "date": "2025-02-03T00:00:00",
+      "mNav": 2.01
+    },
+    {
+      "date": "2025-01-31T00:00:00",
+      "mNav": 1.9
+    },
+    {
+      "date": "2025-01-30T00:00:00",
+      "mNav": 1.9
+    },
+    {
+      "date": "2025-01-29T00:00:00",
+      "mNav": 1.88
+    },
+    {
+      "date": "2025-01-28T00:00:00",
+      "mNav": 1.92
+    },
+    {
+      "date": "2025-01-27T00:00:00",
+      "mNav": 1.96
+    },
+    {
+      "date": "2025-01-24T00:00:00",
+      "mNav": 1.96
+    },
+    {
+      "date": "2025-01-23T00:00:00",
+      "mNav": 2.06
+    },
+    {
+      "date": "2025-01-22T00:00:00",
+      "mNav": 2.13
+    },
+    {
+      "date": "2025-01-21T00:00:00",
+      "mNav": 2.12
+    },
+    {
+      "date": "2025-01-17T00:00:00",
+      "mNav": 2.25
+    },
+    {
+      "date": "2025-01-16T00:00:00",
+      "mNav": 2.14
+    },
+    {
+      "date": "2025-01-15T00:00:00",
+      "mNav": 2.14
+    },
+    {
+      "date": "2025-01-14T00:00:00",
+      "mNav": 2.09
+    },
+    {
+      "date": "2025-01-13T00:00:00",
+      "mNav": 2.06
+    },
+    {
+      "date": "2025-01-10T00:00:00",
+      "mNav": 2.09
+    },
+    {
+      "date": "2025-01-08T00:00:00",
+      "mNav": 2.1
+    },
+    {
+      "date": "2025-01-07T00:00:00",
+      "mNav": 2.12
+    },
+    {
+      "date": "2025-01-06T00:00:00",
+      "mNav": 2.21
+    },
+    {
+      "date": "2025-01-03T00:00:00",
+      "mNav": 2.07
+    },
+    {
+      "date": "2025-01-02T00:00:00",
+      "mNav": 1.87
+    },
+    {
+      "date": "2024-12-31T00:00:00",
+      "mNav": 1.88
+    },
+    {
+      "date": "2024-12-30T00:00:00"
+    },
+    {
+      "date": "2024-12-27T00:00:00"
+    },
+    {
+      "date": "2024-12-26T00:00:00"
+    },
+    {
+      "date": "2024-12-24T00:00:00"
+    },
+    {
+      "date": "2024-12-23T00:00:00"
+    },
+    {
+      "date": "2024-12-20T00:00:00"
+    },
+    {
+      "date": "2024-12-19T00:00:00"
+    },
+    {
+      "date": "2024-12-18T00:00:00"
+    },
+    {
+      "date": "2024-12-17T00:00:00"
+    },
+    {
+      "date": "2024-12-16T00:00:00"
+    },
+    {
+      "date": "2024-12-13T00:00:00"
+    },
+    {
+      "date": "2024-12-12T00:00:00"
+    },
+    {
+      "date": "2024-12-11T00:00:00"
+    },
+    {
+      "date": "2024-12-10T00:00:00"
+    },
+    {
+      "date": "2024-12-09T00:00:00"
+    },
+    {
+      "date": "2024-12-06T00:00:00"
+    },
+    {
+      "date": "2024-12-05T00:00:00"
+    },
+    {
+      "date": "2024-12-04T00:00:00"
+    },
+    {
+      "date": "2024-12-03T00:00:00"
+    },
+    {
+      "date": "2024-12-02T00:00:00"
+    }
+  ],
+  "compras": [
+    {
+      "data": "2020-08-10",
+      "quantidadeBtc": 21454,
+      "venda": false,
+      "precoOperacaoUsd": 11652.84,
+      "valorOperacaoUsd": 250000000,
+      "btcAcumulado": 21454,
+      "precoMedioAcumuladoUsd": 11652.84,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltdc574e252ebabae5/6762eaf6fce5e8b4194e463f/form-8-k_08-11-2020.pdf"
+    },
+    {
+      "data": "2020-09-14",
+      "quantidadeBtc": 16796,
+      "venda": false,
+      "precoOperacaoUsd": 10419.15,
+      "valorOperacaoUsd": 175000000,
+      "btcAcumulado": 38250,
+      "precoMedioAcumuladoUsd": 11035.995,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blta1a395d1c06cd641/6762eaf7f52f603dc8cb558d/form-8-k_09-14-2020.pdf"
+    },
+    {
+      "data": "2020-12-04",
+      "quantidadeBtc": 2574,
+      "venda": false,
+      "precoOperacaoUsd": 19427,
+      "valorOperacaoUsd": 50000000,
+      "btcAcumulado": 40824,
+      "precoMedioAcumuladoUsd": 13832.997,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt3fe7162d0085b51a/6762eaf9955b4143ee0502ba/form-8-k_12-04-2020.pdf"
+    },
+    {
+      "data": "2020-12-21",
+      "quantidadeBtc": 29646,
+      "venda": false,
+      "precoOperacaoUsd": 21925,
+      "valorOperacaoUsd": 650000000,
+      "btcAcumulado": 70470,
+      "precoMedioAcumuladoUsd": 15698.498,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltf03cc6bcc6619a26/6762e5cfabd4ed8831053bb1/microstrategy-announces-over-1b-in-total-bitcoin-purchases-in-2020.pdf"
+    },
+    {
+      "data": "2021-01-22",
+      "quantidadeBtc": 314,
+      "venda": false,
+      "precoOperacaoUsd": 31808,
+      "valorOperacaoUsd": 10000000,
+      "btcAcumulado": 70784,
+      "precoMedioAcumuladoUsd": 18920.398,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt5e0c53d7e503dc88/6762e86ddb373a3ca550c2cd/Form-8-K_jan-22-2021.pdf"
+    },
+    {
+      "data": "2021-02-02",
+      "quantidadeBtc": 295,
+      "venda": false,
+      "precoOperacaoUsd": 33810,
+      "valorOperacaoUsd": 10000000,
+      "btcAcumulado": 71079,
+      "precoMedioAcumuladoUsd": 16109,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltee65f718ce15ad4c/6762e86b92dec0f87d46f8fd/Form-8-K_feb-02-2021.pdf"
+    },
+    {
+      "data": "2021-02-19",
+      "quantidadeBtc": 19452,
+      "venda": false,
+      "precoOperacaoUsd": 52765,
+      "valorOperacaoUsd": 1023000000,
+      "btcAcumulado": 90531,
+      "precoMedioAcumuladoUsd": 23985,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt5bd308376c91c563/6762e77df8f63fe772198bcd/form-8-k_02-19-2021.pdf"
+    },
+    {
+      "data": "2021-03-01",
+      "quantidadeBtc": 328,
+      "venda": false,
+      "precoOperacaoUsd": 45710,
+      "valorOperacaoUsd": 15000000,
+      "btcAcumulado": 90859,
+      "precoMedioAcumuladoUsd": 24063,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltb1eb35399c743028/6762e7765f75f1fda016120b/form-8-k_03-01-2021.pdf"
+    },
+    {
+      "data": "2021-03-05",
+      "quantidadeBtc": 205,
+      "venda": false,
+      "precoOperacaoUsd": 48888,
+      "valorOperacaoUsd": 10000000,
+      "btcAcumulado": 91064,
+      "precoMedioAcumuladoUsd": 24119,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltc6ddc49af2f9153f/6762e772615650cca0349c03/form-8-k_03-05-2021.pdf"
+    },
+    {
+      "data": "2021-03-12",
+      "quantidadeBtc": 262,
+      "venda": false,
+      "precoOperacaoUsd": 57146,
+      "valorOperacaoUsd": 15000000,
+      "btcAcumulado": 91326,
+      "precoMedioAcumuladoUsd": 24214,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt636ce4cbad8ad643/6762e76d76dc213ae6d13a47/form-8-k_03-12-2021.pdf"
+    },
+    {
+      "data": "2021-04-05",
+      "quantidadeBtc": 253,
+      "venda": false,
+      "precoOperacaoUsd": 59339,
+      "valorOperacaoUsd": 15000000,
+      "btcAcumulado": 91579,
+      "precoMedioAcumuladoUsd": 24311,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt6ea72a240db6a647/6762e769adc199711645bf70/form-8-k_04-05-2021.pdf"
+    },
+    {
+      "data": "2021-05-13",
+      "quantidadeBtc": 271,
+      "venda": false,
+      "precoOperacaoUsd": 55387,
+      "valorOperacaoUsd": 15000000,
+      "btcAcumulado": 91850,
+      "precoMedioAcumuladoUsd": 24403,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt5779b25007dcac3d/6762e766abd4ed2a85053c46/form-8-k_05-13-2021.pdf"
+    },
+    {
+      "data": "2021-05-18",
+      "quantidadeBtc": 229,
+      "venda": false,
+      "precoOperacaoUsd": 43663,
+      "valorOperacaoUsd": 10000000,
+      "btcAcumulado": 92079,
+      "precoMedioAcumuladoUsd": 24450,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt47bed0bb902a19f4/6762e87a955b41dfac050153/form-8-k_05-18-2021.pdf"
+    },
+    {
+      "data": "2021-06-21",
+      "quantidadeBtc": 13005,
+      "venda": false,
+      "precoOperacaoUsd": 37617,
+      "valorOperacaoUsd": 489000000,
+      "btcAcumulado": 105084,
+      "precoMedioAcumuladoUsd": 26080,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blte98f52768bc0770e/6762e8744c5dad8c59308e48/form-10-q_07-29-2021.pdf"
+    },
+    {
+      "data": "2021-08-24",
+      "quantidadeBtc": 3907,
+      "venda": false,
+      "precoOperacaoUsd": 45294,
+      "valorOperacaoUsd": 177000000,
+      "btcAcumulado": 108991,
+      "precoMedioAcumuladoUsd": 26769,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt7378ef1f2bc33e22/6762e8488fa92c79402dee3b/form-8-k_08-24-2021.pdf"
+    },
+    {
+      "data": "2021-09-13",
+      "quantidadeBtc": 5050,
+      "venda": false,
+      "precoOperacaoUsd": 48099,
+      "valorOperacaoUsd": 242900000,
+      "btcAcumulado": 114041,
+      "precoMedioAcumuladoUsd": 27713,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt8caf51003a3d7772/6762e8442aacdc07a16ee3d5/form-8-k_09-13-2021.pdf"
+    },
+    {
+      "data": "2021-11-29",
+      "quantidadeBtc": 7002,
+      "venda": false,
+      "precoOperacaoUsd": 59187,
+      "valorOperacaoUsd": 414400000,
+      "btcAcumulado": 121043,
+      "precoMedioAcumuladoUsd": 29534,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt527e887053cce6ad/6762e6d776dc21635fd13a1a/form-8-k_11-29-2021.pdf"
+    },
+    {
+      "data": "2021-12-09",
+      "quantidadeBtc": 1434,
+      "venda": false,
+      "precoOperacaoUsd": 57477,
+      "valorOperacaoUsd": 82400000,
+      "btcAcumulado": 122477,
+      "precoMedioAcumuladoUsd": 29861,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt5b947cb811684db3/6762e6d72aacdc4db56ee363/form-8-k_12-09-2021.pdf"
+    },
+    {
+      "data": "2021-12-30",
+      "quantidadeBtc": 1914,
+      "venda": false,
+      "precoOperacaoUsd": 49229,
+      "valorOperacaoUsd": 94200000,
+      "btcAcumulado": 124391,
+      "precoMedioAcumuladoUsd": 30159,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltbde8b6174304ea24/6762e6d64ea89394e8db8987/form-8-k-12-30-2021.pdf"
+    },
+    {
+      "data": "2022-02-01",
+      "quantidadeBtc": 660,
+      "venda": false,
+      "precoOperacaoUsd": 37865,
+      "valorOperacaoUsd": 25000000,
+      "btcAcumulado": 125051,
+      "precoMedioAcumuladoUsd": 30200,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt727dd2182866e1bb/6762e862a8805504644790e0/form-8-k-2-1-2022.pdf"
+    },
+    {
+      "data": "2022-04-05",
+      "quantidadeBtc": 4167,
+      "venda": false,
+      "precoOperacaoUsd": 45714,
+      "valorOperacaoUsd": 190500000,
+      "btcAcumulado": 129218,
+      "precoMedioAcumuladoUsd": 30700,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt18b9bf70a2b0ee5a/6762e8534e3eed24d24251b1/form-8-k-4-5-2022.pdf"
+    },
+    {
+      "data": "2022-06-29",
+      "quantidadeBtc": 480,
+      "venda": false,
+      "precoOperacaoUsd": 20817,
+      "valorOperacaoUsd": 10000000,
+      "btcAcumulado": 129698,
+      "precoMedioAcumuladoUsd": 30664,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt680cf6d70bb93fb3/6762e8c0f8007a1e97d1dd36/form-8-k_06-29-2022.pdf"
+    },
+    {
+      "data": "2022-09-20",
+      "quantidadeBtc": 301,
+      "venda": false,
+      "precoOperacaoUsd": 19851,
+      "valorOperacaoUsd": 6000000,
+      "btcAcumulado": 129999,
+      "precoMedioAcumuladoUsd": 30639,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt7c8ae40e62884f4c/6762e8bb61565015d9349c9a/form-8-k_9-20-2022.pdf"
+    },
+    {
+      "data": "2022-12-28",
+      "quantidadeBtc": 2501,
+      "venda": false,
+      "precoOperacaoUsd": 17847,
+      "valorOperacaoUsd": 45000000,
+      "btcAcumulado": 132500,
+      "precoMedioAcumuladoUsd": 30397,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt0168b1ea68abe987/6762e8b24c5dad78cc308e74/form-8-k-12-28-2022.pdf"
+    },
+    {
+      "data": "2023-03-23",
+      "quantidadeBtc": 6455,
+      "venda": false,
+      "precoOperacaoUsd": 23238,
+      "valorOperacaoUsd": 150000000,
+      "btcAcumulado": 138955,
+      "precoMedioAcumuladoUsd": 29817,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt68b6549158df7ea1/6762e8f864ea61d4b08ea43d/form-8-k_3-27-2023.pdf"
+    },
+    {
+      "data": "2023-04-05",
+      "quantidadeBtc": 1045,
+      "venda": false,
+      "precoOperacaoUsd": 28016,
+      "valorOperacaoUsd": 29300000,
+      "btcAcumulado": 140000,
+      "precoMedioAcumuladoUsd": 29803,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt456cc8f6469cf4a8/6762e8f6485851a4ab42c8d1/form-8-k_4-5-2023.pdf"
+    },
+    {
+      "data": "2023-06-28",
+      "quantidadeBtc": 12333,
+      "venda": false,
+      "precoOperacaoUsd": 28136,
+      "valorOperacaoUsd": 347000000,
+      "btcAcumulado": 152333,
+      "precoMedioAcumuladoUsd": 29668,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt5b38ddb2518a0958/6762e7d1f8007ada7cd1dcc8/form-8-k_06-28-2023.pdf"
+    },
+    {
+      "data": "2023-08-01",
+      "quantidadeBtc": 467,
+      "venda": false,
+      "precoOperacaoUsd": 30788,
+      "valorOperacaoUsd": 14400000,
+      "btcAcumulado": 152800,
+      "precoMedioAcumuladoUsd": 29672,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltff4fb7bf2dfd191e/6762e7bd567dc932808c0d36/form-8-k_08-01-2023.pdf"
+    },
+    {
+      "data": "2023-09-25",
+      "quantidadeBtc": 5445,
+      "venda": false,
+      "precoOperacaoUsd": 27053,
+      "valorOperacaoUsd": 147300000,
+      "btcAcumulado": 158245,
+      "precoMedioAcumuladoUsd": 29582,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blte62d76e9a736661d/6762e6d2f8f63f8fa1198b95/form-8-k_9-25-2023.pdf"
+    },
+    {
+      "data": "2023-11-01",
+      "quantidadeBtc": 155,
+      "venda": false,
+      "precoOperacaoUsd": 34495,
+      "valorOperacaoUsd": 5000000,
+      "btcAcumulado": 158400,
+      "precoMedioAcumuladoUsd": 29586,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": null
+    },
+    {
+      "data": "2023-11-30",
+      "quantidadeBtc": 16130,
+      "venda": false,
+      "precoOperacaoUsd": 36785,
+      "valorOperacaoUsd": 593300000,
+      "btcAcumulado": 174530,
+      "precoMedioAcumuladoUsd": 30252,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt429466619d63f07c/6762eaeadb373a372950c3e0/form-8-k_11-30-2023.pdf"
+    },
+    {
+      "data": "2023-12-27",
+      "quantidadeBtc": 14620,
+      "venda": false,
+      "precoOperacaoUsd": 42110,
+      "valorOperacaoUsd": 616000000,
+      "btcAcumulado": 189150,
+      "precoMedioAcumuladoUsd": 31168,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 0,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt0c1f4d0e1377ed59/6762ead5ca986f11a04415e2/form-8-k_12-27-2023.pdf"
+    },
+    {
+      "data": "2024-02-06",
+      "quantidadeBtc": 850,
+      "venda": false,
+      "precoOperacaoUsd": 43723,
+      "valorOperacaoUsd": 37200000,
+      "btcAcumulado": 190000,
+      "precoMedioAcumuladoUsd": 31224,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 8045000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt8204dafd37c29e05/6762ebd578b402728bb28b02/form-8-k_02-06-2024.pdf"
+    },
+    {
+      "data": "2024-02-26",
+      "quantidadeBtc": 3000,
+      "venda": false,
+      "precoOperacaoUsd": 51813,
+      "valorOperacaoUsd": 155400000,
+      "btcAcumulado": 193000,
+      "precoMedioAcumuladoUsd": 31544,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 9988000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltc876f2a9d0ebcf19/6762ecc84c5dad260c309075/form-8-k-02-26-2024.pdf"
+    },
+    {
+      "data": "2024-03-11",
+      "quantidadeBtc": 12000,
+      "venda": false,
+      "precoOperacaoUsd": 68477,
+      "valorOperacaoUsd": 822000000,
+      "btcAcumulado": 205000,
+      "precoMedioAcumuladoUsd": 33706,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 14250000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt76afcbb49a752853/6762ed2df8007a291ad1df45/form-8-k_03-11-2024_filing-2.pdf"
+    },
+    {
+      "data": "2024-03-19",
+      "quantidadeBtc": 9245,
+      "venda": false,
+      "precoOperacaoUsd": 67382,
+      "valorOperacaoUsd": 623000000,
+      "btcAcumulado": 214245,
+      "precoMedioAcumuladoUsd": 35160,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 14369000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt353870cd110de3f2/6762ef03a88055253c479382/form-10-q_05-01-2024.pdf"
+    },
+    {
+      "data": "2024-04-29",
+      "quantidadeBtc": 155,
+      "venda": false,
+      "precoOperacaoUsd": 63397,
+      "valorOperacaoUsd": 10000000,
+      "btcAcumulado": 214400,
+      "precoMedioAcumuladoUsd": 35180,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 13654000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt16d5878cb4cc755b/6762eefc92dec0a38746fb48/form-8-k_04-29-2024.pdf"
+    },
+    {
+      "data": "2024-06-20",
+      "quantidadeBtc": 11931,
+      "venda": false,
+      "precoOperacaoUsd": 65883,
+      "valorOperacaoUsd": 786000000,
+      "btcAcumulado": 226331,
+      "precoMedioAcumuladoUsd": 43723,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 14686000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt89a2fe60e8b9e1d6/6762f0ba05bd36588e170b54/form-8-k_06-20-2024_filing-2.pdf"
+    },
+    {
+      "data": "2024-08-01",
+      "quantidadeBtc": 169,
+      "venda": false,
+      "precoOperacaoUsd": 67455,
+      "valorOperacaoUsd": 11400000,
+      "btcAcumulado": 226500,
+      "precoMedioAcumuladoUsd": 36821,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 14760000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt757dfa3cd3fbfd97/6762f06a1f256473c21f3fc5/form-8-k_08-01-2024.pdf"
+    },
+    {
+      "data": "2024-09-13",
+      "quantidadeBtc": 18300,
+      "venda": false,
+      "precoOperacaoUsd": 60408,
+      "valorOperacaoUsd": 1110000000,
+      "btcAcumulado": 244800,
+      "precoMedioAcumuladoUsd": 36821,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 14280000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt718e20bb8f9e3b0a/6762f109a880554efd47944e/form-8-k_09-13-2024.pdf"
+    },
+    {
+      "data": "2024-09-20",
+      "quantidadeBtc": 7420,
+      "venda": false,
+      "precoOperacaoUsd": 61750,
+      "valorOperacaoUsd": 458200000,
+      "btcAcumulado": 252220,
+      "precoMedioAcumuladoUsd": 39266,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 15954000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt991ee192ba13f80f/6762f230ca986f88574418df/form-8-k_09-20-2024_filing-2.pdf"
+    },
+    {
+      "data": "2024-11-11",
+      "quantidadeBtc": 27200,
+      "venda": false,
+      "precoOperacaoUsd": 74463,
+      "valorOperacaoUsd": 2025407757.59,
+      "btcAcumulado": 279420,
+      "precoMedioAcumuladoUsd": 42692,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 22073000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt1b877c81be9d04a4/6762f1728fa92c33592df219/microstrategy-announces-btc-and-atm-activity-raised-2-billion-purchased-27200-btc-now-holds-279420-btc-with-btc-yield-of-26-ytd_11-11-2024.pdf"
+    },
+    {
+      "data": "2024-11-18",
+      "quantidadeBtc": 51780,
+      "venda": false,
+      "precoOperacaoUsd": 88627,
+      "valorOperacaoUsd": 4600000000,
+      "btcAcumulado": 331200,
+      "precoMedioAcumuladoUsd": 42692,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 29659000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt7996610d78da8a82/6762f2004ea89362f5db8de8/form_8-k_11-18-2024.pdf"
+    },
+    {
+      "data": "2024-11-25",
+      "quantidadeBtc": 55500,
+      "venda": false,
+      "precoOperacaoUsd": 97862,
+      "valorOperacaoUsd": 5400000000,
+      "btcAcumulado": 386700,
+      "precoMedioAcumuladoUsd": 56761,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 37441000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blta00c7f92f099d225/6762f2eb567dc930098c1118/form_8-k_11-25-2024.pdf"
+    },
+    {
+      "data": "2024-12-02",
+      "quantidadeBtc": 15400,
+      "venda": false,
+      "precoOperacaoUsd": 95976,
+      "valorOperacaoUsd": 1500000000,
+      "btcAcumulado": 402100,
+      "precoMedioAcumuladoUsd": 58263,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 39042000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt5e3c0dc34b3ae6c0/6762f29d1002442ce1f34c4f/form_8-k_12-02-2024.pdf"
+    },
+    {
+      "data": "2024-12-09",
+      "quantidadeBtc": 21550,
+      "venda": false,
+      "precoOperacaoUsd": 98783,
+      "valorOperacaoUsd": 2100000000,
+      "btcAcumulado": 423650,
+      "precoMedioAcumuladoUsd": 60324,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 42301000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltd8fef0d6e2e383dd/6762f2bffd4cd58bf72a7a13/form-8-k_12-09-2024.pdf"
+    },
+    {
+      "data": "2024-12-16",
+      "quantidadeBtc": 15350,
+      "venda": false,
+      "precoOperacaoUsd": 100386,
+      "valorOperacaoUsd": 1500000000,
+      "btcAcumulado": 439000,
+      "precoMedioAcumuladoUsd": 61725,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 45289000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt9cf4c91e358261d5/67904890a5499b7bac14c8e9/form-8-k_12-16-2024.pdf"
+    },
+    {
+      "data": "2024-12-23",
+      "quantidadeBtc": 5262,
+      "venda": false,
+      "precoOperacaoUsd": 106662,
+      "valorOperacaoUsd": 561000000,
+      "btcAcumulado": 444262,
+      "precoMedioAcumuladoUsd": 62257,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 42375000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltea8c5afa54da4ebe/67904894ee8f386181aa423c/form-8-k_12-23-2024.pdf"
+    },
+    {
+      "data": "2024-12-30",
+      "quantidadeBtc": 2138,
+      "venda": false,
+      "precoOperacaoUsd": 97837,
+      "valorOperacaoUsd": 209000000,
+      "btcAcumulado": 446400,
+      "precoMedioAcumuladoUsd": 62428,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 0,
+      "valorReservaNaDataUsd": 41793000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt3335ee4952b134e5/679048944a7803460b6c1039/form-8-k_12-30-2024.pdf"
+    },
+    {
+      "data": "2025-01-06",
+      "quantidadeBtc": 1070,
+      "venda": false,
+      "precoOperacaoUsd": 94004,
+      "valorOperacaoUsd": 101000000,
+      "btcAcumulado": 447470,
+      "precoMedioAcumuladoUsd": 62503,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 281735000,
+      "valorReservaNaDataUsd": 43948000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt6fddb9536eacd95b/67904889e345b42d4058e52a/form-8-k_01-06-2025.pdf"
+    },
+    {
+      "data": "2025-01-13",
+      "quantidadeBtc": 2530,
+      "venda": false,
+      "precoOperacaoUsd": 95972,
+      "valorOperacaoUsd": 243000000,
+      "btcAcumulado": 450000,
+      "precoMedioAcumuladoUsd": 62691,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 282418000,
+      "valorReservaNaDataUsd": 42597000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltac497dd9c0a0bc7f/679048897d9db27e9ac08a91/form-8-k_01-13-2025.pdf"
+    },
+    {
+      "data": "2025-01-21",
+      "quantidadeBtc": 11000,
+      "venda": false,
+      "precoOperacaoUsd": 101191,
+      "valorOperacaoUsd": 1100000000,
+      "btcAcumulado": 461000,
+      "precoMedioAcumuladoUsd": 63610,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 285425000,
+      "valorReservaNaDataUsd": 47742000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt5bfa767450dc345c/6790489058fb6d753c81140d/form-8-k_01-21-2025.pdf"
+    },
+    {
+      "data": "2025-01-27",
+      "quantidadeBtc": 10107,
+      "venda": false,
+      "precoOperacaoUsd": 105596,
+      "valorOperacaoUsd": 1100000000,
+      "btcAcumulado": 471107,
+      "precoMedioAcumuladoUsd": 64511,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 288254000,
+      "valorReservaNaDataUsd": 49391000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt8dea3c19b20236cb/67970290b0180c10b8039b9e/form-8-k_01-27-2025.pdf"
+    },
+    {
+      "data": "2025-02-10",
+      "quantidadeBtc": 7633,
+      "venda": false,
+      "precoOperacaoUsd": 97255,
+      "valorOperacaoUsd": 742400000,
+      "btcAcumulado": 478740,
+      "precoMedioAcumuladoUsd": 65033,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 289439000,
+      "valorReservaNaDataUsd": 46122000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt26b45cf8e908796b/67a9830b0607f957794bd8fe/form-8-k_02-10-2025.pdf"
+    },
+    {
+      "data": "2025-02-24",
+      "quantidadeBtc": 20356,
+      "venda": false,
+      "precoOperacaoUsd": 97514,
+      "valorOperacaoUsd": 1985000000,
+      "btcAcumulado": 499096,
+      "precoMedioAcumuladoUsd": 66357,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 294063000,
+      "valorReservaNaDataUsd": 47813000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltadce64077682d0aa/67bbc180d98aa90718cae420/form-8-k-filing-2_02-24-2025.pdf"
+    },
+    {
+      "data": "2025-03-17",
+      "quantidadeBtc": 130,
+      "venda": false,
+      "precoOperacaoUsd": 82981,
+      "valorOperacaoUsd": 11000000,
+      "btcAcumulado": 499226,
+      "precoMedioAcumuladoUsd": 66360,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 294038000,
+      "valorReservaNaDataUsd": 41964000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blte3ca6b2da8324883/67d794bdcca70a077439f04a/form-8-k_03-17-2025.pdf"
+    },
+    {
+      "data": "2025-03-24",
+      "quantidadeBtc": 6911,
+      "venda": false,
+      "precoOperacaoUsd": 84529,
+      "valorOperacaoUsd": 584000000,
+      "btcAcumulado": 506137,
+      "precoMedioAcumuladoUsd": 66608,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 296002000,
+      "valorReservaNaDataUsd": 42556000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blte0abc9285e26f23a/67e140ffedf277505f90a349/form-8-k_03-24-2025.pdf"
+    },
+    {
+      "data": "2025-03-31",
+      "quantidadeBtc": 22048,
+      "venda": false,
+      "precoOperacaoUsd": 86969,
+      "valorOperacaoUsd": 1918000000,
+      "btcAcumulado": 528185,
+      "precoMedioAcumuladoUsd": 67458,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 299674000,
+      "valorReservaNaDataUsd": 44283000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blte63472b2c8ecf250/67ea7d193ed2b0c4711e5ec6/form-8-k_03-31-2025.pdf"
+    },
+    {
+      "data": "2025-04-14",
+      "quantidadeBtc": 3459,
+      "venda": false,
+      "precoOperacaoUsd": 82618,
+      "valorOperacaoUsd": 286000000,
+      "btcAcumulado": 531644,
+      "precoMedioAcumuladoUsd": 67556,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 300590000,
+      "valorReservaNaDataUsd": 44621000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt0ab5f2fd70f14362/67fc78ac45637706bf9c6141/form-8-k_04-14-2025.pdf"
+    },
+    {
+      "data": "2025-04-21",
+      "quantidadeBtc": 6556,
+      "venda": false,
+      "precoOperacaoUsd": 84785,
+      "valorOperacaoUsd": 556000000,
+      "btcAcumulado": 538200,
+      "precoMedioAcumuladoUsd": 67766,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 302353000,
+      "valorReservaNaDataUsd": 45489000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt0d37b0481a7a31df/6805a9fd4851b5fb07d317dd/form-8-k_04-21-2025.pdf"
+    },
+    {
+      "data": "2025-04-28",
+      "quantidadeBtc": 15355,
+      "venda": false,
+      "precoOperacaoUsd": 92737,
+      "valorOperacaoUsd": 1424000000,
+      "btcAcumulado": 553555,
+      "precoMedioAcumuladoUsd": 68459,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 306417000,
+      "valorReservaNaDataUsd": 52621000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blta035f85859d93ede/680f71e5ee7e73a526c614fe/form-8-k_04-28-2025.pdf"
+    },
+    {
+      "data": "2025-05-05",
+      "quantidadeBtc": 1895,
+      "venda": false,
+      "precoOperacaoUsd": 95167,
+      "valorOperacaoUsd": 180000000,
+      "btcAcumulado": 555450,
+      "precoMedioAcumuladoUsd": 68550,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 306828000,
+      "valorReservaNaDataUsd": 53906000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt530624966fb17ac3/6818a606cc0bf423515ffcad/form-8-k_05-05-2025.pdf"
+    },
+    {
+      "data": "2025-05-12",
+      "quantidadeBtc": 13390,
+      "venda": false,
+      "precoOperacaoUsd": 99856,
+      "valorOperacaoUsd": 1337000000,
+      "btcAcumulado": 568840,
+      "precoMedioAcumuladoUsd": 69287,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 310078000,
+      "valorReservaNaDataUsd": 58784000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltce5711b3188241ab/6821caa58024e2d268071d29/form-8-k_05-12-2025.pdf"
+    },
+    {
+      "data": "2025-05-19",
+      "quantidadeBtc": 7390,
+      "venda": false,
+      "precoOperacaoUsd": 103498,
+      "valorOperacaoUsd": 765000000,
+      "btcAcumulado": 576230,
+      "precoMedioAcumuladoUsd": 69726,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 311846000,
+      "valorReservaNaDataUsd": 59853000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltfba7ca0af6a9f6a8/682a9fc86555216ab73157fb/form-8-k_05-19-2025.pdf"
+    },
+    {
+      "data": "2025-05-26",
+      "quantidadeBtc": 4020,
+      "venda": false,
+      "precoOperacaoUsd": 106237,
+      "valorOperacaoUsd": 427000000,
+      "btcAcumulado": 580250,
+      "precoMedioAcumuladoUsd": 69979,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 312737000,
+      "valorReservaNaDataUsd": 63073000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt404998a379f0e2e5/68351d4e980bb677b8728a06/form-8-k_05-27-2025.pdf"
+    },
+    {
+      "data": "2025-06-02",
+      "quantidadeBtc": 705,
+      "venda": false,
+      "precoOperacaoUsd": 106495,
+      "valorOperacaoUsd": 75000000,
+      "btcAcumulado": 580955,
+      "precoMedioAcumuladoUsd": 70023,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 312778000,
+      "valorReservaNaDataUsd": 60692000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blta9e30f5fb36c66f0/683d8ca3426b2a66bd583161/form-8-k_06-02-2025.pdf"
+    },
+    {
+      "data": "2025-06-09",
+      "quantidadeBtc": 1045,
+      "venda": false,
+      "precoOperacaoUsd": 105426,
+      "valorOperacaoUsd": 110000000,
+      "btcAcumulado": 582000,
+      "precoMedioAcumuladoUsd": 70086,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 312840000,
+      "valorReservaNaDataUsd": 60778000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt965ca3d5f33c5f6c/6845fe40498eb0b71aacb51c/form-8-k_06-09-2025.pdf"
+    },
+    {
+      "data": "2025-06-16",
+      "quantidadeBtc": 10100,
+      "venda": false,
+      "precoOperacaoUsd": 104080,
+      "valorOperacaoUsd": 1051000000,
+      "btcAcumulado": 592100,
+      "precoMedioAcumuladoUsd": 70666,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 312883000,
+      "valorReservaNaDataUsd": 62390000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt0908f8540d9703fc/684f687837c391655f22cbd1/form-8-k_06-16-2025.pdf"
+    },
+    {
+      "data": "2025-06-23",
+      "quantidadeBtc": 245,
+      "venda": false,
+      "precoOperacaoUsd": 105856,
+      "valorOperacaoUsd": 26000000,
+      "btcAcumulado": 592345,
+      "precoMedioAcumuladoUsd": 70681,
+      "custoTotalAcumuladoUsd": 0,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 312903000,
+      "valorReservaNaDataUsd": 61379000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt863247f049c38d5d/685940f5261e0b42efacce21/form-8-k_filing-1_06-23-2025.pdf"
+    },
+    {
+      "data": "2025-06-30",
+      "quantidadeBtc": 4980,
+      "venda": false,
+      "precoOperacaoUsd": 106801,
+      "valorOperacaoUsd": 532000000,
+      "btcAcumulado": 597325,
+      "precoMedioAcumuladoUsd": 70982,
+      "custoTotalAcumuladoUsd": 42399000000,
+      "acoesBasicas": 261318000,
+      "acoesDiluidas": 314216000,
+      "valorReservaNaDataUsd": 63968000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt9881a4184cc6914d/68627916b77630517afe221c/form-8-k_06-30-2025.pdf"
+    },
+    {
+      "data": "2025-07-14",
+      "quantidadeBtc": 4225,
+      "venda": false,
+      "precoOperacaoUsd": 111827,
+      "valorOperacaoUsd": 472000000,
+      "btcAcumulado": 601550,
+      "precoMedioAcumuladoUsd": 71268,
+      "custoTotalAcumuladoUsd": 42872000000,
+      "acoesBasicas": 0,
+      "acoesDiluidas": 314242000,
+      "valorReservaNaDataUsd": 70983000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt4cc1a0ae496ac9e3/68747439e8921d53d6fa6b41/form-8-k_07-14-2025.pdf"
+    },
+    {
+      "data": "2025-07-21",
+      "quantidadeBtc": 6220,
+      "venda": false,
+      "precoOperacaoUsd": 118940,
+      "valorOperacaoUsd": 740000000,
+      "btcAcumulado": 607770,
+      "precoMedioAcumuladoUsd": 71756,
+      "custoTotalAcumuladoUsd": 43611000000,
+      "acoesBasicas": 283553000,
+      "acoesDiluidas": 316705000,
+      "valorReservaNaDataUsd": 71152000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltaecbaeed9af104b4/687d68f6829ffb97ac47d232/form-8-k_07-21-2025.pdf"
+    },
+    {
+      "data": "2025-07-29",
+      "quantidadeBtc": 21021,
+      "venda": false,
+      "precoOperacaoUsd": 117256,
+      "valorOperacaoUsd": 2465000000,
+      "btcAcumulado": 628791,
+      "precoMedioAcumuladoUsd": 73277,
+      "custoTotalAcumuladoUsd": 46076000000,
+      "acoesBasicas": 283590000,
+      "acoesDiluidas": 316703000,
+      "valorReservaNaDataUsd": 73883000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt85987a90c1297675/68892a675012427800ecde07/form-8-k_07-29-2025.pdf"
+    },
+    {
+      "data": "2025-08-11",
+      "quantidadeBtc": 155,
+      "venda": false,
+      "precoOperacaoUsd": 116401,
+      "valorOperacaoUsd": 18000000,
+      "btcAcumulado": 628946,
+      "precoMedioAcumuladoUsd": 73288,
+      "custoTotalAcumuladoUsd": 46094000000,
+      "acoesBasicas": 283754000,
+      "acoesDiluidas": 316710000,
+      "valorReservaNaDataUsd": 73291000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltb463109672765cbc/6899e9394c4b55832ef0e635/form-8-k_08-11-2025_filing-1.pdf"
+    },
+    {
+      "data": "2025-08-18",
+      "quantidadeBtc": 430,
+      "venda": false,
+      "precoOperacaoUsd": 119666,
+      "valorOperacaoUsd": 51000000,
+      "btcAcumulado": 629376,
+      "precoMedioAcumuladoUsd": 73320,
+      "custoTotalAcumuladoUsd": 46094000000,
+      "acoesBasicas": 283756000,
+      "acoesDiluidas": 316727000,
+      "valorReservaNaDataUsd": 73788000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt862da2201c548ca3/68a291be67858b783f55d1d1/form-8-k_08-18-2025.pdf"
+    },
+    {
+      "data": "2025-08-25",
+      "quantidadeBtc": 3081,
+      "venda": false,
+      "precoOperacaoUsd": 115829,
+      "valorOperacaoUsd": 357000000,
+      "btcAcumulado": 632457,
+      "precoMedioAcumuladoUsd": 73527,
+      "custoTotalAcumuladoUsd": 46502000000,
+      "acoesBasicas": 284641000,
+      "acoesDiluidas": 317624000,
+      "valorReservaNaDataUsd": 74061000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blta457fda90cf3345c/68abb51b7119ea801fdaf56e/form-8-k_08-25-2025.pdf"
+    },
+    {
+      "data": "2025-09-02",
+      "quantidadeBtc": 4048,
+      "venda": false,
+      "precoOperacaoUsd": 110981,
+      "valorOperacaoUsd": 449000000,
+      "btcAcumulado": 636505,
+      "precoMedioAcumuladoUsd": 73765,
+      "custoTotalAcumuladoUsd": 46952000000,
+      "acoesBasicas": 285883000,
+      "acoesDiluidas": 318877000,
+      "valorReservaNaDataUsd": 68730000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt63e9dde3c206cd4e/68b6172178db1009fff4b265/form-8-k_09-02-2025.pdf"
+    },
+    {
+      "data": "2025-09-08",
+      "quantidadeBtc": 1955,
+      "venda": false,
+      "precoOperacaoUsd": 111196,
+      "valorOperacaoUsd": 217000000,
+      "btcAcumulado": 638460,
+      "precoMedioAcumuladoUsd": 73880,
+      "custoTotalAcumuladoUsd": 47169000000,
+      "acoesBasicas": 286488000,
+      "acoesDiluidas": 319486000,
+      "valorReservaNaDataUsd": 71118000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blte7bd2e4d75e01dd9/68be1d7f356bcf3354727a30/form-8-k_09-08-2025.pdf"
+    },
+    {
+      "data": "2025-09-15",
+      "quantidadeBtc": 525,
+      "venda": false,
+      "precoOperacaoUsd": 114562,
+      "valorOperacaoUsd": 60000000,
+      "btcAcumulado": 638985,
+      "precoMedioAcumuladoUsd": 73913,
+      "custoTotalAcumuladoUsd": 47229000000,
+      "acoesBasicas": 286488000,
+      "acoesDiluidas": 319500000,
+      "valorReservaNaDataUsd": 74218000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt41a67df64437849b/68c785f54a2c2dadaf122ab2/form-8-k_09-15-2025.pdf"
+    },
+    {
+      "data": "2025-09-22",
+      "quantidadeBtc": 850,
+      "venda": false,
+      "precoOperacaoUsd": 117344,
+      "valorOperacaoUsd": 100000000,
+      "btcAcumulado": 639835,
+      "precoMedioAcumuladoUsd": 73971,
+      "custoTotalAcumuladoUsd": 47329000000,
+      "acoesBasicas": 286726000,
+      "acoesDiluidas": 319727000,
+      "valorReservaNaDataUsd": 73863000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt12ca664c19b20e77/68d0b6f8dfcdb6d68cb4f09d/form-8-k_09-22-2025.pdf"
+    },
+    {
+      "data": "2025-09-29",
+      "quantidadeBtc": 196,
+      "venda": false,
+      "precoOperacaoUsd": 113048,
+      "valorOperacaoUsd": 22000000,
+      "btcAcumulado": 640031,
+      "precoMedioAcumuladoUsd": 73983,
+      "custoTotalAcumuladoUsd": 47351000000,
+      "acoesBasicas": 287093000,
+      "acoesDiluidas": 320094000,
+      "valorReservaNaDataUsd": 69891000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt56cdd8e554b9a963/68d9cab4497a9a9bc5c9ccda/form-8-k_09-29-2025.pdf"
+    },
+    {
+      "data": "2025-10-13",
+      "quantidadeBtc": 220,
+      "venda": false,
+      "precoOperacaoUsd": 123561,
+      "valorOperacaoUsd": 27000000,
+      "btcAcumulado": 640250,
+      "precoMedioAcumuladoUsd": 74000,
+      "custoTotalAcumuladoUsd": 47378000000,
+      "acoesBasicas": 287170000,
+      "acoesDiluidas": 320067000,
+      "valorReservaNaDataUsd": 74736000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltf1d894170dc21720/68ec73beb5c8cb623d14dcb4/strategy-acquires-220-btc-and-achieves-btc-yield-of-25-9-ytd-now-holds-640250-btc_10-13-2025.pdf"
+    },
+    {
+      "data": "2025-10-20",
+      "quantidadeBtc": 168,
+      "venda": false,
+      "precoOperacaoUsd": 112051,
+      "valorOperacaoUsd": 19000000,
+      "btcAcumulado": 640418,
+      "precoMedioAcumuladoUsd": 74010,
+      "custoTotalAcumuladoUsd": 47397000000,
+      "acoesBasicas": 287170000,
+      "acoesDiluidas": 320071000,
+      "valorReservaNaDataUsd": 68557000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt2829fd4822c1bf78/68f599bf69003d69ba0d7492/form-8-k_10-20-2025.pdf"
+    },
+    {
+      "data": "2025-10-27",
+      "quantidadeBtc": 390,
+      "venda": false,
+      "precoOperacaoUsd": 111053,
+      "valorOperacaoUsd": 43000000,
+      "btcAcumulado": 640808,
+      "precoMedioAcumuladoUsd": 74032,
+      "custoTotalAcumuladoUsd": 47440000000,
+      "acoesBasicas": 287170000,
+      "acoesDiluidas": 320089000,
+      "valorReservaNaDataUsd": 70970000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt5d53967701adc5e7/68fec8cf58694f22dc2c67b8/form-8-k_10-27-2025.pdf"
+    },
+    {
+      "data": "2025-11-03",
+      "quantidadeBtc": 397,
+      "venda": false,
+      "precoOperacaoUsd": 114771,
+      "valorOperacaoUsd": 46000000,
+      "btcAcumulado": 641205,
+      "precoMedioAcumuladoUsd": 74057,
+      "custoTotalAcumuladoUsd": 47486000000,
+      "acoesBasicas": 287354000,
+      "acoesDiluidas": 320277000,
+      "valorReservaNaDataUsd": 70376000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltafec8168d365fffa/690838c1531ab0abd528156b/form-8-k_11-03-2025.pdf"
+    },
+    {
+      "data": "2025-11-10",
+      "quantidadeBtc": 487,
+      "venda": false,
+      "precoOperacaoUsd": 102557,
+      "valorOperacaoUsd": 50000000,
+      "btcAcumulado": 641692,
+      "precoMedioAcumuladoUsd": 74079,
+      "custoTotalAcumuladoUsd": 47536000000,
+      "acoesBasicas": 287355000,
+      "acoesDiluidas": 320282000,
+      "valorReservaNaDataUsd": 66576000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltdba4fc803e019d1e/69114d2ecc0c83c2fa618ffc/form-8-k_11-10-2025.pdf"
+    },
+    {
+      "data": "2025-11-17",
+      "quantidadeBtc": 8178,
+      "venda": false,
+      "precoOperacaoUsd": 102171.31,
+      "valorOperacaoUsd": 836000000,
+      "btcAcumulado": 649870,
+      "precoMedioAcumuladoUsd": 74433,
+      "custoTotalAcumuladoUsd": 48372000000,
+      "acoesBasicas": 287396000,
+      "acoesDiluidas": 320283000,
+      "valorReservaNaDataUsd": 61276000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt27517abcb8f459e3/691aaadfcd08266e2ec6fbe9/form-8-k_11-17-2025.pdf"
+    },
+    {
+      "data": "2025-12-01",
+      "quantidadeBtc": 130,
+      "venda": false,
+      "precoOperacaoUsd": 89959.98,
+      "valorOperacaoUsd": 12000000,
+      "btcAcumulado": 650000,
+      "precoMedioAcumuladoUsd": 74436,
+      "custoTotalAcumuladoUsd": 48383000000,
+      "acoesBasicas": 295663000,
+      "acoesDiluidas": 328510000,
+      "valorReservaNaDataUsd": 59293000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt8dc48db96aa45630/692d2084b48b45d7143fc17d/form-8-k_12-01-2025.pdf"
+    },
+    {
+      "data": "2025-12-08",
+      "quantidadeBtc": 10624,
+      "venda": false,
+      "precoOperacaoUsd": 90615.12,
+      "valorOperacaoUsd": 963000000,
+      "btcAcumulado": 660624,
+      "precoMedioAcumuladoUsd": 74696,
+      "custoTotalAcumuladoUsd": 49346000000,
+      "acoesBasicas": 300800000,
+      "acoesDiluidas": 333631000,
+      "valorReservaNaDataUsd": 59014000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltccd0f74978e08d27/69364a5cf27a3818eaf5806b/form-8-k_12-08-2025.pdf"
+    },
+    {
+      "data": "2025-12-15",
+      "quantidadeBtc": 10645,
+      "venda": false,
+      "precoOperacaoUsd": 92098.4,
+      "valorOperacaoUsd": 980000000,
+      "btcAcumulado": 671268,
+      "precoMedioAcumuladoUsd": 74972,
+      "custoTotalAcumuladoUsd": 50326000000,
+      "acoesBasicas": 305590000,
+      "acoesDiluidas": 338444000,
+      "valorReservaNaDataUsd": 60360000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt2f135136f7b10442/693f3b494fa905f93442a932/form-8-k_12-15-2025.pdf"
+    },
+    {
+      "data": "2025-12-29",
+      "quantidadeBtc": 1229,
+      "venda": false,
+      "precoOperacaoUsd": 88568,
+      "valorOperacaoUsd": 109000000,
+      "btcAcumulado": 672497,
+      "precoMedioAcumuladoUsd": 74997,
+      "custoTotalAcumuladoUsd": 50435000000,
+      "acoesBasicas": 305590000,
+      "acoesDiluidas": 343641000,
+      "valorReservaNaDataUsd": 58843000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt50c67b947ebad326/6951a0c3a88d5c1ac5b336a8/form-8-k_12-29-2025.pdf"
+    },
+    {
+      "data": "2025-12-31",
+      "quantidadeBtc": 3,
+      "venda": false,
+      "precoOperacaoUsd": 88210.02,
+      "valorOperacaoUsd": 280000,
+      "btcAcumulado": 672500,
+      "precoMedioAcumuladoUsd": 74997,
+      "custoTotalAcumuladoUsd": 50435000000,
+      "acoesBasicas": 312062000,
+      "acoesDiluidas": 344897000,
+      "valorReservaNaDataUsd": 58854000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltd1697ee0df7f31c7/695bb32419f3d4640d94619b/form-8-k_01-05-2026.pdf"
+    },
+    {
+      "data": "2026-01-05",
+      "quantidadeBtc": 1283,
+      "venda": false,
+      "precoOperacaoUsd": 90391,
+      "valorOperacaoUsd": 116000000,
+      "btcAcumulado": 673783,
+      "precoMedioAcumuladoUsd": 75026,
+      "custoTotalAcumuladoUsd": 50551000000,
+      "acoesBasicas": 312797000,
+      "acoesDiluidas": 345632000,
+      "valorReservaNaDataUsd": 60433000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltd1697ee0df7f31c7/695bb32419f3d4640d94619b/form-8-k_01-05-2026.pdf"
+    },
+    {
+      "data": "2026-01-12",
+      "quantidadeBtc": 13627,
+      "venda": false,
+      "precoOperacaoUsd": 91519,
+      "valorOperacaoUsd": 1247000000,
+      "btcAcumulado": 687410,
+      "precoMedioAcumuladoUsd": 75353,
+      "custoTotalAcumuladoUsd": 51798000000,
+      "acoesBasicas": 319625000,
+      "acoesDiluidas": 352204000,
+      "valorReservaNaDataUsd": 61996000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blta7da64f7ebf6312a/69645ea3818dc30008b31ebb/form-8-k_01-12-2026.pdf"
+    },
+    {
+      "data": "2026-01-20",
+      "quantidadeBtc": 22305,
+      "venda": false,
+      "precoOperacaoUsd": 95284,
+      "valorOperacaoUsd": 2125000000,
+      "btcAcumulado": 709715,
+      "precoMedioAcumuladoUsd": 75979,
+      "custoTotalAcumuladoUsd": 53924000000,
+      "acoesBasicas": 330174000,
+      "acoesDiluidas": 362606000,
+      "valorReservaNaDataUsd": 67799000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltc3f3c9ce5257e06b/696ee1992e942bec27271f03/form-8-k_01-20-2026.pdf"
+    },
+    {
+      "data": "2026-01-26",
+      "quantidadeBtc": 2932,
+      "venda": false,
+      "precoOperacaoUsd": 90061,
+      "valorOperacaoUsd": 264000000,
+      "btcAcumulado": 712647,
+      "precoMedioAcumuladoUsd": 76037,
+      "custoTotalAcumuladoUsd": 54188000000,
+      "acoesBasicas": 331748000,
+      "acoesDiluidas": 364173000,
+      "valorReservaNaDataUsd": 63708000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt38c73b77a3b1661a/6976b57244632962826a47eb/form-8-k_01-26-2026.pdf"
+    },
+    {
+      "data": "2026-02-02",
+      "quantidadeBtc": 855,
+      "venda": false,
+      "precoOperacaoUsd": 87974,
+      "valorOperacaoUsd": 75000000,
+      "btcAcumulado": 713502,
+      "precoMedioAcumuladoUsd": 76052,
+      "custoTotalAcumuladoUsd": 54263000000,
+      "acoesBasicas": 332431000,
+      "acoesDiluidas": 364845000,
+      "valorReservaNaDataUsd": 59749000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blte7ee5418df528bb8/697ffb2f02f45c7e5618ccef/form-8-k_02-02-2026.pdf"
+    },
+    {
+      "data": "2026-02-09",
+      "quantidadeBtc": 1142,
+      "venda": false,
+      "precoOperacaoUsd": 78815,
+      "valorOperacaoUsd": 90000000,
+      "btcAcumulado": 714644,
+      "precoMedioAcumuladoUsd": 76056,
+      "custoTotalAcumuladoUsd": 54353000000,
+      "acoesBasicas": 333083000,
+      "acoesDiluidas": 365461000,
+      "valorReservaNaDataUsd": 49999000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltfd6482b068118eca/69895eadbf8f6855b6f75f20/form-8-k_02-09-2026.pdf"
+    },
+    {
+      "data": "2026-02-17",
+      "quantidadeBtc": 2486,
+      "venda": false,
+      "precoOperacaoUsd": 67710,
+      "valorOperacaoUsd": 168000000,
+      "btcAcumulado": 717131,
+      "precoMedioAcumuladoUsd": 76027,
+      "custoTotalAcumuladoUsd": 54521000000,
+      "acoesBasicas": 333755000,
+      "acoesDiluidas": 366114000,
+      "valorReservaNaDataUsd": 49291000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blta9f85a952e7f1a54/6993371a7dd2cc0008d22eb9/form-8-k_02-17-2026.pdf"
+    },
+    {
+      "data": "2026-02-23",
+      "quantidadeBtc": 592,
+      "venda": false,
+      "precoOperacaoUsd": 67286,
+      "valorOperacaoUsd": 40000000,
+      "btcAcumulado": 717722,
+      "precoMedioAcumuladoUsd": 76020,
+      "custoTotalAcumuladoUsd": 54561000000,
+      "acoesBasicas": 334098000,
+      "acoesDiluidas": 366419000,
+      "valorReservaNaDataUsd": 48611000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blta1987f50a54e7448/699bcae73f35720008e049bd/form-8-k_02-23-2026.pdf"
+    },
+    {
+      "data": "2026-03-02",
+      "quantidadeBtc": 3015,
+      "venda": false,
+      "precoOperacaoUsd": 67700,
+      "valorOperacaoUsd": 204000000,
+      "btcAcumulado": 720737,
+      "precoMedioAcumuladoUsd": 75985,
+      "custoTotalAcumuladoUsd": 54765000000,
+      "acoesBasicas": 335853000,
+      "acoesDiluidas": 368154000,
+      "valorReservaNaDataUsd": 47272000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blta1e8189e6fc9fe35/69a51d14716ab880524425f1/form-8-k_03-02-2026.pdf"
+    },
+    {
+      "data": "2026-03-09",
+      "quantidadeBtc": 17994,
+      "venda": false,
+      "precoOperacaoUsd": 70946,
+      "valorOperacaoUsd": 1277000000,
+      "btcAcumulado": 738731,
+      "precoMedioAcumuladoUsd": 75862,
+      "custoTotalAcumuladoUsd": 56042000000,
+      "acoesBasicas": 342225000,
+      "acoesDiluidas": 374506000,
+      "valorReservaNaDataUsd": 50307000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt2c86418156848741/69ae1f6acb63a70008936b50/form-8-k_03-09-2026.pdf"
+    },
+    {
+      "data": "2026-03-16",
+      "quantidadeBtc": 22337,
+      "venda": false,
+      "precoOperacaoUsd": 70194,
+      "valorOperacaoUsd": 1568000000,
+      "btcAcumulado": 761068,
+      "precoMedioAcumuladoUsd": 75696,
+      "custoTotalAcumuladoUsd": 57610000000,
+      "acoesBasicas": 345084000,
+      "acoesDiluidas": 377340000,
+      "valorReservaNaDataUsd": 54181000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt8021396b97d4846e/69b7814667be9e856f70b020/form-8-k_03-16-2026.pdf"
+    },
+    {
+      "data": "2026-03-23",
+      "quantidadeBtc": 1031,
+      "venda": false,
+      "precoOperacaoUsd": 74326,
+      "valorOperacaoUsd": 77000000,
+      "btcAcumulado": 762099,
+      "precoMedioAcumuladoUsd": 75694,
+      "custoTotalAcumuladoUsd": 57686000000,
+      "acoesBasicas": 345594000,
+      "acoesDiluidas": 377847000,
+      "valorReservaNaDataUsd": 53476000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltddc68ec67ae13dae/69c0a061e335e7ae80542071/form-8-k_03-23-2026_filing-1.pdf"
+    },
+    {
+      "data": "2026-04-06",
+      "quantidadeBtc": 4871,
+      "venda": false,
+      "precoOperacaoUsd": 67718,
+      "valorOperacaoUsd": 330000000,
+      "btcAcumulado": 766970,
+      "precoMedioAcumuladoUsd": 75644,
+      "custoTotalAcumuladoUsd": 58016000000,
+      "acoesBasicas": 346819000,
+      "acoesDiluidas": 379425000,
+      "valorReservaNaDataUsd": 51295000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltfccad63f1d04ff93/69d333062c747bee51577037/form-8-k_04-06-2026.pdf"
+    },
+    {
+      "data": "2026-04-13",
+      "quantidadeBtc": 13927,
+      "venda": false,
+      "precoOperacaoUsd": 71902,
+      "valorOperacaoUsd": 1001000000,
+      "btcAcumulado": 780897,
+      "precoMedioAcumuladoUsd": 75577,
+      "custoTotalAcumuladoUsd": 59018000000,
+      "acoesBasicas": 346823000,
+      "acoesDiluidas": 379423000,
+      "valorReservaNaDataUsd": 57229000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt3d42b5dfaeefd97a/69dc6fdaa22d2281611ded4f/form-8-k_04-13-2026.pdf"
+    },
+    {
+      "data": "2026-04-20",
+      "quantidadeBtc": 34164,
+      "venda": false,
+      "precoOperacaoUsd": 74395,
+      "valorOperacaoUsd": 2542000000,
+      "btcAcumulado": 815061,
+      "precoMedioAcumuladoUsd": 75527,
+      "custoTotalAcumuladoUsd": 61559000000,
+      "acoesBasicas": 348992000,
+      "acoesDiluidas": 381588000,
+      "valorReservaNaDataUsd": 63129000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltef96f8fa042d2a1c/69e59e3c4a14ca473532c6ce/form-8-k_04-20-2026.pdf"
+    },
+    {
+      "data": "2026-04-27",
+      "quantidadeBtc": 3273,
+      "venda": false,
+      "precoOperacaoUsd": 77906,
+      "valorOperacaoUsd": 255000000,
+      "btcAcumulado": 818334,
+      "precoMedioAcumuladoUsd": 75537,
+      "custoTotalAcumuladoUsd": 61814000000,
+      "acoesBasicas": 350449000,
+      "acoesDiluidas": 383036000,
+      "valorReservaNaDataUsd": 63549000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt295a412ea189e38b/69eecd67daf45c04794b181a/form-8-k_04-27-2026.pdf"
+    },
+    {
+      "data": "2026-05-11",
+      "quantidadeBtc": 535,
+      "venda": false,
+      "precoOperacaoUsd": 80340,
+      "valorOperacaoUsd": 43000000,
+      "btcAcumulado": 818869,
+      "precoMedioAcumuladoUsd": 75540,
+      "custoTotalAcumuladoUsd": 61857000000,
+      "acoesBasicas": 351180000,
+      "acoesDiluidas": 383741000,
+      "valorReservaNaDataUsd": 65632000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt7653ead16575975e/6a01462c750c63f12be32cf8/form-8-k_05-11-2026.pdf"
+    },
+    {
+      "data": "2026-05-18",
+      "quantidadeBtc": 24869,
+      "venda": false,
+      "precoOperacaoUsd": 80985,
+      "valorOperacaoUsd": 2014000000,
+      "btcAcumulado": 843738,
+      "precoMedioAcumuladoUsd": 75700,
+      "custoTotalAcumuladoUsd": 63871000000,
+      "acoesBasicas": 351659000,
+      "acoesDiluidas": 384169000,
+      "valorReservaNaDataUsd": 66734000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltc0d0f9d2d325a368/6a0a710811de4f7e170ba045/form-8-k_05-18-2026.pdf"
+    },
+    {
+      "data": "2026-06-01",
+      "quantidadeBtc": -32,
+      "venda": true,
+      "precoOperacaoUsd": 77135,
+      "valorOperacaoUsd": -2000000,
+      "btcAcumulado": 843706,
+      "precoMedioAcumuladoUsd": 75699,
+      "custoTotalAcumuladoUsd": 63867000000,
+      "acoesBasicas": 352527000,
+      "acoesDiluidas": 382756000,
+      "valorReservaNaDataUsd": 61931000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt01aedf36c9f1b5b3/6a1cdb95487e7818fe49dd85/form-8-k_06-01-2026.pdf"
+    },
+    {
+      "data": "2026-06-08",
+      "quantidadeBtc": 1550,
+      "venda": false,
+      "precoOperacaoUsd": 65332,
+      "valorOperacaoUsd": 101000000,
+      "btcAcumulado": 845256,
+      "precoMedioAcumuladoUsd": 75680,
+      "custoTotalAcumuladoUsd": 63969000000,
+      "acoesBasicas": 354289783,
+      "acoesDiluidas": 384179562,
+      "valorReservaNaDataUsd": 50941000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt0eb10e46a66647c3/6a26adab8355c350c5f649f2/form-8-k_06-08-2026.pdf"
+    },
+    {
+      "data": "2026-06-15",
+      "quantidadeBtc": 1587,
+      "venda": false,
+      "precoOperacaoUsd": 63024,
+      "valorOperacaoUsd": 100000000,
+      "btcAcumulado": 846842,
+      "precoMedioAcumuladoUsd": 75656,
+      "custoTotalAcumuladoUsd": 64069000000,
+      "acoesBasicas": 356320000,
+      "acoesDiluidas": 386052000,
+      "valorReservaNaDataUsd": 53819000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltf6b2c0b2a24ad4f0/6a2f5b17ec6a5e1a1e77bb5f/form-8-k_06-15-2026.pdf"
+    },
+    {
+      "data": "2026-06-22",
+      "quantidadeBtc": 520,
+      "venda": false,
+      "precoOperacaoUsd": 67068,
+      "valorOperacaoUsd": 35000000,
+      "btcAcumulado": 847363,
+      "precoMedioAcumuladoUsd": 75651,
+      "custoTotalAcumuladoUsd": 64103000000,
+      "acoesBasicas": 358892000,
+      "acoesDiluidas": 388617000,
+      "valorReservaNaDataUsd": 53275000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt2e9f099c6f750e42/6a38b76f0bbfd04b0ded59bf/form-8-k_06-22-2026.pdf"
+    },
+    {
+      "data": "2026-06-30",
+      "quantidadeBtc": -1363,
+      "venda": true,
+      "precoOperacaoUsd": 59256,
+      "valorOperacaoUsd": -81000000,
+      "btcAcumulado": 846000,
+      "precoMedioAcumuladoUsd": 75578,
+      "custoTotalAcumuladoUsd": 63939000000,
+      "acoesBasicas": 371614000,
+      "acoesDiluidas": 401283000,
+      "valorReservaNaDataUsd": 49672000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt6b18e7bc25a68a8f/6a4b0be1a8ab282d09015d81/form-8-k_07-06-2026.pdf"
+    },
+    {
+      "data": "2026-07-06",
+      "quantidadeBtc": -2225,
+      "venda": true,
+      "precoOperacaoUsd": 60773,
+      "valorOperacaoUsd": -135000000,
+      "btcAcumulado": 843775,
+      "precoMedioAcumuladoUsd": 75476,
+      "custoTotalAcumuladoUsd": 63685000000,
+      "acoesBasicas": 371614000,
+      "acoesDiluidas": 401294000,
+      "valorReservaNaDataUsd": 52444000000,
+      "documentoSec": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt6b18e7bc25a68a8f/6a4b0be1a8ab282d09015d81/form-8-k_07-06-2026.pdf"
+    }
+  ]
+};

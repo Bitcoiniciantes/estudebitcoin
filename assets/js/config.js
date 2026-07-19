@@ -19,6 +19,9 @@ window.BI_CONFIG = {
     coingeckoSimple: 'https://api.coingecko.com/api/v3/simple/price',
     coingeckoMarketChart: 'https://api.coingecko.com/api/v3/coins/bitcoin/market_chart',
     mstrYahoo: 'https://query1.finance.yahoo.com/v8/finance/chart/MSTR?region=US&lang=en-US&interval=1m&range=1d',
+    strategyMstr: 'https://api.strategy.com/btc/mstrKpiData',
+    strategyBtc: 'https://api.strategy.com/btc/bitcoinKpis',
+    strategyTimeSeries: 'https://api.strategy.com/btc/timeSeries',
     // AwesomeAPI (BR) — câmbio USD/BRL histórico, CORS nativo (sem proxy), sem chave.
     // Máximo 360 registros por requisição, por isso buscamos em blocos anuais.
     awesomeApiDaily: 'https://economia.awesomeapi.com.br/json/daily/USD-BRL/360',
@@ -40,7 +43,11 @@ window.BI_CONFIG = {
   // arquivos locais, garantindo que a interface reflita o conteúdo de /dados.
   data: {
     dcaHistory: 'dados/historico_dca.json',
-    etfHistory: 'dados/historico_etf.json'
+    dcaHistoryScript: 'dados/historico_dca-data.js',
+    etfHistory: 'dados/historico_etf.json',
+    etfHistoryScript: 'dados/historico_etf-data.js',
+    strategyPurchases: 'dados/strategy.json',
+    strategyPurchasesScript: 'dados/strategy-data.js'
   },
 
   // CDNs carregados sob demanda

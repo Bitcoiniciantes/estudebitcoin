@@ -1,8 +1,8 @@
-name: Atualizar Historico DCA
+name: Atualizar dados da Strategy
 
 on:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '40 3 * * *'
   workflow_dispatch:
 
 jobs:
@@ -14,11 +14,11 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '18'
-      - run: node scripts/gerar_historico.js
+          node-version: '20'
+      - run: node scripts/atualizar_strategy.js
       - run: |
           git config --global user.name "GitHub Action Bot"
           git config --global user.email "action@github.com"
-          git add dados/historico_dca.json dados/historico_dca-data.js
-          git commit -m "Atualiza historico do DCA" || echo "Sem mudanças"
+          git add dados/strategy.json dados/strategy-data.js
+          git commit -m "Atualiza dados da Strategy" || echo "Sem mudanças"
           git push
