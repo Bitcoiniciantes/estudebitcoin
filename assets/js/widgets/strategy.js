@@ -31,12 +31,24 @@ window.BIWidgets.strategyTreasury = async function () {
         <div class="strategy__metric strategy__metric--accent"><span>mNAV oficial</span><strong id="strategy-mnav">—</strong><small>Valor empresarial ÷ reserva BTC</small></div>
       </div>
 
-      <div class="strategy__layout">
+      <div class="strategy__purchase-card strategy__purchase-card--horizontal">
+        <div class="strategy__purchase-intro">
+          <div class="strategy__section-label">ÚLTIMA COMPRA REALIZADA</div>
+          <div class="strategy__purchase-date" id="strategy-purchase-date">—</div>
+        </div>
+        <div class="strategy__purchase-main"><strong id="strategy-purchase-btc">—</strong><span>BTC</span></div>
+        <div class="strategy__purchase-grid">
+          <div><span>Preço médio</span><strong id="strategy-purchase-price">—</strong></div>
+          <div><span>Investimento</span><strong id="strategy-purchase-total">—</strong></div>
+        </div>
+        <a id="strategy-purchase-source" class="strategy__source-link" href="https://www.strategy.com/purchases" target="_blank" rel="noopener noreferrer">Ver documento oficial ↗</a>
+      </div>
+
+      <div class="strategy__layout strategy__layout--full">
         <div class="strategy__chart-card">
           <div class="strategy__chart-head">
             <div>
-              <h3>mNAV e compras de Bitcoin</h3>
-              <p>As barras marcam movimentações de BTC; a linha mostra o múltiplo oficial.</p>
+              <h3>mNAV e Bitcoin movimentado</h3>
             </div>
             <div class="strategy__tf-group" role="group" aria-label="Período do gráfico">
               <button type="button" class="strategy__tf" data-period="1D">1D</button>
@@ -53,36 +65,31 @@ window.BIWidgets.strategyTreasury = async function () {
             <span>Máximo <strong id="strategy-chart-max">—</strong></span>
             <span>Variação <strong id="strategy-chart-change">—</strong></span>
           </div>
-          <div class="strategy__mnav-guide" aria-label="Como interpretar o mNAV">
-            <div><strong class="strategy__mnav-neutral">mNAV = 1</strong><span>Empresa avaliada pelo valor de sua reserva em Bitcoin.</span></div>
-            <div><strong class="strategy__mnav-premium">mNAV &gt; 1</strong><span>Ação com prêmio: mercado otimista espera retornos maiores.</span></div>
-            <div><strong class="strategy__mnav-discount">mNAV &lt; 1</strong><span>Ação com desconto: mercado precifica riscos e dívidas.</span></div>
-          </div>
-          <div class="strategy__availability" id="strategy-availability"></div>
-        </div>
-
-        <div class="strategy__side">
-          <div class="strategy__purchase-card">
-            <div class="strategy__section-label">ÚLTIMA COMPRA REALIZADA</div>
-            <div class="strategy__purchase-date" id="strategy-purchase-date">—</div>
-            <div class="strategy__purchase-main"><strong id="strategy-purchase-btc">—</strong><span>BTC</span></div>
-            <div class="strategy__purchase-grid">
-              <div><span>Preço médio</span><strong id="strategy-purchase-price">—</strong></div>
-              <div><span>Investimento</span><strong id="strategy-purchase-total">—</strong></div>
+          <div class="strategy__chart-bottom">
+            <div class="strategy__chart-notes">
+              <div class="strategy__mnav-guide" aria-label="Como interpretar o mNAV">
+                <div><strong class="strategy__mnav-neutral">mNAV = 1</strong><span>Empresa avaliada pelo valor de sua reserva em Bitcoin.</span></div>
+                <div><strong class="strategy__mnav-premium">mNAV &gt; 1</strong><span>Ação com prêmio: mercado otimista espera retornos maiores.</span></div>
+                <div><strong class="strategy__mnav-discount">mNAV &lt; 1</strong><span>Ação com desconto: mercado precifica riscos e dívidas.</span></div>
+              </div>
+              <div class="strategy__availability" id="strategy-availability"></div>
             </div>
-            <a id="strategy-purchase-source" class="strategy__source-link" href="https://www.strategy.com/purchases" target="_blank" rel="noopener noreferrer">Ver documento oficial ↗</a>
-          </div>
 
-          <div class="strategy__calculator">
-            <div class="strategy__section-label">CALCULADORA DA RESERVA</div>
-            <label for="strategy-future-price">Se o Bitcoin chegar a</label>
-            <div class="strategy__input-wrap"><span>US$</span><input id="strategy-future-price" type="text" inputmode="numeric" value="150.000" aria-label="Preço futuro do Bitcoin em dólares"></div>
-            <input id="strategy-future-slider" class="strategy__slider" type="range" min="10000" max="1000000" step="10000" value="150000">
-            <div class="strategy__calc-results">
-              <div><span>Reserva projetada</span><strong id="strategy-projected-reserve">—</strong></div>
-              <div><span>Resultado vs. custo</span><strong id="strategy-projected-result">—</strong></div>
+            <div class="strategy__calculator strategy__calculator--embedded">
+              <div class="strategy__calculator-heading">
+                <div class="strategy__section-label">CALCULADORA DA RESERVA</div>
+                <label for="strategy-future-price">Se o Bitcoin chegar a</label>
+              </div>
+              <div class="strategy__calculator-control">
+                <div class="strategy__input-wrap"><span>US$</span><input id="strategy-future-price" type="text" inputmode="numeric" value="150.000" aria-label="Preço futuro do Bitcoin em dólares"></div>
+                <input id="strategy-future-slider" class="strategy__slider" type="range" min="10000" max="1000000" step="10000" value="150000">
+              </div>
+              <div class="strategy__calc-results">
+                <div><span>Reserva projetada</span><strong id="strategy-projected-reserve">—</strong></div>
+                <div><span>Resultado vs. custo</span><strong id="strategy-projected-result">—</strong></div>
+              </div>
+              <p>Simulação da reserva de BTC; não projeta o preço da ação MSTR.</p>
             </div>
-            <p>Simulação da reserva de BTC; não projeta o preço da ação MSTR.</p>
           </div>
         </div>
       </div>
@@ -285,7 +292,9 @@ window.BIWidgets.strategyTreasury = async function () {
         purchasesByDate.set(item.data, (purchasesByDate.get(item.data) || 0) + item.quantidadeBtc);
       }
     });
-    var purchaseBars = points.map(function (item) { return purchasesByDate.get(item.date.slice(0, 10)) || null; });
+    var movements = points.map(function (item) { return purchasesByDate.get(item.date.slice(0, 10)) || null; });
+    var purchaseBars = movements.map(function (value) { return value != null && value > 0 ? value : null; });
+    var saleBars = movements.map(function (value) { return value != null && value < 0 ? value : null; });
 
     var ctx = document.getElementById('strategy-mnav-chart').getContext('2d');
     if (chart) chart.destroy();
@@ -298,7 +307,11 @@ window.BIWidgets.strategyTreasury = async function () {
             fill: true, borderWidth: 2.5, pointRadius: 0, pointHitRadius: 10, tension: 0.25, yAxisID: 'y', order: 1
           },
           {
-            type: 'bar', label: 'BTC movimentado', data: purchaseBars, backgroundColor: purchaseBars.map(function (v) { return v != null && v < 0 ? 'rgba(255,77,109,0.55)' : 'rgba(74,222,128,0.55)'; }),
+            type: 'bar', label: 'Compra', data: purchaseBars, backgroundColor: 'rgba(74,222,128,0.62)',
+            borderRadius: 3, yAxisID: 'y1', order: 2
+          },
+          {
+            type: 'bar', label: 'Venda', data: saleBars, backgroundColor: 'rgba(255,77,109,0.62)',
             borderRadius: 3, yAxisID: 'y1', order: 2
           }
         ]
@@ -315,7 +328,10 @@ window.BIWidgets.strategyTreasury = async function () {
           legend: { labels: { color: '#d9dce3', usePointStyle: true, boxWidth: 8 } },
           tooltip: { callbacks: {
             title: function (items) { return items.length ? fmtDate(items[0].label) : ''; },
-            label: function (item) { return item.dataset.yAxisID === 'y' ? ' mNAV: ' + Number(item.parsed.y).toFixed(2) + 'x' : ' BTC movimentado: ' + fmtInt(item.parsed.y); }
+            label: function (item) {
+              if (item.dataset.yAxisID === 'y') return ' mNAV: ' + Number(item.parsed.y).toFixed(2) + 'x';
+              return ' ' + item.dataset.label + ': ' + fmtInt(Math.abs(item.parsed.y)) + ' BTC';
+            }
           } }
         }
       }
