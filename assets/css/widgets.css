@@ -893,7 +893,7 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
 .strategy__purchase-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
 .strategy__purchase-grid div { background:#101214; border-radius:7px; padding:8px; }
 .strategy__purchase-grid .strategy__purchase-usd-reserve { background:linear-gradient(135deg,rgba(255,145,0,.11),#16181b 72%); border:1px solid rgba(255,145,0,.62); }
-.strategy__purchase-usd-reserve strong { color:var(--strategy-orange); }
+.strategy__purchase-grid .strategy__purchase-usd-reserve strong { color:var(--strategy-orange); }
 .strategy__purchase-grid span, .strategy__calc-results span { display:block; color:#777d88; font-size:9px; margin-bottom:3px; }
 .strategy__purchase-grid strong, .strategy__calc-results strong { color:#e9eaed; font:700 12px var(--font-mono); }
 .strategy__source-link { display:inline-block; color:#aab0bb; font-size:10px; margin-top:11px; text-decoration:none; }
