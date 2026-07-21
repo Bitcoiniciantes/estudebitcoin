@@ -191,16 +191,18 @@
     .widget-grid {
       padding-bottom: 20px;
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(10, 1fr);
       gap: 10px;
     }
 
     .ws { min-width: 0; overflow: hidden; }
-    .ws-5 { grid-column: span 5; }
-    .ws-4 { grid-column: span 4; }
-    .ws-3 { grid-column: span 3; }
-    .ws-2 { grid-column: span 2; }
-    .ws-1 { grid-column: span 1; }
+    .ws-5 { grid-column: span 10; }
+    .ws-4 { grid-column: span 8; }
+    .ws-3 { grid-column: span 6; }
+    .ws-2 { grid-column: span 4; }
+    .ws-1 { grid-column: span 2; }
+    .widget-grid > .ws:nth-child(1),
+    .widget-grid > .ws:nth-child(2) { grid-column: span 5; }
 
     /* Force widgets to fill slot */
     .ws .btc-ultra-card, .ws .fng-outer, .ws .mempool-widget,
@@ -332,19 +334,23 @@
 
     /* Responsive */
     @media (max-width: 1200px) {
-      .widget-grid { grid-template-columns: repeat(3, 1fr); }
-      .ws-5 { grid-column: span 3; }
-      .ws-4 { grid-column: span 3; }
+      .widget-grid { grid-template-columns: repeat(6, 1fr); }
+      .ws-5, .ws-4, .ws-3 { grid-column: span 6; }
+      .ws-2 { grid-column: span 4; }
+      .ws-1 { grid-column: span 2; }
+      .widget-grid > .ws:nth-child(1),
+      .widget-grid > .ws:nth-child(2) { grid-column: span 3; }
     }
 
     @media (max-width: 900px) {
       .widget-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 8px;
       }
-      .ws-5 { grid-column: span 2; }
-      .ws-4 { grid-column: span 2; }
-      .ws-3 { grid-column: span 2; }
+      .ws-5, .ws-4, .ws-3, .ws-2 { grid-column: span 4; }
+      .ws-1 { grid-column: span 2; }
+      .widget-grid > .ws:nth-child(1),
+      .widget-grid > .ws:nth-child(2) { grid-column: span 2; }
     }
 
     @media (max-width: 640px) {
@@ -354,6 +360,8 @@
       }
       .ws-5, .ws-4, .ws-3, .ws-2 { grid-column: span 1; }
       .ws-1 { grid-column: span 1; }
+      .widget-grid > .ws:nth-child(1),
+      .widget-grid > .ws:nth-child(2) { grid-column: span 1; }
       .container { padding: 0 3%; }
       .dash-header-inner { padding: 8px 0 4px; }
     }
