@@ -25,7 +25,7 @@ window.BIWidgets.strategyTreasury = async function () {
       <div class="strategy__warning"><strong>MSTR não é Bitcoin.</strong> A ação envolve riscos empresariais, dívida, diluição e prêmio ou desconto de mercado.</div>
 
       <div class="strategy__metrics" aria-label="Indicadores principais da Strategy">
-        <div class="strategy__metric"><span>BTC em reserva</span><strong id="strategy-btc">—</strong><small id="strategy-supply">—</small></div>
+        <div class="strategy__metric strategy__metric--accent"><span>BTC em reserva</span><strong id="strategy-btc">—</strong><small id="strategy-supply">—</small></div>
         <div class="strategy__metric"><span>Preço médio</span><strong id="strategy-average">—</strong><small>Custo médio acumulado</small></div>
         <div class="strategy__metric"><span>Valor da reserva</span><strong id="strategy-reserve">—</strong><small id="strategy-btc-price">—</small></div>
         <div class="strategy__metric strategy__metric--accent"><span>mNAV oficial</span><strong id="strategy-mnav">—</strong><small>Valor empresarial ÷ reserva BTC</small></div>
@@ -40,6 +40,7 @@ window.BIWidgets.strategyTreasury = async function () {
         <div class="strategy__purchase-grid">
           <div><span>Preço médio</span><strong id="strategy-purchase-price">—</strong></div>
           <div><span>Investimento</span><strong id="strategy-purchase-total">—</strong></div>
+          <div class="strategy__purchase-usd-reserve"><span>Reserva USD (US$ mi)</span><strong id="strategy-usd-reserve">—</strong></div>
         </div>
         <a id="strategy-purchase-source" class="strategy__source-link" href="https://www.strategy.com/purchases" target="_blank" rel="noopener noreferrer">Ver documento oficial ↗</a>
       </div>
@@ -167,12 +168,14 @@ window.BIWidgets.strategyTreasury = async function () {
 
     var enterpriseValue = num(mstr.entVal) * 1000000;
     var reserveValue = num(btc.btcNavNumber) * 1000000;
+    var usdReserve = num(btc.totalAnnualDividends) * num(btc.usdMonthsOfDividends) / 12;
     var mnav = reserveValue > 0 ? enterpriseValue / reserveValue : 0;
 
     current = {
       holdings: num(btc.btcHoldings),
       btcPrice: num(btc.latestPrice),
       reserveValue: reserveValue,
+      usdReserve: usdReserve,
       mnav: mnav,
       averagePrice: latestMovement.precoMedioAcumuladoUsd,
       totalCost: latestMovement.custoTotalAcumuladoUsd,
@@ -190,6 +193,7 @@ window.BIWidgets.strategyTreasury = async function () {
     setText('strategy-purchase-btc', fmtInt(latestBuy.quantidadeBtc));
     setText('strategy-purchase-price', fmtUsd(latestBuy.precoOperacaoUsd, 0));
     setText('strategy-purchase-total', fmtCompactUsd(latestBuy.valorOperacaoUsd));
+    setText('strategy-usd-reserve', fmtInt(current.usdReserve / 1000000));
     var sourceLink = document.getElementById('strategy-purchase-source');
     if (sourceLink && latestBuy.documentoSec) sourceLink.href = latestBuy.documentoSec;
 
