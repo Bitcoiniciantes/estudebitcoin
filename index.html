@@ -357,6 +357,14 @@
       .container { padding: 0 3%; }
       .dash-header-inner { padding: 8px 0 4px; }
     }
+
+    /* Widget externo do Termômetro */
+    .termometro-widget-wrap { background:#09100e; border:1px solid #26312d; overflow:hidden; }
+    .termometro-widget-head { min-height:52px; padding:0 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; background:#0d1512; border-bottom:1px solid #26312d; color:#e9eee8; }
+    .termometro-widget-head strong { font-size:.78rem; letter-spacing:.12em; }
+    .termometro-widget-head a { color:#54b85a; font-size:.7rem; font-weight:800; text-decoration:none; }
+    .termometro-widget { display:block; width:100%; height:560px; border:0; background:#09100e; }
+    @media(max-width:600px){ .termometro-widget-head{align-items:flex-start;flex-direction:column;padding:14px}.termometro-widget{height:930px} }
   </style>
 </head>
 <body>
@@ -749,6 +757,16 @@
   </div>
 
 </main>
+<!-- TERMÔMETRO — radar incorporado sem duplicação de lógica -->
+<section class="container" style="padding-top:0;padding-bottom:16px;">
+  <div class="termometro-widget-wrap">
+    <div class="termometro-widget-head">
+      <strong>TERMÔMETRO · RADAR COMPRA × VENDA</strong>
+      <a href="https://bitcoiniciantes.github.io/termometro/" target="_blank" rel="noopener">ABRIR TERMÔMETRO COMPLETO ↗</a>
+    </div>
+    <iframe class="termometro-widget" src="https://bitcoiniciantes.github.io/termometro/widget/" title="Radar Compra e Venda do Termômetro" loading="lazy"></iframe>
+  </div>
+</section>
 
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- WIDGET ETF — SoSoValue (acima de Projeções) -->
