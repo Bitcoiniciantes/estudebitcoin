@@ -143,5 +143,10 @@
     "data": "2026-07-22",
     "fluxoLiquidoUsd": 68987046.87500043,
     "ativosTotaisUsd": 80361241200.86504
+  },
+  {
+    "data": "2026-07-23",
+    "fluxoLiquidoUsd": -225176828.385,
+    "ativosTotaisUsd": 78816707402.76843
   }
 ]
