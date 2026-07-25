@@ -190,6 +190,7 @@ window.BIWidgets.costBasis = async function () {
       pointRadius: 0,
       pointHitRadius: 8,
       tension: 0.12,
+      clip: { left: 0, top: 0, right: -8, bottom: 0 },
       spanGaps: true
     };
   }
