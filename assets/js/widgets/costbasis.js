@@ -144,7 +144,15 @@ window.BIWidgets.costBasis = async function () {
           x: {
             grid: { display: false },
             border: { display: true, color: 'rgba(255,255,255,.22)', width: 1 },
-            ticks: { color: '#8d939d', maxTicksLimit: 8, maxRotation: 0 }
+            ticks: {
+              color: '#8d939d',
+              maxTicksLimit: 8,
+              maxRotation: 0,
+              callback: function (value) {
+                var parts = String(this.getLabelForValue(value)).split('-');
+                return parts.length === 3 ? parts[2] + '/' + parts[1] + '/' + parts[0].slice(2) : '';
+              }
+            }
           },
           y: {
             type: 'logarithmic',
