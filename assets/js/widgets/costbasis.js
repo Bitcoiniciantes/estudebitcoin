@@ -129,9 +129,9 @@ window.BIWidgets.costBasis = async function () {
       data: {
         labels: labels,
         datasets: [
-          line('Preço BTC', price, '#f7931a', 1.3),
-          line('Realized Price', realised, '#a28dff', 2),
-          line('LTH Cost Basis', lth, '#38d996', 2)
+          line('Preço BTC · mercado', price, '#f7931a', 1.3),
+          line('Realized Price · custo médio geral', realised, '#a28dff', 2),
+          line('LTH Cost Basis · longo prazo', lth, '#38d996', 2)
         ]
       },
       options: {
