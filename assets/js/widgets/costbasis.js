@@ -129,9 +129,9 @@ window.BIWidgets.costBasis = async function () {
       data: {
         labels: labels,
         datasets: [
-          line('Preço BTC · mercado', price, '#f7931a', 1.3),
-          line('Realized Price · custo médio geral', realised, '#a28dff', 2),
-          line('LTH Cost Basis · longo prazo', lth, '#38d996', 2)
+          line('Preço BTC', price, '#f7931a', 1.3),
+          line('Custo Médio Geral', realised, '#a28dff', 2),
+          line('Detentores Longo Prazo', lth, '#38d996', 2)
         ]
       },
       options: {
@@ -157,6 +157,7 @@ window.BIWidgets.costBasis = async function () {
           y: {
             type: 'logarithmic',
             position: 'right',
+            afterFit: function (scale) { scale.width = Math.max(34, scale.width - 8); },
             grid: { color: 'rgba(255,255,255,.06)' },
             border: { display: true, color: 'rgba(255,255,255,.30)', width: 1 },
             ticks: {
@@ -198,7 +199,6 @@ window.BIWidgets.costBasis = async function () {
       pointRadius: 0,
       pointHitRadius: 8,
       tension: 0.12,
-      clip: { left: 0, top: 0, right: -8, bottom: 0 },
       spanGaps: true
     };
   }
