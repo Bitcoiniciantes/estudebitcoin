@@ -143,11 +143,14 @@ window.BIWidgets.costBasis = async function () {
         scales: {
           x: {
             grid: { display: false },
+            border: { display: true, color: 'rgba(255,255,255,.22)', width: 1 },
             ticks: { color: '#8d939d', maxTicksLimit: 8, maxRotation: 0 }
           },
           y: {
             type: 'logarithmic',
+            position: 'right',
             grid: { color: 'rgba(255,255,255,.06)' },
+            border: { display: true, color: 'rgba(255,255,255,.30)', width: 1 },
             ticks: {
               color: '#8d939d',
               callback: function (value) { return '$' + compact(value); }
