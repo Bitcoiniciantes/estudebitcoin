@@ -46,6 +46,8 @@ window.BI_CONFIG = {
     dcaHistoryScript: 'dados/historico_dca-data.js',
     etfHistory: 'dados/historico_etf.json',
     etfHistoryScript: 'dados/historico_etf-data.js',
+    costBasis: 'dados/costbasis.json',
+    costBasisScript: 'dados/costbasis-data.js',
     strategyPurchases: 'dados/strategy.json',
     strategyPurchasesScript: 'dados/strategy-data.js'
   },
