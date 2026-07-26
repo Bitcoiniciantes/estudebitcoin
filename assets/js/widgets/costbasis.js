@@ -157,7 +157,6 @@ window.BIWidgets.costBasis = async function () {
           y: {
             type: 'logarithmic',
             position: 'right',
-            afterFit: function (scale) { scale.width = Math.max(34, scale.width - 8); },
             grid: { color: 'rgba(255,255,255,.06)' },
             border: { display: true, color: 'rgba(255,255,255,.30)', width: 1 },
             ticks: {
