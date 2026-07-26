@@ -622,7 +622,7 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
 .costbasis-filters button:hover { background:#222; }
 .costbasis-filters button.active { color:var(--btc-orange); border-color:var(--btc-orange); }
 .costbasis-chart-wrap { position:relative; width:calc(100% + 8px); margin-right:-8px; height:430px; }
-.costbasis-note { margin:10px 0 0; color:#777; font-size:10px; line-height:1.5; }
+.costbasis-note { margin:10px 0 0; color:#777; font-size:12px; line-height:1.5; }
 .costbasis-note a { color:#aaa; text-decoration:underline; }
 .costbasis-error { color:#ffb4c0; padding:24px; text-align:center; }
 @media (max-width:700px) {
