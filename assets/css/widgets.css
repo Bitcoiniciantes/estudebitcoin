@@ -603,6 +603,7 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
 /* =====================================================================
    BASE DE CUSTO DO BITCOIN
    ===================================================================== */
+.container.costbasis-section { padding-left:0; padding-right:0; }
 .costbasis-widget { max-width:1200px; margin:20px auto; }
 .costbasis-header { display:flex; align-items:center; flex-wrap:wrap; gap:14px 24px; margin-bottom:16px; }
 .costbasis-title { margin:0 0 3px; color:#fff; font-size:16px; }
