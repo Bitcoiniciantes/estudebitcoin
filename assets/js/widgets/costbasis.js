@@ -26,7 +26,6 @@ window.BIWidgets.costBasis = async function () {
         <canvas id="costbasis-chart" aria-label="Gráfico histórico do preço do Bitcoin, Realized Price e LTH Cost Basis"></canvas>
       </div>
       <p class="costbasis-note">
-        Realized Price representa o custo médio de todo o mercado. LTH Cost Basis considera investidores de longo prazo.
         Fonte: <a href="https://charts.checkonchain.com/btconchain/pricing/pricing_costbasisoriginals/pricing_costbasisoriginals_light.html"
           target="_blank" rel="noopener noreferrer">Checkonchain</a>.
       </p>
