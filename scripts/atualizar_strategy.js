@@ -1,7 +1,32 @@
 const fs = require('fs');
 const path = require('path');
 
-const SOURCE_URL = 'https://www.strategy.com/purchases';
+const SOURCE_URL = 'https://www.strategy.com/ledger';
+
+function mnavValido(value) {
+  return Number.isFinite(Number(value)) && Number(value) > 0;
+}
+
+function mesclarHistoricoMnav(anterior, novo) {
+  const porData = new Map();
+  for (const item of anterior || []) {
+    const data = String(item?.date || '').slice(0, 10);
+    if (data) porData.set(data, { ...item });
+  }
+  for (const item of novo || []) {
+    const data = String(item?.date || '').slice(0, 10);
+    if (!data) continue;
+    const existente = porData.get(data);
+    if (mnavValido(item.mNav)) {
+      porData.set(data, { ...(existente || {}), ...item, mNav: Number(item.mNav) });
+    } else if (!existente) {
+      porData.set(data, { ...item });
+    }
+  }
+  return Array.from(porData.values()).sort((a, b) =>
+    String(b.date).localeCompare(String(a.date))
+  );
+}
 
 async function atualizarStrategy() {
   const resposta = await fetch(SOURCE_URL, {
@@ -57,6 +82,15 @@ async function atualizarStrategy() {
   const btcDados = await btcResposta.json();
   const historicoDados = await historicoResposta.json();
 
+  const arquivo = path.join(__dirname, '../dados/strategy.json');
+  let historicoAnterior = [];
+  try {
+    const anterior = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
+    historicoAnterior = Array.isArray(anterior.mnavHistorico) ? anterior.mnavHistorico : [];
+  } catch {}
+
+  const historicoNovo = historicoDados?.[0]?.values || [];
+  const historicoPreservado = mesclarHistoricoMnav(historicoAnterior, historicoNovo);
   const saida = {
     fonte: SOURCE_URL,
     atualizadoEm: new Date().toISOString(),
@@ -67,16 +101,19 @@ async function atualizarStrategy() {
       bitcoin: btcDados?.results || null,
       timestamp: btcDados?.timestamp || mstrDados?.[0]?.timeStampUtc || null
     },
-    mnavHistorico: historicoDados?.[0]?.values || [],
+    mnavHistorico: historicoPreservado,
     compras
   };
 
   const json = JSON.stringify(saida, null, 2);
-  const arquivo = path.join(__dirname, '../dados/strategy.json');
   const arquivoScript = path.join(__dirname, '../dados/strategy-data.js');
   fs.writeFileSync(arquivo, json + '\n', 'utf8');
   fs.writeFileSync(arquivoScript, 'window.BI_STRATEGY_DATA = ' + json + ';\n', 'utf8');
-  console.log(`Strategy atualizada: ${compras.length} movimentações até ${saida.ultimaData}.`);
+  const mnavValidos = historicoPreservado.filter((item) => mnavValido(item.mNav)).length;
+  console.log(
+    `Strategy atualizada: ${compras.length} movimentacoes, ` +
+    `${mnavValidos} pontos mNAV preservados ate ${saida.ultimaData}.`
+  );
 }
 
 atualizarStrategy().catch((erro) => {

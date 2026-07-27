@@ -215,7 +215,10 @@ window.BIWidgets.strategyTreasury = async function () {
     if (period === '1W') start.setDate(start.getDate() - 7);
     if (period === '1M') start.setMonth(start.getMonth() - 1);
     if (period === '1Y') start.setFullYear(start.getFullYear() - 1);
-    if (period === 'MAX') start = new Date('2024-12-01T00:00:00Z');
+    if (period === 'MAX') {
+      var firstPurchase = compras.length ? compras[0].data : '2020-08-10';
+      start = new Date(firstPurchase + 'T00:00:00Z');
+    }
     return start;
   }
 
@@ -229,6 +232,10 @@ window.BIWidgets.strategyTreasury = async function () {
     var start = periodStart(period);
     var end = new Date();
     var url = CFG.api.strategyTimeSeries + '?from=' + isoDate(start) + '&to=' + isoDate(end) + '&tickers=MSTR&metrics=mNav';
+    var cached = purchaseDataCache && Array.isArray(purchaseDataCache.mnavHistorico)
+      ? purchaseDataCache.mnavHistorico
+      : [];
+    var cachedPoints = prepareHistory(cached, start, end, period);
 
     root.classList.add('strategy--loading-chart');
     try {
@@ -236,15 +243,14 @@ window.BIWidgets.strategyTreasury = async function () {
       if (!response.ok) throw new Error('HTTP ' + response.status);
       var payload = await response.json();
       var values = payload && payload[0] && Array.isArray(payload[0].values) ? payload[0].values : [];
-      var points = prepareHistory(values, start, end, period);
-      if (!points.length) throw new Error('Sem histórico de mNAV para o período.');
+      var livePoints = prepareHistory(values, start, end, period);
+      var points = mergeHistory(cachedPoints, livePoints);
+      if (!points.length) throw new Error('Sem historico de mNAV para o periodo.');
       renderHistory(points, start, period);
     } catch (error) {
       if (error.name !== 'AbortError') {
-        var cached = purchaseDataCache && Array.isArray(purchaseDataCache.mnavHistorico) ? purchaseDataCache.mnavHistorico : [];
-        var fallbackPoints = prepareHistory(cached, start, end, period);
-        if (fallbackPoints.length) {
-          renderHistory(fallbackPoints, start, period);
+        if (cachedPoints.length) {
+          renderHistory(cachedPoints, start, period);
           setText('strategy-availability', 'Exibindo o último histórico oficial salvo.');
         } else {
           showError('Não foi possível carregar o histórico de mNAV.');
@@ -263,17 +269,32 @@ window.BIWidgets.strategyTreasury = async function () {
       var rawMnav = item.mNav;
       return date >= from && date <= to && rawMnav !== null && rawMnav !== undefined && rawMnav !== '' && num(rawMnav) > 0;
     });
-    if (period === '1D') points = points.slice(0, 2);
-    points.reverse();
+    points.sort(function (a, b) {
+      return String(a.date).localeCompare(String(b.date));
+    });
+    if (period === '1D') points = points.slice(-2);
     return points;
   }
 
+  function mergeHistory(saved, live) {
+    var byDate = new Map();
+    saved.forEach(function (item) {
+      byDate.set(String(item.date).slice(0, 10), item);
+    });
+    live.forEach(function (item) {
+      byDate.set(String(item.date).slice(0, 10), item);
+    });
+    return Array.from(byDate.values()).sort(function (a, b) {
+      return String(a.date).localeCompare(String(b.date));
+    });
+  }
+
   function renderHistory(points, requestedStart, period) {
-    var values = points.map(function (item) { return num(item.mNav); });
-    var min = Math.min.apply(null, values);
-    var max = Math.max.apply(null, values);
-    var first = values[0];
-    var last = values[values.length - 1];
+    var mnavValues = points.map(function (item) { return num(item.mNav); });
+    var min = Math.min.apply(null, mnavValues);
+    var max = Math.max.apply(null, mnavValues);
+    var first = mnavValues[0];
+    var last = mnavValues[mnavValues.length - 1];
     var change = first ? ((last / first) - 1) * 100 : 0;
 
     setText('strategy-chart-current', last.toFixed(2) + 'x');
@@ -283,20 +304,36 @@ window.BIWidgets.strategyTreasury = async function () {
     var changeEl = document.getElementById('strategy-chart-change');
     if (changeEl) changeEl.className = change >= 0 ? 'strategy__positive' : 'strategy__negative';
 
-    var earliest = points[0].date.slice(0, 10);
+    var earliestMnav = points[0].date.slice(0, 10);
     var note = '';
-    if (period === 'MAX' && earliest > isoDate(requestedStart)) {
-      note = 'Histórico oficial de mNAV disponível desde ' + fmtDate(earliest) + '.';
+    if (period === 'MAX') {
+      note = 'Compras desde ' + fmtDate(isoDate(requestedStart)) +
+        '; mNAV oficial preservado desde ' + fmtDate(earliestMnav) + '.';
     }
     setText('strategy-availability', note);
 
     var purchasesByDate = new Map();
+    var timelineDates = new Set(points.map(function (item) {
+      return item.date.slice(0, 10);
+    }));
+    var from = isoDate(requestedStart);
+    var to = isoDate(new Date());
     compras.forEach(function (item) {
-      if (item.data >= points[0].date.slice(0, 10) && item.data <= points[points.length - 1].date.slice(0, 10)) {
+      if (item.data >= from && item.data <= to) {
         purchasesByDate.set(item.data, (purchasesByDate.get(item.data) || 0) + item.quantidadeBtc);
+        timelineDates.add(item.data);
       }
     });
-    var movements = points.map(function (item) { return purchasesByDate.get(item.date.slice(0, 10)) || null; });
+    var labels = Array.from(timelineDates).sort();
+    var mnavByDate = new Map(points.map(function (item) {
+      return [item.date.slice(0, 10), num(item.mNav)];
+    }));
+    var values = labels.map(function (date) {
+      return mnavByDate.has(date) ? mnavByDate.get(date) : null;
+    });
+    var movements = labels.map(function (date) {
+      return purchasesByDate.get(date) || null;
+    });
     var purchaseBars = movements.map(function (value) { return value != null && value > 0 ? value : null; });
     var saleBars = movements.map(function (value) { return value != null && value < 0 ? value : null; });
 
@@ -304,11 +341,12 @@ window.BIWidgets.strategyTreasury = async function () {
     if (chart) chart.destroy();
     chart = new Chart(ctx, {
       data: {
-        labels: points.map(function (item) { return item.date.slice(0, 10); }),
+        labels: labels,
         datasets: [
           {
             type: 'line', label: 'mNAV', data: values, borderColor: '#f7931a', backgroundColor: 'rgba(247,147,26,0.16)',
-            fill: true, borderWidth: 2.5, pointRadius: 0, pointHitRadius: 10, tension: 0.25, yAxisID: 'y', order: 1
+            fill: true, borderWidth: 2.5, pointRadius: 0, pointHitRadius: 10, tension: 0.25,
+            spanGaps: false, yAxisID: 'y', order: 1
           },
           {
             type: 'bar', label: 'Compra', data: purchaseBars, backgroundColor: 'rgba(74,222,128,0.62)',
@@ -390,7 +428,7 @@ window.BIWidgets.strategyTreasury = async function () {
   async function loadPurchaseData() {
     if (location.protocol !== 'file:') {
       try {
-        return await loadPurchaseData();
+        return await BI.fetchJSON(CFG.data.strategyPurchases, { timeout: 10000 });
       } catch (error) {
         console.warn('[Strategy] JSON local indisponível; usando arquivo compatível.', error);
       }
