@@ -631,6 +631,45 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
   .costbasis-chart-wrap { height:330px; }
 }
 
+/* =====================================================================
+   NUPL — LUCRO/PREJUÍZO NÃO REALIZADO
+   ===================================================================== */
+.nupl-widget { width:100%; max-width:none; margin:0; }
+.nupl-header { display:flex; align-items:center; flex-wrap:wrap; gap:14px 24px; margin-bottom:16px; }
+.nupl-title { margin:0 0 3px; color:#fff; font-size:16px; }
+.nupl-subtitle { margin:0; color:#8d939d; font-size:11px; }
+.nupl-values { display:flex; flex-wrap:wrap; gap:18px; margin-right:auto; }
+.nupl-values span { display:flex; flex-direction:column; gap:3px; }
+.nupl-values small { color:#8d939d; font-size:9px; text-transform:uppercase; letter-spacing:.05em; }
+.nupl-values strong { color:#fff; font-family:var(--font-mono); font-size:14px; }
+.nupl-values span:nth-child(3) strong { color:#c7cbd3; }
+.nupl-filters { display:flex; gap:6px; }
+.nupl-filters button {
+  background:#111;
+  color:#ddd;
+  border:1px solid rgba(255,255,255,.1);
+  padding:5px 9px;
+  border-radius:6px;
+  cursor:pointer;
+  font-size:11px;
+}
+.nupl-filters button:hover { background:#222; }
+.nupl-filters button.active { color:var(--btc-orange); border-color:var(--btc-orange); }
+.nupl-chart-wrap {
+  position:relative;
+  width:calc(100% + 8px);
+  margin-right:-8px;
+  height:430px;
+}
+.nupl-note { margin:10px 0 0; color:#777; font-size:12px; line-height:1.5; }
+.nupl-note a { color:#aaa; text-decoration:underline; }
+.nupl-error { width:100%; max-width:none; color:#ffb4c0; padding:24px; text-align:center; }
+@media (max-width:700px) {
+  .nupl-header { align-items:flex-start; }
+  .nupl-values { order:3; width:100%; justify-content:space-between; }
+  .nupl-chart-wrap { height:330px; }
+}
+
 
 /* =====================================================================
    8. CONVERSOR DE BITCOIN (Estilo Preev Minimalista)

@@ -48,6 +48,8 @@ window.BI_CONFIG = {
     etfHistoryScript: 'dados/historico_etf-data.js',
     costBasis: 'dados/costbasis.json',
     costBasisScript: 'dados/costbasis-data.js',
+    nupl: 'dados/nupl.json',
+    nuplScript: 'dados/nupl-data.js',
     strategyPurchases: 'dados/strategy.json',
     strategyPurchasesScript: 'dados/strategy-data.js'
   },
