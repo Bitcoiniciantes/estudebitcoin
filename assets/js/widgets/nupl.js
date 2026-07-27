@@ -199,8 +199,8 @@ window.BIWidgets.nupl = async function () {
           nupl: {
             type: 'linear',
             position: 'right',
-            suggestedMin: -0.6,
-            suggestedMax: 1,
+            min: -0.5,
+            max: 2,
             grid: {
               color: function (context) {
                 return context.tick && context.tick.value === 0
@@ -214,6 +214,7 @@ window.BIWidgets.nupl = async function () {
             border: { display: true, color: 'rgba(255,255,255,.30)', width: 1 },
             ticks: {
               color: '#8d939d',
+              stepSize: 0.5,
               callback: function (value) {
                 return Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
               }
