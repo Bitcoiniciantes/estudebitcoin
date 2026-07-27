@@ -19,16 +19,14 @@ window.BIWidgets.nupl = async function () {
         <div class="nupl-filters" aria-label="Período do gráfico NUPL">
           <button type="button" data-range="1">1 ano</button>
           <button type="button" data-range="3">3 anos</button>
-          <button type="button" data-range="2021" class="active">Desde 2021</button>
-          <button type="button" data-range="max">Máx.</button>
+          <button type="button" data-range="2021">Desde 2021</button>
+          <button type="button" data-range="max" class="active">Máx.</button>
         </div>
       </div>
       <div class="nupl-chart-wrap">
         <canvas id="nupl-chart" aria-label="Gráfico histórico do preço do Bitcoin e das fases do NUPL"></canvas>
       </div>
       <p class="nupl-note">
-        O NUPL compara o lucro ou prejuízo não realizado dos investidores com o valor de mercado.
-        As cores mostram a fase predominante: euforia, crença, otimismo, medo ou capitulação.
         Fonte: <a href="https://charts.checkonchain.com/btconchain/unrealised/nupl/nupl_light.html"
           target="_blank" rel="noopener noreferrer">Checkonchain</a>.
       </p>
@@ -50,7 +48,7 @@ window.BIWidgets.nupl = async function () {
   if (typeof Chart === 'undefined') await BI.loadScript(window.BI_CONFIG.cdn.chartjs);
 
   var chart;
-  var selectedRange = '2021';
+  var selectedRange = 'max';
   var money = new Intl.NumberFormat('pt-BR', {
     style: 'currency', currency: 'USD', maximumFractionDigits: 0
   });
@@ -139,11 +137,13 @@ window.BIWidgets.nupl = async function () {
     var labels = [];
     var price = [];
     var zoneData = {};
+    var activeZones = [];
     zones.forEach(function (zone) { zoneData[zone.key] = []; });
 
     for (var i = start; i < payload.dates.length; i += step) {
       labels.push(payload.dates[i]);
       price.push(payload.price[i]);
+      activeZones.push(activeZoneAt(i));
       zones.forEach(function (zone) {
         zoneData[zone.key].push(payload[zone.key][i]);
       });
@@ -152,11 +152,13 @@ window.BIWidgets.nupl = async function () {
       var last = payload.dates.length - 1;
       labels.push(payload.dates[last]);
       price.push(payload.price[last]);
+      activeZones.push(activeZoneAt(last));
       zones.forEach(function (zone) {
         zoneData[zone.key].push(payload[zone.key][last]);
       });
     }
 
+    bridgeZoneTransitions(zoneData, activeZones);
     var datasets = [priceLine(price)];
     zones.forEach(function (zone) {
       datasets.push(nuplLine(zone.label, zoneData[zone.key], zone.color));
@@ -277,6 +279,28 @@ window.BIWidgets.nupl = async function () {
       tension: 0.08,
       spanGaps: false
     };
+  }
+
+  function activeZoneAt(index) {
+    for (var i = 0; i < zones.length; i += 1) {
+      if (Number.isFinite(payload[zones[i].key][index])) return zones[i].key;
+    }
+    return null;
+  }
+
+  function bridgeZoneTransitions(data, activeZones) {
+    for (var i = 1; i < activeZones.length; i += 1) {
+      var previousKey = activeZones[i - 1];
+      var currentKey = activeZones[i];
+      if (!previousKey || !currentKey || previousKey === currentKey) continue;
+
+      var previousValue = data[previousKey][i - 1];
+      var currentValue = data[currentKey][i];
+      if (!Number.isFinite(previousValue) || !Number.isFinite(currentValue)) continue;
+
+      data[previousKey][i] = currentValue;
+      data[currentKey][i - 1] = previousValue;
+    }
   }
 
   function compact(value) {

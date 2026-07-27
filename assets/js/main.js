@@ -112,8 +112,8 @@
   lazyWidget('mural-root', 'assets/js/widgets/mural.js', 'mural')
   lazyWidget('halving-root', 'assets/js/widgets/halving.js', 'halving');
   lazyWidget('widget-etf-sosovalue', 'assets/js/widgets/etf.js?v=2', 'etfWidget');
-  lazyWidget('costbasis-root', 'assets/js/widgets/costbasis.js?v=7', 'costBasis');
-  lazyWidget('nupl-root', 'assets/js/widgets/nupl.js?v=3', 'nupl');
+  lazyWidget('costbasis-root', 'assets/js/widgets/costbasis.js?v=8', 'costBasis');
+  lazyWidget('nupl-root', 'assets/js/widgets/nupl.js?v=4', 'nupl');
   lazyWidget('strategy-root', 'assets/js/widgets/strategy.js?v=12', 'strategyTreasury');
 })();
 
