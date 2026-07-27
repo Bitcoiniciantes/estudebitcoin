@@ -34,6 +34,14 @@ window.BIWidgets.nupl = async function () {
       </p>
     </div>`;
 
+  var zones = [
+    { key: 'euphoria', label: 'Euforia/Ganância', color: '#45a9f3' },
+    { key: 'belief', label: 'Crença/Negação', color: '#48d7aa' },
+    { key: 'optimism', label: 'Otimismo', color: '#f2a33b' },
+    { key: 'hopeFear', label: 'Esperança/Medo', color: '#e8c14c' },
+    { key: 'capitulation', label: 'Capitulação', color: '#f05b78' }
+  ];
+
   var payload = await loadData();
   if (!validPayload(payload)) {
     container.innerHTML = '<div class="btc-ultra-card nupl-error">Não foi possível carregar os dados do NUPL.</div>';
@@ -49,13 +57,6 @@ window.BIWidgets.nupl = async function () {
   var decimal = new Intl.NumberFormat('pt-BR', {
     minimumFractionDigits: 3, maximumFractionDigits: 3
   });
-  var zones = [
-    { key: 'euphoria', label: 'Euforia/Ganância', color: '#45a9f3' },
-    { key: 'belief', label: 'Crença/Negação', color: '#48d7aa' },
-    { key: 'optimism', label: 'Otimismo', color: '#f2a33b' },
-    { key: 'hopeFear', label: 'Esperança/Medo', color: '#e8c14c' },
-    { key: 'capitulation', label: 'Capitulação', color: '#f05b78' }
-  ];
 
   setLatestSummary();
   container.querySelectorAll('.nupl-filters button').forEach(function (button) {
