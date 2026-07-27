@@ -91,7 +91,7 @@ window.BIWidgets.nupl = async function () {
   function setLatestSummary() {
     var latest = null;
     for (var i = payload.dates.length - 1; i >= 0 && !latest; i -= 1) {
-      for (var z = 0; z < zones.length; z += 1) {
+      for (var z = zones.length - 1; z >= 0; z -= 1) {
         var value = payload[zones[z].key][i];
         if (Number.isFinite(value)) {
           latest = { value: value, zone: zones[z], date: payload.dates[i] };
@@ -143,18 +143,22 @@ window.BIWidgets.nupl = async function () {
     for (var i = start; i < payload.dates.length; i += step) {
       labels.push(payload.dates[i]);
       price.push(payload.price[i]);
-      activeZones.push(activeZoneAt(i));
+      var activeZone = activeZoneAt(i);
+      activeZones.push(activeZone);
       zones.forEach(function (zone) {
-        zoneData[zone.key].push(payload[zone.key][i]);
+        zoneData[zone.key].push(zone.key === activeZone ? payload[zone.key][i] : null);
       });
     }
     if (labels[labels.length - 1] !== payload.dates[payload.dates.length - 1]) {
       var last = payload.dates.length - 1;
       labels.push(payload.dates[last]);
       price.push(payload.price[last]);
-      activeZones.push(activeZoneAt(last));
+      var lastActiveZone = activeZoneAt(last);
+      activeZones.push(lastActiveZone);
       zones.forEach(function (zone) {
-        zoneData[zone.key].push(payload[zone.key][last]);
+        zoneData[zone.key].push(
+          zone.key === lastActiveZone ? payload[zone.key][last] : null
+        );
       });
     }
 
@@ -282,7 +286,8 @@ window.BIWidgets.nupl = async function () {
   }
 
   function activeZoneAt(index) {
-    for (var i = 0; i < zones.length; i += 1) {
+    // Plotly draws later traces over earlier ones; reverse priority matches the source.
+    for (var i = zones.length - 1; i >= 0; i -= 1) {
       if (Number.isFinite(payload[zones[i].key][index])) return zones[i].key;
     }
     return null;
