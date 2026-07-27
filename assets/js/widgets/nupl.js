@@ -17,10 +17,10 @@ window.BIWidgets.nupl = async function () {
           <span><small>Dados até</small><strong id="nupl-latest-date">—</strong></span>
         </div>
         <div class="nupl-filters" aria-label="Período do gráfico NUPL">
-          <button type="button" data-range="1">1 ano</button>
-          <button type="button" data-range="3">3 anos</button>
-          <button type="button" data-range="2021">Desde 2021</button>
-          <button type="button" data-range="max" class="active">Máx.</button>
+          <button type="button" data-range="5">5 anos</button>
+          <button type="button" data-range="10">10 anos</button>
+          <button type="button" data-range="13" class="active">13 anos</button>
+          <button type="button" data-range="max">Máx.</button>
         </div>
       </div>
       <div class="nupl-chart-wrap">
@@ -48,7 +48,7 @@ window.BIWidgets.nupl = async function () {
   if (typeof Chart === 'undefined') await BI.loadScript(window.BI_CONFIG.cdn.chartjs);
 
   var chart;
-  var selectedRange = 'max';
+  var selectedRange = '13';
   var money = new Intl.NumberFormat('pt-BR', {
     style: 'currency', currency: 'USD', maximumFractionDigits: 0
   });
@@ -118,7 +118,6 @@ window.BIWidgets.nupl = async function () {
 
   function cutoffDate() {
     if (selectedRange === 'max') return null;
-    if (selectedRange === '2021') return '2021-01-01';
     var lastDate = payload.latestDataDate || payload.dates[payload.dates.length - 1];
     var cutoff = new Date(lastDate + 'T00:00:00Z');
     cutoff.setUTCFullYear(cutoff.getUTCFullYear() - Number(selectedRange));
