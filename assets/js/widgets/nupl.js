@@ -205,7 +205,7 @@ window.BIWidgets.nupl = async function () {
             type: 'linear',
             position: 'right',
             min: -0.5,
-            max: 2,
+            max: 1.8,
             grid: {
               color: function (context) {
                 return context.tick && context.tick.value === 0
@@ -216,7 +216,7 @@ window.BIWidgets.nupl = async function () {
                 return context.tick && context.tick.value === 0 ? 1.5 : 1;
               }
             },
-            border: { display: true, color: 'rgba(255,255,255,.30)', width: 1 },
+            border: { display: false },
             ticks: {
               color: '#8d939d',
               stepSize: 0.5,
