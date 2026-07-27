@@ -67,8 +67,45 @@
       color: #fff; font-size: 0.85rem; font-weight: 800;
     }
     .dash-logo span { color: #F7931A; }
+    .dash-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+      margin-right: 14px;
+    }
+    .dash-termometro-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 12px;
+      border: 1px solid rgba(84,184,90,0.45);
+      border-radius: 10px;
+      color: #72d678;
+      background: rgba(84,184,90,0.1);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: color 0.2s, border-color 0.2s, background 0.2s, transform 0.2s;
+    }
+    .dash-termometro-link::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #54b85a;
+      box-shadow: 0 0 9px rgba(84,184,90,0.85);
+    }
+    .dash-termometro-link:hover {
+      color: #fff;
+      border-color: #54b85a;
+      background: rgba(84,184,90,0.2);
+      transform: translateY(-1px);
+    }
     /* ── MENU ── */
-    .dash-menu { position: relative; margin-left: auto; margin-right: 14px; }
+    .dash-menu { position: relative; }
     .dash-menu-btn {
       display: inline-flex;
       align-items: center;
@@ -168,7 +205,8 @@
 
     @media (max-width: 640px) {
       .dash-logo { margin-left: 2px; }
-      .dash-menu { margin-right: 12px; }
+      .dash-actions { gap: 6px; margin-right: 8px; }
+      .dash-termometro-link { padding: 7px 9px; font-size: 0.62rem; letter-spacing: 0.04em; }
       .dash-menu-dropdown {
         position: fixed;
         top: 58px;
@@ -393,7 +431,9 @@
     <div class="logo-icon" aria-hidden="true">&#8383;</div>
     BITCOIN&nbsp;<span>INICIANTES</span>
   </a>
-  <div class="dash-menu">
+  <div class="dash-actions">
+    <a class="dash-termometro-link" href="https://bitcoiniciantes.github.io/termometro/" target="_blank" rel="noopener">Termômetro</a>
+    <div class="dash-menu">
     <button type="button" class="dash-menu-btn" id="dashMenuBtn" aria-expanded="false" aria-controls="dashMenuDrop">MENU</button>
     <div class="dash-menu-dropdown" id="dashMenuDrop">
       <button type="button" class="dash-menu-close" id="dashMenuClose" aria-label="Fechar menu">&times;</button>
@@ -411,6 +451,7 @@
       <a href="#strategy-tesouraria">Strategy</a>
       <a href="#sif-root">Simulador IF</a>
       <a href="#projecoes">Projeções</a>
+    </div>
     </div>
   </div>
 </div>
