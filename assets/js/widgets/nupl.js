@@ -37,7 +37,7 @@ window.BIWidgets.nupl = async function () {
     { key: 'belief', label: 'Crença/Negação', color: '#48d7aa' },
     { key: 'optimism', label: 'Otimismo', color: '#f2a33b' },
     { key: 'hopeFear', label: 'Esperança/Medo', color: '#e8c14c' },
-    { key: 'capitulation', label: 'Capitulação', color: '#f05b78' }
+    { key: 'capitulation', label: 'Capitulação/Desespero', color: '#f05b78' }
   ];
 
   var payload = await loadData();
