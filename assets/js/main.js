@@ -113,7 +113,7 @@
   lazyWidget('halving-root', 'assets/js/widgets/halving.js', 'halving');
   lazyWidget('widget-etf-sosovalue', 'assets/js/widgets/etf.js?v=2', 'etfWidget');
   lazyWidget('costbasis-root', 'assets/js/widgets/costbasis.js?v=8', 'costBasis');
-  lazyWidget('nupl-root', 'assets/js/widgets/nupl.js?v=4', 'nupl');
+  lazyWidget('nupl-root', 'assets/js/widgets/nupl.js?v=5', 'nupl');
   lazyWidget('strategy-root', 'assets/js/widgets/strategy.js?v=12', 'strategyTreasury');
 })();
 
