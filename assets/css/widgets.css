@@ -965,6 +965,7 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
 .strategy__purchase-grid .strategy__purchase-usd-reserve strong { color:var(--strategy-orange); }
 .strategy__purchase-grid span, .strategy__calc-results span { display:block; color:#777d88; font-size:9px; margin-bottom:3px; }
 .strategy__purchase-grid strong, .strategy__calc-results strong { color:#e9eaed; font:700 12px var(--font-mono); }
+.strategy__purchase-grid .strategy__purchase-usd-reserve strong { font-size:clamp(18px,2.1vw,25px); line-height:1.1; }
 .strategy__source-link { display:inline-block; color:#aab0bb; font-size:10px; margin-top:11px; text-decoration:none; }
 .strategy__source-link:hover { color:var(--strategy-orange); }
 .strategy__purchase-card--horizontal .strategy__source-link { margin:0; white-space:nowrap; }
@@ -1008,6 +1009,7 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
   .strategy__metrics { grid-template-columns:1fr 1fr; gap:7px; }
   .strategy__metric { padding:11px 9px; }
   .strategy__metric strong { font-size:17px; }
+  .strategy__purchase-grid .strategy__purchase-usd-reserve strong { font-size:17px; }
   .strategy__metric small { font-size:8px; }
   .strategy__chart-head { flex-direction:column; }
   .strategy__tf-group { width:100%; }
