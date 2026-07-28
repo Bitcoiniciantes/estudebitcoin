@@ -206,7 +206,14 @@
     @media (max-width: 640px) {
       .dash-logo { margin-left: 2px; }
       .dash-actions { gap: 6px; margin-right: 8px; }
-      .dash-termometro-link { padding: 7px 9px; font-size: 0.62rem; letter-spacing: 0.04em; }
+      .dash-termometro-link {
+        gap: 4px;
+        padding: 4px 6px;
+        font-size: 0.5rem;
+        letter-spacing: 0.02em;
+        border-radius: 7px;
+      }
+      .dash-termometro-link::before { width: 4px; height: 4px; }
       .dash-menu-dropdown {
         position: fixed;
         top: 58px;
