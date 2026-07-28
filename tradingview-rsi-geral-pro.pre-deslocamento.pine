@@ -1,0 +1,499 @@
+//@version=6
+indicator("RSI Geral Pro • Radar MTF", shorttitle = "RSI Geral Pro", overlay = true, max_labels_count = 100)
+
+// =============================================================================
+// RSI GERAL PRO
+// Painel multi-timeframe, leitura consolidada, sinais no gráfico e alertas.
+//
+// Observação:
+// - "Em formação" reage a cada atualização do mercado, mas pode oscilar até o
+//   fechamento dos candles de cada timeframe.
+// - "Somente candles fechados" usa valores confirmados e evita repaint dos HTFs.
+// =============================================================================
+
+string GROUP_RSI     = "1. RSI e timeframes"
+string GROUP_SCORE   = "2. Leitura geral"
+string GROUP_SIGNALS = "3. Sinais e filtros"
+string GROUP_PANEL   = "4. Painel"
+string GROUP_ALERTS  = "5. Alertas"
+string GROUP_CONTRA  = "6. Leitura contrária"
+
+// ——— RSI e timeframes
+int rsiLength = input.int(14, "Período do RSI", minval = 2, group = GROUP_RSI)
+series float rsiSource = input.source(close, "Fonte", group = GROUP_RSI)
+string calculationMode = input.string(
+     "Em formação (tempo real)",
+     "Modo de cálculo",
+     options = ["Em formação (tempo real)", "Somente candles fechados"],
+     tooltip = "Tempo real: reage durante a formação do candle. Fechados: usa somente o último candle confirmado de cada timeframe.",
+     group = GROUP_RSI)
+
+// Ordem fixa: os três primeiros são usados como confirmação rápida de reversão.
+string tf1 = "5"
+string tf2 = "15"
+string tf3 = "60"
+string tf4 = "240"
+string tf5 = "720"
+string tf6 = "1D"
+string tf7 = "1W"
+string tf8 = "1M"
+
+// ——— Leitura geral
+string weightProfile = input.string(
+     "Equilibrado",
+     "Perfil dos pesos",
+     options = ["Curto prazo", "Equilibrado", "Macro"],
+     tooltip = "Curto prazo favorece 5m–4h. Equilibrado aumenta gradualmente o peso. Macro favorece 1D–1M.",
+     group = GROUP_SCORE)
+float overboughtLevel = input.float(80.0, "Faixa verde", minval = 51, maxval = 99, step = 0.5, group = GROUP_SCORE, inline = "zones")
+float oversoldLevel = input.float(25.0, "Faixa vermelha", minval = 1, maxval = 49, step = 0.5, group = GROUP_SCORE, inline = "zones")
+float bullLevel = input.float(55.0, "Gatilho de alta", minval = 50, maxval = 80, step = 0.5, group = GROUP_SCORE, inline = "bias")
+float bearLevel = input.float(45.0, "Gatilho de baixa", minval = 20, maxval = 50, step = 0.5, group = GROUP_SCORE, inline = "bias")
+
+// ——— Sinais e filtros
+bool showSignals = input.bool(true, "Mostrar sinais no gráfico", group = GROUP_SIGNALS)
+bool showMomentumSignals = input.bool(true, "Momentum", group = GROUP_SIGNALS, inline = "types")
+bool showReversalSignals = input.bool(true, "Saída de extremos", group = GROUP_SIGNALS, inline = "types")
+int minimumAgreement = input.int(5, "Mínimo de timeframes alinhados", minval = 2, maxval = 8, group = GROUP_SIGNALS)
+bool useEmaFilter = input.bool(true, "Filtrar momentum pela EMA", group = GROUP_SIGNALS, inline = "ema")
+int emaLength = input.int(200, "Período", minval = 2, group = GROUP_SIGNALS, inline = "ema")
+bool showEma = input.bool(false, "Exibir EMA", group = GROUP_SIGNALS, inline = "ema")
+bool signalsOnlyOnClose = input.bool(true, "Confirmar sinais só no fechamento", tooltip = "Ligado por padrão para evitar etiquetas intrabar repetidas. O painel continua atualizando em tempo real.", group = GROUP_SIGNALS)
+int signalCooldownBars = input.int(12, "Intervalo mínimo entre sinais", minval = 1, maxval = 500, tooltip = "Quantidade mínima de candles do gráfico entre etiquetas de momentum/reversão.", group = GROUP_SIGNALS)
+bool useAtrFilter = input.bool(false, "Exigir expansão de volatilidade (ATR)", tooltip = "Filtro opcional para reduzir momentum falso em mercados lateralizados.", group = GROUP_SIGNALS)
+int atrLength = input.int(14, "ATR", minval = 2, group = GROUP_SIGNALS, inline = "atr")
+int atrAverageLength = input.int(20, "Média ATR", minval = 2, group = GROUP_SIGNALS, inline = "atr")
+bool colorBars = input.bool(false, "Colorir candles pelo RSI Geral", group = GROUP_SIGNALS, inline = "paint")
+bool colorBackground = input.bool(false, "Colorir fundo", group = GROUP_SIGNALS, inline = "paint")
+
+// ——— Painel
+bool showPanel = input.bool(true, "Exibir painel", group = GROUP_PANEL)
+
+string panelSize = input.string("Pequeno", "Tamanho do texto", options = ["Minúsculo", "Pequeno", "Normal"], group = GROUP_PANEL)
+
+// ——— Alertas
+bool enableDynamicAlerts = input.bool(
+     true,
+     "Habilitar alertas dinâmicos",
+     tooltip = "Ao criar o alerta no TradingView, selecione “Qualquer chamada de função alert()”.",
+     group = GROUP_ALERTS)
+
+// ——— Leitura contrária: medo compra, ganância vende
+bool showContrarianPanel = input.bool(true, "Exibir painel contrário", group = GROUP_CONTRA)
+bool showContrarianSignals = input.bool(false, "Mostrar C/V no gráfico", tooltip = "Desligado por padrão para manter o gráfico limpo.", group = GROUP_CONTRA)
+float contrarianBuyLevel = input.float(20.0, "Medo extremo / compra", minval = 1, maxval = 40, step = 0.5, group = GROUP_CONTRA, inline = "contra")
+float contrarianSellLevel = input.float(90.0, "Ganância extrema / venda", minval = 60, maxval = 99, step = 0.5, group = GROUP_CONTRA, inline = "contra")
+
+// Indicadores recalculam a cada tick. `varip` preserva este contador no candle aberto.
+varip int realtimeUpdateNo = 0
+if barstate.isnew
+    realtimeUpdateNo := 0
+else if barstate.isrealtime
+    realtimeUpdateNo += 1
+bool realtimePulse = barstate.isrealtime and calculationMode == "Em formação (tempo real)" and realtimeUpdateNo % 2 == 0
+
+// =============================================================================
+// Funções
+// =============================================================================
+
+f_mtfRsi(string requestedTf) =>
+    float selectedRsi = na
+    float selectedPrevious = na
+    if calculationMode == "Em formação (tempo real)"
+        [liveRsi, livePrevious] = request.security(
+             syminfo.tickerid,
+             requestedTf,
+             [ta.rsi(rsiSource, rsiLength), ta.rsi(rsiSource, rsiLength)[1]],
+             gaps = barmerge.gaps_off,
+             lookahead = barmerge.lookahead_off)
+        selectedRsi := liveRsi
+        selectedPrevious := livePrevious
+    else
+        [closedRsi, closedPrevious] = request.security(
+             syminfo.tickerid,
+             requestedTf,
+             [ta.rsi(rsiSource, rsiLength)[1], ta.rsi(rsiSource, rsiLength)[2]],
+             gaps = barmerge.gaps_off,
+             lookahead = barmerge.lookahead_on)
+        selectedRsi := closedRsi
+        selectedPrevious := closedPrevious
+    [selectedRsi, selectedPrevious]
+
+f_weightedValue(float value, float weight) =>
+    na(value) ? 0.0 : value * weight
+
+f_activeWeight(float value, float weight) =>
+    na(value) ? 0.0 : weight
+
+f_isBull(float value) =>
+    not na(value) and value >= 50.0 ? 1 : 0
+
+f_isBear(float value) =>
+    not na(value) and value < 50.0 ? 1 : 0
+
+f_isAvailable(float value) =>
+    na(value) ? 0 : 1
+
+f_isRising(float value, float previous) =>
+    not na(value) and not na(previous) and value > previous ? 1 : 0
+
+f_isFalling(float value, float previous) =>
+    not na(value) and not na(previous) and value < previous ? 1 : 0
+
+f_status(float value) =>
+    string result = "Sem dados"
+    if not na(value)
+        result := value >= overboughtLevel ? "Sobrecompra" :
+             value <= oversoldLevel ? "Sobrevenda" :
+             value >= bullLevel ? "Alta" :
+             value <= bearLevel ? "Baixa" : "Neutro"
+    result
+
+f_contrarianStatus(float value) =>
+    string result = "Sem dados"
+    if not na(value)
+        result := value <= contrarianBuyLevel ? "MEDO EXTREMO" :
+             value < 40.0 ? "MEDO / COMPRA" :
+             value < 50.0 ? "NEUTRO BEAR" :
+             value < 70.0 ? "NEUTRO" :
+             value < contrarianSellLevel ? "GANÂNCIA / VENDA" : "GANÂNCIA EXTREMA"
+    result
+
+f_contrarianColor(float value) =>
+    color result = color.rgb(75, 81, 94)
+    if not na(value)
+        result := value <= contrarianBuyLevel ? color.rgb(205, 45, 58) :
+             value < 40.0 ? color.rgb(150, 58, 67) :
+             value < 50.0 ? color.rgb(95, 72, 78) :
+             value < 70.0 ? color.rgb(75, 81, 94) :
+             value < contrarianSellLevel ? color.rgb(31, 116, 79) : color.rgb(18, 170, 82)
+    result
+
+f_statusColor(float value) =>
+    color neutralColor = color.rgb(75, 81, 94)
+    color result = neutralColor
+    if not na(value)
+        // Extremos fixos: >= 80 verde e <= 25 vermelho. Entre eles, força gradual.
+        result := value >= overboughtLevel ? color.rgb(18, 160, 82) :
+             value <= oversoldLevel ? color.rgb(205, 45, 58) :
+             value >= 50.0 ? color.from_gradient(value, 50.0, overboughtLevel, neutralColor, color.rgb(18, 145, 80)) :
+             color.from_gradient(value, oversoldLevel, 50.0, color.rgb(190, 50, 62), neutralColor)
+    result
+
+f_direction(float value, float previous) =>
+    na(value) or na(previous) ? "—" : value > previous ? "▲" : value < previous ? "▼" : "•"
+
+f_directionColor(float value, float previous) =>
+    na(value) or na(previous) ? color.silver : value > previous ? color.lime : value < previous ? color.rgb(255, 92, 105) : color.silver
+
+
+f_size(string selectedSize) =>
+    switch selectedSize
+        "Minúsculo" => size.tiny
+        "Normal" => size.normal
+        => size.small
+
+f_drawRow(table target, int row, string tfLabel, float value, float previous, string textSize, bool pulse) =>
+    color statusBg = f_statusColor(value)
+    color valueBg = pulse ? color.new(statusBg, 0) : color.new(statusBg, 18)
+    color valueText = pulse ? color.yellow : color.white
+    string valueTooltip = "RSI de " + tfLabel + ". No modo em formação, valor e cor atualizam a cada tick recebido."
+    table.cell(target, 0, row, tfLabel, bgcolor = color.rgb(35, 39, 47), text_color = color.white, text_size = textSize)
+    table.cell(target, 1, row, na(value) ? "—" : str.tostring(value, "#.0"), bgcolor = valueBg, text_color = valueText, text_size = textSize, tooltip = valueTooltip)
+    table.cell(target, 2, row, f_status(value), bgcolor = statusBg, text_color = color.white, text_size = textSize, tooltip = "Verde forte em RSI >= 80; vermelho forte em RSI <= 25.")
+    table.cell(target, 3, row, f_direction(value, previous), bgcolor = color.rgb(35, 39, 47), text_color = f_directionColor(value, previous), text_size = textSize, tooltip = "Compara o RSI atual com o RSI anterior deste timeframe.")
+
+f_gauge(float value) =>
+    string gauge = ""
+    float boundedValue = na(value) ? 0.0 : math.max(0.0, math.min(100.0, value))
+    int filledBlocks = int(math.round(boundedValue / 10.0))
+    for index = 1 to 10
+        gauge += index <= filledBlocks ? "■" : "□"
+    gauge
+
+// =============================================================================
+// Cálculos multi-timeframe
+// =============================================================================
+
+[rsi1, previous1] = f_mtfRsi(tf1)
+[rsi2, previous2] = f_mtfRsi(tf2)
+[rsi3, previous3] = f_mtfRsi(tf3)
+[rsi4, previous4] = f_mtfRsi(tf4)
+[rsi5, previous5] = f_mtfRsi(tf5)
+[rsi6, previous6] = f_mtfRsi(tf6)
+[rsi7, previous7] = f_mtfRsi(tf7)
+[rsi8, previous8] = f_mtfRsi(tf8)
+
+// Pesos: permitem adaptar o mesmo radar para scalping, swing ou visão macro.
+float weight1 = weightProfile == "Curto prazo" ? 4.00 : weightProfile == "Macro" ? 0.25 : 1.00
+float weight2 = weightProfile == "Curto prazo" ? 3.00 : weightProfile == "Macro" ? 0.50 : 1.20
+float weight3 = weightProfile == "Curto prazo" ? 2.50 : weightProfile == "Macro" ? 1.00 : 1.50
+float weight4 = weightProfile == "Curto prazo" ? 2.00 : weightProfile == "Macro" ? 1.50 : 2.00
+float weight5 = weightProfile == "Curto prazo" ? 1.50 : weightProfile == "Macro" ? 2.00 : 2.50
+float weight6 = weightProfile == "Curto prazo" ? 1.00 : weightProfile == "Macro" ? 3.00 : 3.00
+float weight7 = weightProfile == "Curto prazo" ? 0.50 : weightProfile == "Macro" ? 4.00 : 3.50
+float weight8 = weightProfile == "Curto prazo" ? 0.25 : weightProfile == "Macro" ? 5.00 : 4.00
+
+float weightedSum =
+     f_weightedValue(rsi1, weight1) +
+     f_weightedValue(rsi2, weight2) +
+     f_weightedValue(rsi3, weight3) +
+     f_weightedValue(rsi4, weight4) +
+     f_weightedValue(rsi5, weight5) +
+     f_weightedValue(rsi6, weight6) +
+     f_weightedValue(rsi7, weight7) +
+     f_weightedValue(rsi8, weight8)
+
+float activeWeights =
+     f_activeWeight(rsi1, weight1) +
+     f_activeWeight(rsi2, weight2) +
+     f_activeWeight(rsi3, weight3) +
+     f_activeWeight(rsi4, weight4) +
+     f_activeWeight(rsi5, weight5) +
+     f_activeWeight(rsi6, weight6) +
+     f_activeWeight(rsi7, weight7) +
+     f_activeWeight(rsi8, weight8)
+
+float generalRsi = activeWeights > 0 ? weightedSum / activeWeights : na
+int availableCount = f_isAvailable(rsi1) + f_isAvailable(rsi2) + f_isAvailable(rsi3) + f_isAvailable(rsi4) + f_isAvailable(rsi5) + f_isAvailable(rsi6) + f_isAvailable(rsi7) + f_isAvailable(rsi8)
+int bullCount = f_isBull(rsi1) + f_isBull(rsi2) + f_isBull(rsi3) + f_isBull(rsi4) + f_isBull(rsi5) + f_isBull(rsi6) + f_isBull(rsi7) + f_isBull(rsi8)
+int bearCount = f_isBear(rsi1) + f_isBear(rsi2) + f_isBear(rsi3) + f_isBear(rsi4) + f_isBear(rsi5) + f_isBear(rsi6) + f_isBear(rsi7) + f_isBear(rsi8)
+float bullishConsensus = availableCount > 0 ? bullCount * 100.0 / availableCount : na
+
+int fastRisingCount = f_isRising(rsi1, previous1) + f_isRising(rsi2, previous2) + f_isRising(rsi3, previous3)
+int fastFallingCount = f_isFalling(rsi1, previous1) + f_isFalling(rsi2, previous2) + f_isFalling(rsi3, previous3)
+
+float emaFilter = ta.ema(close, emaLength)
+float atrValue = ta.atr(atrLength)
+float atrAverage = ta.sma(atrValue, atrAverageLength)
+bool volatilityOk = not useAtrFilter or atrValue > atrAverage
+bool allowLongMomentum = not useEmaFilter or close > emaFilter
+bool allowShortMomentum = not useEmaFilter or close < emaFilter
+bool confirmationOk = not signalsOnlyOnClose or barstate.isconfirmed
+
+// Momentum: apenas um sinal por ciclo. Alta rearma abaixo de 50; baixa rearma acima de 50.
+bool rawLongMomentum = ta.crossover(generalRsi, bullLevel) and bullCount >= minimumAgreement and allowLongMomentum and volatilityOk
+bool rawShortMomentum = ta.crossunder(generalRsi, bearLevel) and bearCount >= minimumAgreement and allowShortMomentum and volatilityOk
+varip bool longMomentumArmed = true
+varip bool shortMomentumArmed = true
+varip int lastMomentumSignalBar = na
+if generalRsi < 50.0
+    longMomentumArmed := true
+if generalRsi > 50.0
+    shortMomentumArmed := true
+bool momentumSpacingOk = na(lastMomentumSignalBar) or bar_index - lastMomentumSignalBar >= signalCooldownBars
+bool longMomentum = rawLongMomentum and confirmationOk and longMomentumArmed and momentumSpacingOk
+bool shortMomentum = rawShortMomentum and confirmationOk and shortMomentumArmed and momentumSpacingOk
+if longMomentum
+    longMomentumArmed := false
+    lastMomentumSignalBar := bar_index
+else if shortMomentum
+    shortMomentumArmed := false
+    lastMomentumSignalBar := bar_index
+
+// Reversão: 2 dos 3 TFs rápidos devem virar e o intervalo mínimo também é respeitado.
+bool rawLongReversal = ta.crossover(generalRsi, oversoldLevel) and fastRisingCount >= 2
+bool rawShortReversal = ta.crossunder(generalRsi, overboughtLevel) and fastFallingCount >= 2
+varip int lastReversalSignalBar = na
+bool reversalSpacingOk = na(lastReversalSignalBar) or bar_index - lastReversalSignalBar >= signalCooldownBars
+bool longReversal = rawLongReversal and confirmationOk and reversalSpacingOk
+bool shortReversal = rawShortReversal and confirmationOk and reversalSpacingOk
+if longReversal or shortReversal
+    lastReversalSignalBar := bar_index
+bool enteredOverbought = ta.crossover(generalRsi, overboughtLevel) and confirmationOk
+bool enteredOversold = ta.crossunder(generalRsi, oversoldLevel) and confirmationOk
+bool fullBullAlignment = availableCount == 8 and bullCount == 8
+bool fullBearAlignment = availableCount == 8 and bearCount == 8
+bool newFullBullAlignment = fullBullAlignment and not fullBullAlignment[1] and confirmationOk
+bool newFullBearAlignment = fullBearAlignment and not fullBearAlignment[1] and confirmationOk
+
+// Contrário: o extremo arma a oportunidade; o sinal nasce somente na saída confirmada.
+bool rawContrarianBuy = ta.crossover(generalRsi, contrarianBuyLevel) and fastRisingCount >= 2
+bool rawContrarianSell = ta.crossunder(generalRsi, contrarianSellLevel) and fastFallingCount >= 2
+varip int lastContrarianSignalBar = na
+bool contrarianSpacingOk = na(lastContrarianSignalBar) or bar_index - lastContrarianSignalBar >= signalCooldownBars
+bool contrarianBuySignal = rawContrarianBuy and confirmationOk and contrarianSpacingOk
+bool contrarianSellSignal = rawContrarianSell and confirmationOk and contrarianSpacingOk
+if contrarianBuySignal or contrarianSellSignal
+    lastContrarianSignalBar := bar_index
+
+// =============================================================================
+// Sinais visuais
+// =============================================================================
+
+plot(showEma and useEmaFilter ? emaFilter : na, "EMA de filtro", color = color.new(color.orange, 10), linewidth = 2)
+
+plotshape(showSignals and showMomentumSignals and longMomentum, title = "Momentum de alta", style = shape.labelup, location = location.belowbar, color = color.rgb(22, 163, 100), text = "MTF\nALTA", textcolor = color.white, size = size.tiny)
+plotshape(showSignals and showMomentumSignals and shortMomentum, title = "Momentum de baixa", style = shape.labeldown, location = location.abovebar, color = color.rgb(211, 63, 77), text = "MTF\nBAIXA", textcolor = color.white, size = size.tiny)
+plotshape(showSignals and showReversalSignals and longReversal, title = "Saída de sobrevenda", style = shape.triangleup, location = location.belowbar, color = color.aqua, text = "REV", textcolor = color.white, size = size.tiny)
+plotshape(showSignals and showReversalSignals and shortReversal, title = "Saída de sobrecompra", style = shape.triangledown, location = location.abovebar, color = color.orange, text = "REV", textcolor = color.white, size = size.tiny)
+plotshape(showContrarianSignals and contrarianBuySignal, title = "Contrário • Compra após medo", style = shape.labelup, location = location.belowbar, color = color.rgb(205, 45, 58), text = "C\n20", textcolor = color.white, size = size.tiny)
+plotshape(showContrarianSignals and contrarianSellSignal, title = "Contrário • Venda após ganância", style = shape.labeldown, location = location.abovebar, color = color.rgb(18, 160, 82), text = "V\n90", textcolor = color.white, size = size.tiny)
+
+color directionalColor = na(generalRsi) ? na : generalRsi >= bullLevel ? color.rgb(30, 162, 99) : generalRsi <= bearLevel ? color.rgb(212, 65, 79) : color.rgb(130, 136, 148)
+barcolor(colorBars ? color.new(directionalColor, 15) : na)
+bgcolor(colorBackground ? color.new(directionalColor, 91) : na)
+
+// Série invisível: deixa o RSI Geral disponível na Janela de Dados.
+plot(generalRsi, "RSI Geral", color = color.new(color.white, 100), display = display.data_window)
+plot(bullishConsensus, "Consenso altista (%)", color = color.new(color.white, 100), display = display.data_window)
+
+// =============================================================================
+// Painel
+// =============================================================================
+
+string tableTextSize = f_size(panelSize)
+var table dashboard = table.new(
+     position.bottom_right,
+     4,
+     15,
+     bgcolor = color.rgb(26, 29, 35),
+     frame_color = color.rgb(93, 101, 116),
+     frame_width = 1,
+     border_color = color.rgb(55, 61, 72),
+     border_width = 1)
+
+var table contrarianDashboard = table.new(
+     position.bottom_left,
+     2,
+     6,
+     bgcolor = color.rgb(26, 29, 35),
+     frame_color = color.rgb(93, 101, 116),
+     frame_width = 1,
+     border_color = color.rgb(55, 61, 72),
+     border_width = 1)
+
+if barstate.isfirst
+    table.merge_cells(dashboard, 0, 0, 3, 0)
+    table.merge_cells(dashboard, 1, 12, 3, 12)
+    table.merge_cells(dashboard, 1, 13, 3, 13)
+    table.merge_cells(dashboard, 0, 14, 3, 14)
+    table.merge_cells(contrarianDashboard, 0, 0, 1, 0)
+
+if barstate.islast and showPanel
+    color titleBg = color.rgb(25, 90, 138)
+    table.cell(dashboard, 0, 0, syminfo.ticker + "  •  RSI GERAL PRO", bgcolor = titleBg, text_color = color.white, text_size = tableTextSize)
+    table.cell(dashboard, 0, 1, "TF", bgcolor = color.rgb(47, 52, 62), text_color = color.silver, text_size = tableTextSize)
+    table.cell(dashboard, 1, 1, "RSI", bgcolor = color.rgb(47, 52, 62), text_color = color.silver, text_size = tableTextSize)
+    table.cell(dashboard, 2, 1, "LEITURA", bgcolor = color.rgb(47, 52, 62), text_color = color.silver, text_size = tableTextSize)
+    table.cell(dashboard, 3, 1, "DIR.", bgcolor = color.rgb(47, 52, 62), text_color = color.silver, text_size = tableTextSize)
+
+    f_drawRow(dashboard, 2, "5m", rsi1, previous1, tableTextSize, realtimePulse)
+    f_drawRow(dashboard, 3, "15m", rsi2, previous2, tableTextSize, realtimePulse)
+    f_drawRow(dashboard, 4, "1h", rsi3, previous3, tableTextSize, realtimePulse)
+    f_drawRow(dashboard, 5, "4h", rsi4, previous4, tableTextSize, realtimePulse)
+    f_drawRow(dashboard, 6, "12h", rsi5, previous5, tableTextSize, realtimePulse)
+    f_drawRow(dashboard, 7, "1D", rsi6, previous6, tableTextSize, realtimePulse)
+    f_drawRow(dashboard, 8, "1S", rsi7, previous7, tableTextSize, realtimePulse)
+    f_drawRow(dashboard, 9, "1M", rsi8, previous8, tableTextSize, realtimePulse)
+    f_drawRow(dashboard, 10, "GERAL", generalRsi, generalRsi[1], tableTextSize, realtimePulse)
+
+    string alignmentText = na(bullishConsensus) ? "—" : str.tostring(bullishConsensus, "#") + "% alta"
+    color alignmentBg = na(bullishConsensus) ? color.rgb(66, 72, 84) : bullishConsensus >= 62.5 ? color.rgb(28, 132, 82) : bullishConsensus <= 37.5 ? color.rgb(174, 55, 65) : color.rgb(75, 81, 94)
+    table.cell(dashboard, 0, 11, "CONSENSO", bgcolor = color.rgb(35, 39, 47), text_color = color.white, text_size = tableTextSize, tooltip = "Percentual dos 8 timeframes com RSI acima de 50.")
+    table.cell(dashboard, 1, 11, str.tostring(bullCount) + "▲", bgcolor = color.new(color.green, 35), text_color = color.white, text_size = tableTextSize)
+    table.cell(dashboard, 2, 11, alignmentText, bgcolor = alignmentBg, text_color = color.white, text_size = tableTextSize, tooltip = "8/8 indica alinhamento total e gera alerta dedicado.")
+    table.cell(dashboard, 3, 11, str.tostring(bearCount) + "▼", bgcolor = color.new(color.red, 35), text_color = color.white, text_size = tableTextSize)
+
+    string currentSignal = fullBullAlignment ? "★ ALINHAMENTO TOTAL DE ALTA 8/8" :
+         fullBearAlignment ? "★ ALINHAMENTO TOTAL DE BAIXA 8/8" :
+         longMomentum ? "▲ NOVO MOMENTUM DE ALTA" :
+         shortMomentum ? "▼ NOVO MOMENTUM DE BAIXA" :
+         longReversal ? "◇ SAINDO DA SOBREVENDA" :
+         shortReversal ? "◇ SAINDO DA SOBRECOMPRA" :
+         generalRsi >= overboughtLevel ? "▲ FORÇA EXTREMA ACIMA DE 80" :
+         generalRsi <= oversoldLevel ? "▼ FRAQUEZA EXTREMA ABAIXO DE 25" :
+         bullCount >= minimumAgreement and generalRsi >= bullLevel ? "VIÉS DE ALTA" :
+         bearCount >= minimumAgreement and generalRsi <= bearLevel ? "VIÉS DE BAIXA" : "SEM VANTAGEM CLARA"
+    color signalBg = fullBullAlignment or longMomentum or longReversal ? color.rgb(18, 145, 80) :
+         fullBearAlignment or shortMomentum or shortReversal ? color.rgb(196, 45, 58) :
+         generalRsi >= overboughtLevel ? color.rgb(18, 160, 82) :
+         generalRsi <= oversoldLevel ? color.rgb(205, 45, 58) :
+         generalRsi >= bullLevel ? color.rgb(28, 110, 75) :
+         generalRsi <= bearLevel ? color.rgb(141, 52, 62) : color.rgb(65, 70, 82)
+    table.cell(dashboard, 0, 12, "SINAL", bgcolor = color.rgb(35, 39, 47), text_color = color.white, text_size = tableTextSize)
+    table.cell(dashboard, 1, 12, currentSignal, bgcolor = signalBg, text_color = color.white, text_size = tableTextSize, tooltip = "Momentum usa consenso, EMA e ATR opcional. Reversão exige virada em 2 dos 3 TFs rápidos fixos: 5m, 15m e 1h.")
+
+    color gaugeColor = f_statusColor(generalRsi)
+    table.cell(dashboard, 0, 13, "FORÇA", bgcolor = color.rgb(35, 39, 47), text_color = color.white, text_size = tableTextSize)
+    table.cell(dashboard, 1, 13, f_gauge(generalRsi) + "  " + (na(generalRsi) ? "—" : str.tostring(generalRsi, "#.0")), bgcolor = color.new(gaugeColor, 10), text_color = color.white, text_size = tableTextSize, tooltip = "Posição visual do RSI Geral na escala de 0 a 100.")
+
+    string liveState = barstate.isrealtime ? (realtimePulse ? "● AO VIVO" : "◉ AO VIVO") : "○ DADOS HISTÓRICOS"
+    string modeText = calculationMode == "Em formação (tempo real)" ? " • atualização por tick #" + str.tostring(realtimeUpdateNo) : " • candles confirmados"
+    table.cell(dashboard, 0, 14, liveState + modeText, bgcolor = color.rgb(20, 23, 29), text_color = barstate.isrealtime ? color.lime : color.silver, text_size = size.tiny, tooltip = "O pulso muda somente quando o TradingView recebe um novo negócio/tick do ativo.")
+
+if barstate.islast and not showPanel
+    table.clear(dashboard, 0, 0, 3, 14)
+
+if barstate.islast and showContrarianPanel
+    color contrarianBg = f_contrarianColor(generalRsi)
+    string contrarianAction = contrarianBuySignal ? "COMPRA CONFIRMADA" :
+         contrarianSellSignal ? "VENDA CONFIRMADA" :
+         generalRsi <= contrarianBuyLevel ? "AGUARDAR VIRADA PARA CIMA" :
+         generalRsi >= contrarianSellLevel ? "AGUARDAR VIRADA PARA BAIXO" : "AGUARDAR EXTREMO"
+    color actionBg = contrarianBuySignal ? color.rgb(205, 45, 58) :
+         contrarianSellSignal ? color.rgb(18, 160, 82) : color.rgb(58, 63, 74)
+    string liveContrarian = barstate.isrealtime ? (realtimePulse ? "● AO VIVO" : "◉ AO VIVO") : "○ HISTÓRICO"
+
+    table.cell(contrarianDashboard, 0, 0, syminfo.ticker + "  •  MEDO/ GANÂNCIA", bgcolor = color.rgb(92, 45, 116), text_color = color.white, text_size = tableTextSize)
+    table.cell(contrarianDashboard, 0, 1, "RSI GERAL", bgcolor = color.rgb(35, 39, 47), text_color = color.white, text_size = tableTextSize)
+    table.cell(contrarianDashboard, 1, 1, na(generalRsi) ? "—" : str.tostring(generalRsi, "#.0"), bgcolor = realtimePulse ? color.new(contrarianBg, 0) : color.new(contrarianBg, 15), text_color = realtimePulse ? color.yellow : color.white, text_size = tableTextSize)
+    table.cell(contrarianDashboard, 0, 2, "REGIÃO", bgcolor = color.rgb(35, 39, 47), text_color = color.white, text_size = tableTextSize)
+    table.cell(contrarianDashboard, 1, 2, f_contrarianStatus(generalRsi), bgcolor = contrarianBg, text_color = color.white, text_size = tableTextSize, tooltip = "Vermelho = medo/oportunidade de compra. Verde = ganância/oportunidade de venda.")
+    table.cell(contrarianDashboard, 0, 3, "AÇÃO", bgcolor = color.rgb(35, 39, 47), text_color = color.white, text_size = tableTextSize)
+    table.cell(contrarianDashboard, 1, 3, contrarianAction, bgcolor = actionBg, text_color = color.white, text_size = tableTextSize, tooltip = "Compra só confirma saindo de 20 para cima. Venda só confirma saindo de 90 para baixo.")
+    table.cell(contrarianDashboard, 0, 4, "8 TF", bgcolor = color.rgb(35, 39, 47), text_color = color.white, text_size = tableTextSize)
+    table.cell(contrarianDashboard, 1, 4, str.tostring(bearCount) + " medo  •  " + str.tostring(bullCount) + " ganância", bgcolor = color.rgb(58, 63, 74), text_color = color.white, text_size = tableTextSize)
+    table.cell(contrarianDashboard, 0, 5, "STATUS", bgcolor = color.rgb(35, 39, 47), text_color = color.white, text_size = size.tiny)
+    table.cell(contrarianDashboard, 1, 5, liveContrarian, bgcolor = color.rgb(20, 23, 29), text_color = barstate.isrealtime ? color.lime : color.silver, text_size = size.tiny)
+
+if barstate.islast and not showContrarianPanel
+    table.clear(contrarianDashboard, 0, 0, 1, 5)
+
+// =============================================================================
+// Alertas
+// =============================================================================
+
+alertcondition(longMomentum, "RSI Geral • Momentum de alta", "RSI Geral Pro: momentum de ALTA em {{ticker}} no gráfico {{interval}}.")
+alertcondition(shortMomentum, "RSI Geral • Momentum de baixa", "RSI Geral Pro: momentum de BAIXA em {{ticker}} no gráfico {{interval}}.")
+alertcondition(longReversal, "RSI Geral • Saída de sobrevenda", "RSI Geral Pro: possível reversão de ALTA saindo da sobrevenda em {{ticker}}.")
+alertcondition(shortReversal, "RSI Geral • Saída de sobrecompra", "RSI Geral Pro: possível reversão de BAIXA saindo da sobrecompra em {{ticker}}.")
+alertcondition(enteredOverbought, "RSI Geral • Entrou na faixa verde 80", "RSI Geral Pro: {{ticker}} entrou na faixa de força acima de 80. Preço: {{close}}.")
+alertcondition(enteredOversold, "RSI Geral • Entrou na faixa vermelha 25", "RSI Geral Pro: {{ticker}} entrou na faixa de fraqueza abaixo de 25. Preço: {{close}}.")
+alertcondition(newFullBullAlignment, "RSI Geral • Alinhamento total de alta", "RSI Geral Pro: os 8 timeframes estão alinhados em ALTA em {{ticker}}. Preço: {{close}}.")
+alertcondition(newFullBearAlignment, "RSI Geral • Alinhamento total de baixa", "RSI Geral Pro: os 8 timeframes estão alinhados em BAIXA em {{ticker}}. Preço: {{close}}.")
+alertcondition(contrarianBuySignal, "Contrário • Compra após medo", "RSI Geral Pro: COMPRA CONTRÁRIA confirmada após saída de 20 em {{ticker}}. Preço: {{close}}.")
+alertcondition(contrarianSellSignal, "Contrário • Venda após ganância", "RSI Geral Pro: VENDA CONTRÁRIA confirmada após saída de 90 em {{ticker}}. Preço: {{close}}.")
+
+string dynamicEvent = ""
+if contrarianBuySignal
+    dynamicEvent := "COMPRA CONTRARIA CONFIRMADA APOS MEDO 20"
+else if contrarianSellSignal
+    dynamicEvent := "VENDA CONTRARIA CONFIRMADA APOS GANANCIA 90"
+else if newFullBullAlignment
+    dynamicEvent := "ALINHAMENTO TOTAL DE ALTA 8/8"
+else if newFullBearAlignment
+    dynamicEvent := "ALINHAMENTO TOTAL DE BAIXA 8/8"
+else if longMomentum
+    dynamicEvent := "MOMENTUM DE ALTA " + str.tostring(bullCount) + "/" + str.tostring(availableCount)
+else if shortMomentum
+    dynamicEvent := "MOMENTUM DE BAIXA " + str.tostring(bearCount) + "/" + str.tostring(availableCount)
+else if longReversal
+    dynamicEvent := "SAIDA DE SOBREVENDA"
+else if shortReversal
+    dynamicEvent := "SAIDA DE SOBRECOMPRA"
+else if enteredOverbought
+    dynamicEvent := "ENTROU NA FAIXA VERDE 80"
+else if enteredOversold
+    dynamicEvent := "ENTROU NA FAIXA VERMELHA 25"
+
+string priceText = str.tostring(close, format.mintick)
+string generalText = na(generalRsi) ? "sem dado" : str.tostring(generalRsi, "#.0")
+string consensusText = na(bullishConsensus) ? "sem dado" : str.tostring(bullishConsensus, "#") + "%"
+string dynamicMessage = syminfo.ticker + " | Preco " + priceText
+dynamicMessage := dynamicMessage + " | RSI Geral " + generalText
+dynamicMessage := dynamicMessage + " | Consenso alta " + consensusText
+dynamicMessage := dynamicMessage + " | " + dynamicEvent
+
+if enableDynamicAlerts and str.length(dynamicEvent) > 0
+    alert(dynamicMessage, alert.freq_once_per_bar)
