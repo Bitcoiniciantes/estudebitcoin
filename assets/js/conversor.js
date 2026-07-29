@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let pricesHistory = [];
   let candlesHistory = [];
   let openPriceReference = 0;
-  let chartMode = 'line';
+  let chartMode = 'candles';
   let chartState = null; // guarda coords/preços do último desenho p/ o hover
   let tickerAbortController = null;
   let historyAbortController = null;
@@ -36,7 +36,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const chartWrap = document.querySelector('.preev__chart-wrap');
   const tooltipEl = document.createElement('div');
   tooltipEl.className = 'preev__chart-tooltip';
-  if (chartWrap) chartWrap.appendChild(tooltipEl);
+  const chartDateEl = document.createElement('div');
+  chartDateEl.className = 'preev__chart-date';
+  if (chartWrap) {
+    chartWrap.appendChild(tooltipEl);
+    chartWrap.appendChild(chartDateEl);
+  }
 
   // Badge "AO VIVO" (criado dinamicamente e inserido no card do conversor)
   const previewContainer = document.querySelector('.preev__container');
@@ -426,11 +431,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     ctx.restore();
 
-    if (chartState.mode === 'candles') showCandleTooltip(chartState.candles[idx]);
-    else showPriceTooltip(chartState.prices[idx], chartState.isBullish);
+    if (chartState.mode === 'candles') {
+      const candle = chartState.candles[idx];
+      showCandleTooltip(candle);
+      showCandleDate(point.x, candle.time);
+    } else {
+      hideCandleDate();
+      showPriceTooltip(chartState.prices[idx], chartState.isBullish);
+    }
   }
 
   function handleChartLeave() {
+    hideCandleDate();
     renderBaseChart();
   }
 
@@ -458,11 +470,28 @@ document.addEventListener('DOMContentLoaded', () => {
     keepTooltipVisible();
   }
 
+  function showCandleDate(x, time) {
+    if (!chartDateEl || !chartWrap) return;
+    chartDateEl.textContent = new Date(time).toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+    const left = Math.max(55, Math.min(canvas.offsetLeft + x, chartWrap.clientWidth - 55));
+    chartDateEl.style.left = `${left}px`;
+    chartDateEl.classList.add('visible');
+  }
+
+  function hideCandleDate() {
+    if (chartDateEl) chartDateEl.classList.remove('visible');
+  }
   function hideTooltip() {
     clearTimeout(tooltipHideTimer);
     if (tooltipEl) tooltipEl.classList.remove('visible');
+    hideCandleDate();
   }
 
+  document.addEventListener('pointerdown', event => {
+    if (chartWrap && !chartWrap.contains(event.target)) hideTooltip();
+  });
   // --- EVENTOS FINAIS ---
   inputLeft.addEventListener('input', () => {
       limitarCasas(inputLeft, selectLeft.value);
