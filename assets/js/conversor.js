@@ -64,9 +64,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const timeframeParams = {
     '1H': { interval: '1m', limit: 60 },
-    '1D': { interval: '15m', limit: 96 },
+    '1D': { interval: '1h', limit: 24 },
     '1W': { interval: '2h', limit: 84 },
-    '1M': { interval: '8h', limit: 90 },
+    '1M': { interval: '1d', limit: 30 },
     '1Y': { interval: '1d', limit: 365 }
   };
 
@@ -472,9 +472,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function showCandleDate(x, time) {
     if (!chartDateEl || !chartWrap) return;
-    chartDateEl.textContent = new Date(time).toLocaleString('pt-BR', {
-      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    const candleDate = new Date(time);
+    const date = candleDate.toLocaleDateString('pt-BR', {
+      timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric'
     });
+    const showTime = activeTimeframe !== '1M' && activeTimeframe !== '1Y';
+    const timeLabel = showTime ? candleDate.toLocaleTimeString('pt-BR', {
+      timeZone: 'UTC', hour: '2-digit', minute: '2-digit'
+    }) : '';
+    chartDateEl.textContent = showTime ? `${date} • ${timeLabel} UTC` : `${date} UTC`;
     const left = Math.max(55, Math.min(canvas.offsetLeft + x, chartWrap.clientWidth - 55));
     chartDateEl.style.left = `${left}px`;
     chartDateEl.classList.add('visible');
