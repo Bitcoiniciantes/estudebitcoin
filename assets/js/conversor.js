@@ -63,11 +63,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const timeframeParams = {
-    '1H': { interval: '1m', limit: 60 },
-    '1D': { interval: '1h', limit: 24 },
-    '1W': { interval: '2h', limit: 84 },
-    '1M': { interval: '1d', limit: 30 },
-    '1Y': { interval: '1d', limit: 365 }
+    '1H': { interval: '1h', limit: 24 },
+    '1D': { interval: '1d', limit: 60 },
+    '1W': { interval: '1w', limit: 60 },
+    '1M': { interval: '1M', limit: 60 },
+    // A Binance não oferece candle anual; 1A exibe os 12 candles mensais mais recentes.
+    '1Y': { interval: '1M', limit: 12 }
   };
 
   /**
@@ -476,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const date = candleDate.toLocaleDateString('pt-BR', {
       timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric'
     });
-    const showTime = activeTimeframe !== '1M' && activeTimeframe !== '1Y';
+    const showTime = activeTimeframe === '1H';
     const timeLabel = showTime ? candleDate.toLocaleTimeString('pt-BR', {
       timeZone: 'UTC', hour: '2-digit', minute: '2-digit'
     }) : '';
