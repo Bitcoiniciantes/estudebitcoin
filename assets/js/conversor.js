@@ -473,22 +473,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function showCandleDate(x, time, isCurrent = false) {
     if (!chartDateEl || !chartWrap) return;
-    const candleDate = isCurrent ? new Date() : new Date(time);
-    const date = candleDate.toLocaleDateString('pt-BR', {
-      timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric'
-    });
-    const showTime = activeTimeframe === '1H';
-    const timeLabel = showTime ? candleDate.toLocaleTimeString('pt-BR', {
-      timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit'
-    }) : '';
-    if (isCurrent) {
-      const currentTime = candleDate.toLocaleTimeString('pt-BR', {
+    const candleDate = new Date(time);
+    let candleLabel;
+
+    if (activeTimeframe === '1H') {
+      const date = candleDate.toLocaleDateString('pt-BR', {
+        timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric'
+      });
+      const timeLabel = candleDate.toLocaleTimeString('pt-BR', {
         timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit'
       });
-      chartDateEl.textContent = `ATUAL • ${date} • ${currentTime} • EM FORMAÇÃO • Brasília`;
+      candleLabel = `${date} • ${timeLabel} Brasília`;
+    } else if (activeTimeframe === '1M') {
+      candleLabel = candleDate.toLocaleDateString('pt-BR', {
+        timeZone: 'UTC', month: '2-digit', year: 'numeric'
+      });
     } else {
-      chartDateEl.textContent = showTime ? `${date} • ${timeLabel} Brasília` : `${date} Brasília`;
+      candleLabel = candleDate.toLocaleDateString('pt-BR', {
+        timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric'
+      });
     }
+
+    chartDateEl.textContent = isCurrent ? `${candleLabel} • EM FORMAÇÃO` : candleLabel;
     const left = Math.max(55, Math.min(canvas.offsetLeft + x, chartWrap.clientWidth - 55));
     chartDateEl.style.left = `${left}px`;
     chartDateEl.classList.add('visible');
