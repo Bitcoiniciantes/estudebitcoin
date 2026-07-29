@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let klineSocket = null;
   let klineSocketKey = '';
   let klineReconnectTimer = null;
+  let tooltipHideTimer = null;
   let resizeTimeout = null;
 
   // Elemento de tooltip (criado dinamicamente e inserido no wrapper do gráfico)
@@ -310,7 +311,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function drawTrendChart(prices, isBullish) {
-    hideTooltip();
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
@@ -333,7 +333,6 @@ document.addEventListener('DOMContentLoaded', () => {
    * para "limpar" o hover a cada movimento do mouse.
    */
   function drawCandlestickChart(candles) {
-    hideTooltip();
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
@@ -432,7 +431,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function handleChartLeave() {
-    hideTooltip();
     renderBaseChart();
   }
 
@@ -444,9 +442,12 @@ document.addEventListener('DOMContentLoaded', () => {
     tooltipEl.style.left = (canvas.offsetLeft + x) + 'px';
     tooltipEl.style.top = (canvas.offsetTop + y) + 'px';
     tooltipEl.classList.add('visible');
+    clearTimeout(tooltipHideTimer);
+    tooltipHideTimer = setTimeout(hideTooltip, 15000);
   }
 
   function hideTooltip() {
+    clearTimeout(tooltipHideTimer);
     if (tooltipEl) tooltipEl.classList.remove('visible');
   }
 
@@ -461,6 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   [selectLeft, selectRight].forEach(s => s.addEventListener('change', () => { 
+    hideTooltip();
     updateTitle(); // Atualiza o título ao mudar o ativo
     updateAll(); 
   }));
@@ -487,10 +489,12 @@ document.addEventListener('DOMContentLoaded', () => {
       tfBtns.forEach(btn => btn.classList.remove('active'));
       e.target.classList.add('active');
       activeTimeframe = e.target.dataset.tf;
+      hideTooltip();
       fetchHistoricalTrends();
   }));
   
   chartTypeBtns.forEach(button => button.addEventListener('click', () => {
+    hideTooltip();
     chartMode = button.dataset.chartType;
     chartTypeBtns.forEach(item => {
       const active = item === button;
