@@ -87,6 +87,29 @@
     });
   }
 
+  /* ---------- Âncoras estáveis em conteúdo carregado sob demanda ---------- */
+  function scrollToHashTarget() {
+    if (!window.location.hash) return;
+    var id;
+    try { id = decodeURIComponent(window.location.hash.slice(1)); }
+    catch (error) { id = window.location.hash.slice(1); }
+    var target = document.getElementById(id);
+    if (!target) return;
+    var header = document.querySelector('header');
+    var offset = (header ? header.getBoundingClientRect().height : 0) + 12;
+    var top = target.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+  }
+
+  function stabilizeHashTarget() {
+    [0, 120, 450, 1000, 2000].forEach(function (delay) {
+      window.setTimeout(scrollToHashTarget, delay);
+    });
+  }
+
+  window.addEventListener('load', stabilizeHashTarget, { once: true });
+  window.addEventListener('hashchange', stabilizeHashTarget);
+  if (window.location.hash) stabilizeHashTarget();
   /* ---------- Lazy-load dos widgets ---------- */
   // Cada widget carrega seu script só quando o container se aproxima da tela.
   function lazyWidget(anchorId, scriptSrc, initName) {
@@ -96,7 +119,10 @@
       BI.loadScript(scriptSrc)
         .then(function () {
           if (window.BIWidgets && window.BIWidgets[initName]) {
-            window.BIWidgets[initName]();
+            var initialization = window.BIWidgets[initName]();
+            Promise.resolve(initialization).then(function () {
+              if (window.location.hash === '#' + anchorId) stabilizeHashTarget();
+            }).catch(function () {});
           }
         })
         .catch(function () {});
