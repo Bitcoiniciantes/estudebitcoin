@@ -435,7 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (chartState.mode === 'candles') {
       const candle = chartState.candles[idx];
       showCandleTooltip(candle);
-      showCandleDate(point.x, candle.time);
+      showCandleDate(point.x, candle.time, idx === chartState.candles.length - 1);
     } else {
       hideCandleDate();
       showPriceTooltip(chartState.prices[idx], chartState.isBullish);
@@ -471,9 +471,9 @@ document.addEventListener('DOMContentLoaded', () => {
     keepTooltipVisible();
   }
 
-  function showCandleDate(x, time) {
+  function showCandleDate(x, time, isCurrent = false) {
     if (!chartDateEl || !chartWrap) return;
-    const candleDate = new Date(time);
+    const candleDate = isCurrent ? new Date() : new Date(time);
     const date = candleDate.toLocaleDateString('pt-BR', {
       timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric'
     });
@@ -481,7 +481,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const timeLabel = showTime ? candleDate.toLocaleTimeString('pt-BR', {
       timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit'
     }) : '';
-    chartDateEl.textContent = showTime ? `${date} • ${timeLabel} Brasília` : `${date} Brasília`;
+    if (isCurrent) {
+      const currentTime = candleDate.toLocaleTimeString('pt-BR', {
+        timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit'
+      });
+      chartDateEl.textContent = `ATUAL • ${date} • ${currentTime} • EM FORMAÇÃO • Brasília`;
+    } else {
+      chartDateEl.textContent = showTime ? `${date} • ${timeLabel} Brasília` : `${date} Brasília`;
+    }
     const left = Math.max(55, Math.min(canvas.offsetLeft + x, chartWrap.clientWidth - 55));
     chartDateEl.style.left = `${left}px`;
     chartDateEl.classList.add('visible');
