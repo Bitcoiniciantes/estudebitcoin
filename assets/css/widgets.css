@@ -827,6 +827,31 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
   padding: 12px;
   box-sizing: border-box;
 }
+.preev__chart-type {
+  position:absolute;
+  top:10px;
+  right:10px;
+  z-index:3;
+  display:flex;
+  padding:2px;
+  gap:2px;
+  border:1px solid rgba(0,0,0,0.12);
+  border-radius:7px;
+  background:rgba(255,255,255,0.9);
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+.preev__chart-type-btn {
+  border:0;
+  border-radius:5px;
+  padding:5px 8px;
+  background:transparent;
+  color:#777;
+  font-size:10px;
+  font-weight:700;
+  cursor:pointer;
+}
+.preev__chart-type-btn:hover { color:#222; }
+.preev__chart-type-btn.active { background:#252525; color:#fff; }
 .preev__chart-wrap canvas { width: 100% !important; height: 100% !important; display: block; cursor: crosshair; }
 
 .preev__chart-tooltip {

@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectRight = document.getElementById('preev-right-select');
   const canvas = document.getElementById('preev-canvas');
   const tfBtns = document.querySelectorAll('.preev__tf-btn');
+  const chartTypeBtns = document.querySelectorAll('.preev__chart-type-btn');
   const changeEl = document.getElementById('preev-change');
   const highEl = document.getElementById('preev-high');
   const lowEl = document.getElementById('preev-low');
@@ -19,10 +20,15 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeTimeframe = '1M';
   let exchangeRate = 0; 
   let pricesHistory = [];
+  let candlesHistory = [];
   let openPriceReference = 0;
+  let chartMode = 'line';
   let chartState = null; // guarda coords/preços do último desenho p/ o hover
   let tickerAbortController = null;
   let historyAbortController = null;
+  let klineSocket = null;
+  let klineSocketKey = '';
+  let klineReconnectTimer = null;
   let resizeTimeout = null;
 
   // Elemento de tooltip (criado dinamicamente e inserido no wrapper do gráfico)
@@ -211,22 +217,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${config.symbol}&interval=${tf.interval}&limit=${tf.limit}`, { signal: historyAbortController.signal });
       const data = await res.json();
       if (data && data.length > 0) {
-        let closes = data.map(c => parseFloat(c[4]));
-        let highs = data.map(c => parseFloat(c[2]));
-        let lows = data.map(c => parseFloat(c[3]));
-        let openRef = parseFloat(data[0][1]);
-        if (config.invert) {
-            closes = closes.map(v => 1 / v);
-            const invertedHighs = lows.map(v => 1 / v);
-            const invertedLows = highs.map(v => 1 / v);
-            highs = invertedHighs;
-            lows = invertedLows;
-            openRef = 1 / openRef;
-        }
-        openPriceReference = openRef;
-        pricesHistory = closes;
-        renderStats(Math.max(...highs), Math.min(...lows), ((closes[closes.length-1] - openRef) / openRef) * 100);
-        drawTrendChart(closes, closes[closes.length-1] >= openRef);
+        candlesHistory = data.map(kline => normalizeKline(kline, config.invert));
+        updateChartFromCandles();
+        connectKlineStream();
       }
     } catch (err) {
       if (err.name === 'AbortError') return;
@@ -234,6 +227,79 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function normalizeKline(kline, invert) {
+    const time = Number(kline[0]);
+    const rawOpen = parseFloat(kline[1]);
+    const rawHigh = parseFloat(kline[2]);
+    const rawLow = parseFloat(kline[3]);
+    const rawClose = parseFloat(kline[4]);
+    if (!invert) return { time, open: rawOpen, high: rawHigh, low: rawLow, close: rawClose };
+    return { time, open: 1 / rawOpen, high: 1 / rawLow, low: 1 / rawHigh, close: 1 / rawClose };
+  }
+
+  function updateChartFromCandles() {
+    if (!candlesHistory.length) return;
+    pricesHistory = candlesHistory.map(candle => candle.close);
+    openPriceReference = candlesHistory[0].open;
+    const highs = candlesHistory.map(candle => candle.high);
+    const lows = candlesHistory.map(candle => candle.low);
+    const lastClose = candlesHistory[candlesHistory.length - 1].close;
+    renderStats(Math.max(...highs), Math.min(...lows), ((lastClose - openPriceReference) / openPriceReference) * 100);
+    drawActiveChart();
+  }
+
+  function drawActiveChart() {
+    if (!candlesHistory.length) return;
+    if (chartMode === 'candles') drawCandlestickChart(candlesHistory);
+    else drawTrendChart(pricesHistory, pricesHistory[pricesHistory.length - 1] >= openPriceReference);
+  }
+
+  function connectKlineStream() {
+    const config = getPairConfig();
+    const tf = timeframeParams[activeTimeframe];
+    if (!config || !tf) return;
+    const nextKey = `${config.symbol.toLowerCase()}@kline_${tf.interval}`;
+    if (klineSocketKey === nextKey && klineSocket &&
+        (klineSocket.readyState === WebSocket.OPEN || klineSocket.readyState === WebSocket.CONNECTING)) return;
+
+    clearTimeout(klineReconnectTimer);
+    const previousSocket = klineSocket;
+    klineSocketKey = nextKey;
+    klineSocket = new WebSocket(`wss://stream.binance.com:9443/ws/${nextKey}`);
+    if (previousSocket) previousSocket.close();
+    const socket = klineSocket;
+
+    socket.addEventListener('open', () => {
+      if (socket === klineSocket) setLiveStatus(true);
+    });
+    socket.addEventListener('message', event => {
+      if (socket !== klineSocket) return;
+      try {
+        const payload = JSON.parse(event.data);
+        const kline = payload.k;
+        const currentConfig = getPairConfig();
+        if (!kline || !currentConfig || payload.s !== currentConfig.symbol) return;
+        const candle = normalizeKline([kline.t, kline.o, kline.h, kline.l, kline.c], currentConfig.invert);
+        const lastIndex = candlesHistory.length - 1;
+        if (lastIndex >= 0 && candlesHistory[lastIndex].time === candle.time) candlesHistory[lastIndex] = candle;
+        else {
+          candlesHistory.push(candle);
+          candlesHistory = candlesHistory.slice(-timeframeParams[activeTimeframe].limit);
+        }
+        updateChartFromCandles();
+      } catch (err) {
+        console.warn('Kline stream error', err);
+      }
+    });
+    socket.addEventListener('close', () => {
+      if (socket !== klineSocket) return;
+      setLiveStatus(false);
+      klineReconnectTimer = setTimeout(connectKlineStream, 3000);
+    });
+    socket.addEventListener('error', () => {
+      if (socket === klineSocket) setLiveStatus(false);
+    });
+  }
   function renderStats(high, low, pct) {
     const pR = selectRight.value;
     const prefix = pR === 'BRL' ? 'R$ ' : pR === 'USD' ? '$ ' : '₿ ';
@@ -256,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const coords = prices.map((p, i) => ({ x: (i/(prices.length-1))*w, y: h-15-((p-min)/range)*(h-30) }));
 
     // Guarda o estado atual do gráfico para o hover reaproveitar sem redimensionar o canvas
-    chartState = { prices, coords, isBullish, min, range, w, h };
+    chartState = { mode: 'line', prices, coords, isBullish, min, range, w, h };
 
     renderBaseChart();
   }
@@ -266,8 +332,31 @@ document.addEventListener('DOMContentLoaded', () => {
    * sem tocar em canvas.width/height — usado tanto no desenho inicial quanto
    * para "limpar" o hover a cada movimento do mouse.
    */
+  function drawCandlestickChart(candles) {
+    hideTooltip();
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    const w = rect.width, h = rect.height;
+    const top = 18, bottom = 15;
+    const min = Math.min(...candles.map(candle => candle.low));
+    const range = Math.max(...candles.map(candle => candle.high)) - min || 1;
+    const spacing = w / candles.length;
+    const candleWidth = Math.max(2, Math.min(10, spacing * 0.62));
+    const priceY = price => h - bottom - ((price - min) / range) * (h - top - bottom);
+    const coords = candles.map((candle, index) => ({ x: index * spacing + spacing / 2, y: priceY(candle.close) }));
+    chartState = { mode: 'candles', candles, coords, min, range, w, h, spacing, candleWidth, priceY };
+    renderBaseChart();
+  }
   function renderBaseChart() {
     if (!chartState) return;
+    if (chartState.mode === 'candles') {
+      renderCandles();
+      return;
+    }
     const { coords, isBullish, min, range, w, h } = chartState;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, w, h);
@@ -292,41 +381,54 @@ document.addEventListener('DOMContentLoaded', () => {
    * Encontra o ponto mais próximo do mouse/toque, desenha a linha-guia + o
    * ponto destacado, e mostra o tooltip com o valor formatado.
    */
+  function renderCandles() {
+    const { candles, w, h, spacing, candleWidth, priceY } = chartState;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+    const openY = priceY(openPriceReference);
+    ctx.beginPath(); ctx.setLineDash([6, 6]);
+    ctx.moveTo(0, openY); ctx.lineTo(w, openY);
+    ctx.strokeStyle = '#d5d7dc'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+    candles.forEach((candle, index) => {
+      const x = index * spacing + spacing / 2;
+      const yOpen = priceY(candle.open);
+      const yHigh = priceY(candle.high);
+      const yLow = priceY(candle.low);
+      const yClose = priceY(candle.close);
+      const color = candle.close >= candle.open ? '#16a56a' : '#ef5b62';
+      ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, yHigh); ctx.lineTo(x, yLow); ctx.stroke();
+      const bodyY = Math.min(yOpen, yClose);
+      const bodyHeight = Math.max(1.5, Math.abs(yClose - yOpen));
+      ctx.fillRect(x - candleWidth / 2, bodyY, candleWidth, bodyHeight);
+    });
+  }
   function handleChartHover(evt) {
     if (!chartState || !chartState.coords.length) return;
     const rect = canvas.getBoundingClientRect();
     const clientX = evt.touches && evt.touches.length ? evt.touches[0].clientX : evt.clientX;
     const x = clientX - rect.left;
-
-    const { coords, prices, w, h, isBullish } = chartState;
+    const { coords, w, h } = chartState;
     let idx = Math.round((x / w) * (coords.length - 1));
     idx = Math.max(0, Math.min(coords.length - 1, idx));
     const point = coords[idx];
-    const price = prices[idx];
-
     renderBaseChart();
 
     const ctx = canvas.getContext('2d');
-    ctx.save();
-    ctx.beginPath();
-    ctx.setLineDash([3, 3]);
-    ctx.moveTo(point.x, 0);
-    ctx.lineTo(point.x, h);
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = isBullish ? '#34d399' : '#f87171';
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#ffffff';
-    ctx.stroke();
+    ctx.save(); ctx.beginPath(); ctx.setLineDash([3, 3]);
+    ctx.moveTo(point.x, 0); ctx.lineTo(point.x, h);
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+    if (chartState.mode === 'line') {
+      ctx.beginPath(); ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = chartState.isBullish ? '#34d399' : '#f87171'; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+    }
     ctx.restore();
 
-    showTooltip(point.x, point.y, price);
+    if (chartState.mode === 'candles') {
+      const candle = chartState.candles[idx];
+      showTooltip(point.x, point.y, `A ${formatNumber(candle.open, selectRight.value)}  MÁX ${formatNumber(candle.high, selectRight.value)}  MÍN ${formatNumber(candle.low, selectRight.value)}  F ${formatNumber(candle.close, selectRight.value)}`, true);
+    } else showTooltip(point.x, point.y, chartState.prices[idx]);
   }
 
   function handleChartLeave() {
@@ -334,11 +436,11 @@ document.addEventListener('DOMContentLoaded', () => {
     renderBaseChart();
   }
 
-  function showTooltip(x, y, price) {
+  function showTooltip(x, y, price, rawText = false) {
     if (!tooltipEl) return;
     const pR = selectRight.value;
     const prefix = pR === 'BRL' ? 'R$ ' : pR === 'USD' ? '$ ' : '₿ ';
-    tooltipEl.textContent = `${prefix}${formatNumber(price, pR)}`;
+    tooltipEl.textContent = rawText ? price : `${prefix}${formatNumber(price, pR)}`;
     tooltipEl.style.left = (canvas.offsetLeft + x) + 'px';
     tooltipEl.style.top = (canvas.offsetTop + y) + 'px';
     tooltipEl.classList.add('visible');
@@ -376,7 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
       if (pricesHistory.length > 0) {
-        drawTrendChart(pricesHistory, pricesHistory[pricesHistory.length - 1] >= openPriceReference);
+        drawActiveChart();
       }
     }, 150);
   });
@@ -388,6 +490,23 @@ document.addEventListener('DOMContentLoaded', () => {
       fetchHistoricalTrends();
   }));
   
+  chartTypeBtns.forEach(button => button.addEventListener('click', () => {
+    chartMode = button.dataset.chartType;
+    chartTypeBtns.forEach(item => {
+      const active = item === button;
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-pressed', String(active));
+    });
+    drawActiveChart();
+  }));
+
+  window.addEventListener('beforeunload', () => {
+    clearTimeout(klineReconnectTimer);
+    klineSocketKey = '';
+    const socket = klineSocket;
+    klineSocket = null;
+    if (socket) socket.close();
+  });
   async function updateAll() { await fetchCurrentTicker(); await fetchHistoricalTrends(); }
   
   // Inicialização

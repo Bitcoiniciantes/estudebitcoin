@@ -617,6 +617,10 @@
           </select>
         </div>
         <div class="preev__chart-wrap" style="flex:1;min-height:0;margin-bottom:6px;">
+          <div class="preev__chart-type" role="group" aria-label="Tipo de gráfico">
+            <button class="preev__chart-type-btn active" type="button" data-chart-type="line" aria-pressed="true">Linha</button>
+            <button class="preev__chart-type-btn" type="button" data-chart-type="candles" aria-pressed="false">Candles</button>
+          </div>
           <canvas id="preev-canvas"></canvas>
         </div>
         <div class="preev__footer" style="flex-direction:column;align-items:center;gap:4px;margin-top:auto;">
