@@ -857,10 +857,9 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
 
 .preev__chart-tooltip {
   position: absolute;
-  top: 0;
-  left: 0;
-  transform: translate(-50%, -130%);
-  background: #1a1a1a;
+  top: 10px;
+  left: 10px;
+  background: rgba(26,26,26,0.92);
   color: #ffffff;
   font-family: var(--font-body);
   font-size: 9px;
@@ -875,6 +874,11 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
   z-index: 5;
 }
 .preev__chart-tooltip.visible { opacity: 1; }
+.preev__chart-tooltip .ohlc-label { color: #a3a3a3; margin-right: 3px; }
+.preev__chart-tooltip .ohlc-value { margin-right: 8px; }
+.preev__chart-tooltip .ohlc-value:last-child { margin-right: 0; }
+.preev__chart-tooltip .up { color: #16a56a; }
+.preev__chart-tooltip .down { color: #ef5b62; }
 
 .preev__footer { display: flex; justify-content: center; position: relative; z-index: 1; }
 .preev__footer-content {

@@ -281,6 +281,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentConfig = getPairConfig();
         if (!kline || !currentConfig || payload.s !== currentConfig.symbol) return;
         const candle = normalizeKline([kline.t, kline.o, kline.h, kline.l, kline.c], currentConfig.invert);
+        exchangeRate = parseFloat(kline.c);
+        if (document.activeElement !== inputLeft && document.activeElement !== inputRight) calculateConversion('left');
         const lastIndex = candlesHistory.length - 1;
         if (lastIndex >= 0 && candlesHistory[lastIndex].time === candle.time) candlesHistory[lastIndex] = candle;
         else {
@@ -424,26 +426,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     ctx.restore();
 
-    if (chartState.mode === 'candles') {
-      const candle = chartState.candles[idx];
-      showTooltip(point.x, point.y, `A ${formatNumber(candle.open, selectRight.value)}  MÁX ${formatNumber(candle.high, selectRight.value)}  MÍN ${formatNumber(candle.low, selectRight.value)}  F ${formatNumber(candle.close, selectRight.value)}`, true);
-    } else showTooltip(point.x, point.y, chartState.prices[idx]);
+    if (chartState.mode === 'candles') showCandleTooltip(chartState.candles[idx]);
+    else showPriceTooltip(chartState.prices[idx], chartState.isBullish);
   }
 
   function handleChartLeave() {
     renderBaseChart();
   }
 
-  function showTooltip(x, y, price, rawText = false) {
-    if (!tooltipEl) return;
-    const pR = selectRight.value;
-    const prefix = pR === 'BRL' ? 'R$ ' : pR === 'USD' ? '$ ' : '₿ ';
-    tooltipEl.textContent = rawText ? price : `${prefix}${formatNumber(price, pR)}`;
-    tooltipEl.style.left = (canvas.offsetLeft + x) + 'px';
-    tooltipEl.style.top = (canvas.offsetTop + y) + 'px';
+  function keepTooltipVisible() {
     tooltipEl.classList.add('visible');
     clearTimeout(tooltipHideTimer);
     tooltipHideTimer = setTimeout(hideTooltip, 15000);
+  }
+
+  function showPriceTooltip(price, isUp) {
+    if (!tooltipEl) return;
+    const pR = selectRight.value;
+    const prefix = pR === 'BRL' ? 'R$ ' : pR === 'USD' ? '$ ' : '₿ ';
+    tooltipEl.innerHTML = `<span class="ohlc-value ${isUp ? 'up' : 'down'}">${prefix}${formatNumber(price, pR)}</span>`;
+    keepTooltipVisible();
+  }
+
+  function showCandleTooltip(candle) {
+    if (!tooltipEl) return;
+    const tone = candle.close >= candle.open ? 'up' : 'down';
+    const asset = selectRight.value;
+    tooltipEl.innerHTML = [
+      ['A', candle.open], ['MÁX', candle.high], ['MÍN', candle.low], ['F', candle.close]
+    ].map(([label, value]) => `<span class="ohlc-label">${label}</span><span class="ohlc-value ${tone}">${formatNumber(value, asset)}</span>`).join('');
+    keepTooltipVisible();
   }
 
   function hideTooltip() {
