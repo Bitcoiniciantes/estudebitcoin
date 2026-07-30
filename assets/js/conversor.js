@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const lowEl = document.getElementById('preev-low');
   const titleEl = document.querySelector('.preev__title'); // Seleciona o título
 
-  let activeTimeframe = '1M';
+  let activeTimeframe = '1D';
   let exchangeRate = 0; 
   let pricesHistory = [];
   let candlesHistory = [];
