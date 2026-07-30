@@ -67,8 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
     '1D': { interval: '1d', limit: 60 },
     '1W': { interval: '1w', limit: 60 },
     '1M': { interval: '1M', limit: 60 },
-    // A Binance não oferece candle anual; 1A usa 52 candles semanais para cobrir um ano.
-    '1Y': { interval: '1w', limit: 52 }
+    // A Binance não oferece candle anual; agregamos os candles mensais por ano civil.
+    '1Y': { interval: '1M', limit: 120, aggregate: 'year' }
   };
 
   /**
@@ -224,7 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${config.symbol}&interval=${tf.interval}&limit=${tf.limit}`, { signal: historyAbortController.signal });
       const data = await res.json();
       if (data && data.length > 0) {
-        candlesHistory = data.map(kline => normalizeKline(kline, config.invert));
+        const normalizedCandles = data.map(kline => normalizeKline(kline, config.invert));
+        candlesHistory = tf.aggregate === 'year' ? aggregateAnnualCandles(normalizedCandles) : normalizedCandles;
         updateChartFromCandles();
         connectKlineStream();
       }
@@ -242,6 +243,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const rawClose = parseFloat(kline[4]);
     if (!invert) return { time, open: rawOpen, high: rawHigh, low: rawLow, close: rawClose };
     return { time, open: 1 / rawOpen, high: 1 / rawLow, low: 1 / rawHigh, close: 1 / rawClose };
+  }
+
+  function aggregateAnnualCandles(monthlyCandles) {
+    return monthlyCandles.reduce((annual, candle) => {
+      const yearStart = Date.UTC(new Date(candle.time).getUTCFullYear(), 0, 1);
+      const current = annual[annual.length - 1];
+      if (!current || current.time !== yearStart) {
+        annual.push({ ...candle, time: yearStart });
+      } else {
+        current.high = Math.max(current.high, candle.high);
+        current.low = Math.min(current.low, candle.low);
+        current.close = candle.close;
+      }
+      return annual;
+    }, []);
+  }
+
+  function updateAnnualCandle(monthlyCandle) {
+    const yearStart = Date.UTC(new Date(monthlyCandle.time).getUTCFullYear(), 0, 1);
+    const current = candlesHistory[candlesHistory.length - 1];
+    if (!current || current.time !== yearStart) {
+      candlesHistory.push({ ...monthlyCandle, time: yearStart });
+      candlesHistory = candlesHistory.slice(-12);
+      return;
+    }
+    current.high = Math.max(current.high, monthlyCandle.high);
+    current.low = Math.min(current.low, monthlyCandle.low);
+    current.close = monthlyCandle.close;
   }
 
   function updateChartFromCandles() {
@@ -289,11 +318,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const candle = normalizeKline([kline.t, kline.o, kline.h, kline.l, kline.c], currentConfig.invert);
         exchangeRate = parseFloat(kline.c);
         if (document.activeElement !== inputLeft && document.activeElement !== inputRight) calculateConversion('left');
-        const lastIndex = candlesHistory.length - 1;
-        if (lastIndex >= 0 && candlesHistory[lastIndex].time === candle.time) candlesHistory[lastIndex] = candle;
+        const activeParams = timeframeParams[activeTimeframe];
+        if (activeParams.aggregate === 'year') updateAnnualCandle(candle);
         else {
-          candlesHistory.push(candle);
-          candlesHistory = candlesHistory.slice(-timeframeParams[activeTimeframe].limit);
+          const lastIndex = candlesHistory.length - 1;
+          if (lastIndex >= 0 && candlesHistory[lastIndex].time === candle.time) candlesHistory[lastIndex] = candle;
+          else {
+            candlesHistory.push(candle);
+            candlesHistory = candlesHistory.slice(-activeParams.limit);
+          }
         }
         updateChartFromCandles();
       } catch (err) {
@@ -487,6 +520,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (activeTimeframe === '1M') {
       candleLabel = candleDate.toLocaleDateString('pt-BR', {
         timeZone: 'UTC', month: '2-digit', year: 'numeric'
+      });
+    } else if (activeTimeframe === '1Y') {
+      candleLabel = candleDate.toLocaleDateString('pt-BR', {
+        timeZone: 'UTC', year: 'numeric'
       });
     } else {
       candleLabel = candleDate.toLocaleDateString('pt-BR', {
