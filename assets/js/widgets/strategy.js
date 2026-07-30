@@ -36,6 +36,14 @@ window.BIWidgets.strategyTreasury = async function () {
           <div class="strategy__section-label">ÚLTIMA COMPRA REALIZADA</div>
           <div class="strategy__purchase-date" id="strategy-purchase-date">—</div>
         </div>
+        <div class="strategy__purchase-guide">
+          <div class="strategy__mnav-guide" aria-label="Como interpretar o mNAV">
+            <div><strong class="strategy__mnav-neutral">mNAV = 1</strong><span>Empresa avaliada pelo valor de sua reserva em Bitcoin.</span></div>
+            <div><strong class="strategy__mnav-premium">mNAV &gt; 1</strong><span>Ação com prêmio: mercado otimista espera retornos maiores.</span></div>
+            <div><strong class="strategy__mnav-discount">mNAV &lt; 1</strong><span>Ação com desconto: mercado precifica riscos e dívidas.</span></div>
+          </div>
+          <div class="strategy__availability" id="strategy-availability"></div>
+        </div>
         <div class="strategy__purchase-main"><strong id="strategy-purchase-btc">—</strong><span>BTC</span></div>
         <div class="strategy__purchase-grid">
           <div><span>Preço médio</span><strong id="strategy-purchase-price">—</strong></div>
@@ -65,32 +73,6 @@ window.BIWidgets.strategyTreasury = async function () {
             <span>Mínimo <strong id="strategy-chart-min">—</strong></span>
             <span>Máximo <strong id="strategy-chart-max">—</strong></span>
             <span>Variação <strong id="strategy-chart-change">—</strong></span>
-          </div>
-          <div class="strategy__chart-bottom">
-            <div class="strategy__chart-notes">
-              <div class="strategy__mnav-guide" aria-label="Como interpretar o mNAV">
-                <div><strong class="strategy__mnav-neutral">mNAV = 1</strong><span>Empresa avaliada pelo valor de sua reserva em Bitcoin.</span></div>
-                <div><strong class="strategy__mnav-premium">mNAV &gt; 1</strong><span>Ação com prêmio: mercado otimista espera retornos maiores.</span></div>
-                <div><strong class="strategy__mnav-discount">mNAV &lt; 1</strong><span>Ação com desconto: mercado precifica riscos e dívidas.</span></div>
-              </div>
-              <div class="strategy__availability" id="strategy-availability"></div>
-            </div>
-
-            <div class="strategy__calculator strategy__calculator--embedded">
-              <div class="strategy__calculator-heading">
-                <div class="strategy__section-label">CALCULADORA DA RESERVA</div>
-                <label for="strategy-future-price">Se o Bitcoin chegar a</label>
-              </div>
-              <div class="strategy__calculator-control">
-                <div class="strategy__input-wrap"><span>US$</span><input id="strategy-future-price" type="text" inputmode="numeric" value="150.000" aria-label="Preço futuro do Bitcoin em dólares"></div>
-                <input id="strategy-future-slider" class="strategy__slider" type="range" min="10000" max="1000000" step="10000" value="150000">
-              </div>
-              <div class="strategy__calc-results">
-                <div><span>Reserva projetada</span><strong id="strategy-projected-reserve">—</strong></div>
-                <div><span>Resultado vs. custo</span><strong id="strategy-projected-result">—</strong></div>
-              </div>
-              <p>Simulação da reserva de BTC; não projeta o preço da ação MSTR.</p>
-            </div>
           </div>
         </div>
       </div>
@@ -152,10 +134,6 @@ window.BIWidgets.strategyTreasury = async function () {
     if (el) el.textContent = value;
   }
 
-  function parseInput(value) {
-    return Math.max(0, Number(String(value).replace(/\./g, '').replace(',', '.')) || 0);
-  }
-
   function renderCurrent(mstrData, btcData, purchaseData) {
     var mstr = Array.isArray(mstrData) ? mstrData[0] : null;
     var btc = btcData && btcData.results;
@@ -178,7 +156,6 @@ window.BIWidgets.strategyTreasury = async function () {
       usdReserve: usdReserve,
       mnav: mnav,
       averagePrice: latestMovement.precoMedioAcumuladoUsd,
-      totalCost: latestMovement.custoTotalAcumuladoUsd,
       updatedAt: btcData.timestamp || mstr.timeStampUtc || purchaseData.atualizadoEm
     };
 
@@ -205,7 +182,6 @@ window.BIWidgets.strategyTreasury = async function () {
     }) + ' (horário de Brasília)');
     setText('strategy-status', 'DADOS OFICIAIS');
     root.classList.add('strategy--ready');
-    updateCalculator();
   }
 
   function periodStart(period) {
@@ -380,19 +356,6 @@ window.BIWidgets.strategyTreasury = async function () {
     });
   }
 
-  function updateCalculator() {
-    if (!current) return;
-    var input = document.getElementById('strategy-future-price');
-    var price = parseInput(input.value);
-    if (!price) return;
-    var projected = current.holdings * price;
-    var result = projected - current.totalCost;
-    setText('strategy-projected-reserve', fmtCompactUsd(projected));
-    setText('strategy-projected-result', (result >= 0 ? '+' : '') + fmtCompactUsd(result));
-    var resultEl = document.getElementById('strategy-projected-result');
-    if (resultEl) resultEl.className = result >= 0 ? 'strategy__positive' : 'strategy__negative';
-  }
-
   function showError(message) {
     var el = document.getElementById('strategy-error');
     if (el) { el.hidden = false; el.textContent = message; }
@@ -406,23 +369,6 @@ window.BIWidgets.strategyTreasury = async function () {
       activePeriod = button.dataset.period;
       loadHistory(activePeriod);
     });
-  });
-
-  var priceInput = document.getElementById('strategy-future-price');
-  var priceSlider = document.getElementById('strategy-future-slider');
-  priceInput.addEventListener('input', function () {
-    var value = parseInput(priceInput.value);
-    if (value >= Number(priceSlider.min) && value <= Number(priceSlider.max)) priceSlider.value = value;
-    updateCalculator();
-  });
-  priceInput.addEventListener('blur', function () {
-    var value = parseInput(priceInput.value);
-    priceInput.value = fmtInt(value);
-    updateCalculator();
-  });
-  priceSlider.addEventListener('input', function () {
-    priceInput.value = fmtInt(priceSlider.value);
-    updateCalculator();
   });
 
   async function loadPurchaseData() {
