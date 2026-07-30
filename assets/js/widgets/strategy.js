@@ -44,10 +44,12 @@ window.BIWidgets.strategyTreasury = async function () {
           </div>
           <div class="strategy__availability" id="strategy-availability"></div>
         </div>
-        <div class="strategy__purchase-main"><strong id="strategy-purchase-btc">—</strong><span>BTC</span></div>
+        <div class="strategy__purchase-main">
+          <div class="strategy__purchase-btc"><strong id="strategy-purchase-btc">—</strong><span>BTC</span></div>
+          <div class="strategy__purchase-detail"><span>Investimento total</span><strong id="strategy-purchase-total">—</strong></div>
+          <div class="strategy__purchase-detail"><span>Preço médio</span><strong id="strategy-purchase-price">—</strong></div>
+        </div>
         <div class="strategy__purchase-grid">
-          <div><span>Preço médio</span><strong id="strategy-purchase-price">—</strong></div>
-          <div><span>Investimento</span><strong id="strategy-purchase-total">—</strong></div>
           <div class="strategy__purchase-usd-reserve"><span>Reserva USD (US$ mi)</span><strong id="strategy-usd-reserve">—</strong></div>
         </div>
         <a id="strategy-purchase-source" class="strategy__source-link" href="https://www.strategy.com/purchases" target="_blank" rel="noopener noreferrer">Ver documento oficial ↗</a>
