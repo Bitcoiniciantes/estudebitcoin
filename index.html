@@ -285,19 +285,16 @@
     }
     .dark-card .preev__title { color: #1a1a1a; margin-bottom: 16px; font-size: 24px; font-weight: 700; }
     .dark-card .preev__container { overflow: visible !important; background: transparent !important; border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; border-radius: 0 !important; position: relative; }
-    .dark-card .preev__inputs-row { margin-bottom: 10px; margin-top: 8px; gap: 6px; }
-    .dark-card .preev__input-field { position: relative; flex: 1; min-width: 0; }
-    .dark-card .preev__input-field .preev__val { width: 100%; height: 52px; padding-top: 14px; }
+    .dark-card .preev__inputs-row { align-items: flex-end; margin-bottom: 10px; margin-top: 8px; gap: 6px; }
+    .dark-card .preev__input-field { flex: 1; min-width: 0; }
+    .dark-card .preev__input-field .preev__val { width: 100%; height: 52px; }
     .dark-card .preev__input-hint {
-      position: absolute;
-      top: 5px;
-      left: 12px;
-      z-index: 2;
-      color: #747a76;
-      font-size: 12px;
+      display: block;
+      margin: 0 0 4px 4px;
+      color: #686e6a;
+      font-size: 13px;
       font-weight: 600;
-      line-height: 1;
-      pointer-events: none;
+      line-height: 1.15;
     }
     .dark-card .preev__box { height: 52px; }
     .dark-card .preev__val { flex: 1; min-width: 0; font-size: clamp(16px, 2.2vw, 26px); padding: 0 4px; }
@@ -621,8 +618,8 @@
         <h2 class="preev__title">Bitcoin para US Dólar</h2>
         <div class="preev__inputs-row">
           <div class="preev__input-field">
-            <span class="preev__input-hint">Digite um valor para converter</span>
-            <input type="text" id="preev-left-input" class="preev__box preev__val" value="1" inputmode="decimal" aria-label="Digite um valor para converter">
+            <label class="preev__input-hint" for="preev-left-input">Digite um valor</label>
+            <input type="text" id="preev-left-input" class="preev__box preev__val" value="1" inputmode="decimal" aria-label="Digite um valor">
           </div>
           <select id="preev-left-select" class="preev__box preev__lbl select-asset">
             <option value="BTC" selected>BTC</option>
