@@ -1000,7 +1000,7 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
 .strategy__mnav-premium { color:#4ade80; }
 .strategy__mnav-discount { color:#ff6b84; }
 .strategy__purchase-card { padding:8px 10px; }
-.strategy__purchase-card--horizontal { display:grid; grid-template-columns:minmax(165px,.55fr) minmax(410px,1.35fr) minmax(105px,.35fr) minmax(420px,1.45fr) auto; grid-template-areas:"intro guide main metrics source"; align-items:center; gap:10px; margin-bottom:7px; }
+.strategy__purchase-card--horizontal { display:grid; grid-template-columns:minmax(165px,.55fr) minmax(105px,.35fr) minmax(410px,1.35fr) minmax(420px,1.45fr) auto; grid-template-areas:"intro main guide metrics source"; align-items:center; gap:8px; margin-bottom:7px; }
 .strategy__purchase-card--horizontal .strategy__section-label { margin-bottom:5px; }
 .strategy__section-label { color:var(--strategy-orange); font-size:9px; font-weight:800; letter-spacing:.09em; margin-bottom:9px; }
 .strategy__purchase-date { color:#878d98; font-size:11px; }
@@ -1027,7 +1027,7 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
 
 @media (max-width:1300px) {
   .strategy__metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .strategy__purchase-card--horizontal { grid-template-columns:minmax(150px,.55fr) minmax(340px,1.45fr) auto; grid-template-areas:"intro guide main" "metrics metrics metrics" "source source source"; }
+  .strategy__purchase-card--horizontal { grid-template-columns:minmax(150px,.55fr) auto minmax(340px,1.45fr); grid-template-areas:"intro main guide" "metrics metrics metrics" "source source source"; }
   .strategy__purchase-card--horizontal .strategy__purchase-main { justify-content:flex-end; }
   .strategy__chart-wrap { height:165px; }
 }
@@ -1044,7 +1044,7 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
   .strategy__tf { flex:1; padding:6px 4px; }
   .strategy__chart-wrap { height:150px; }
   .strategy__chart-stats { grid-template-columns:1fr 1fr; }
-  .strategy__purchase-card--horizontal { grid-template-columns:1fr; grid-template-areas:"intro" "guide" "main" "metrics" "source"; }
+  .strategy__purchase-card--horizontal { grid-template-columns:1fr auto; grid-template-areas:"intro main" "guide guide" "metrics metrics" "source source"; }
   .strategy__purchase-grid { grid-template-columns:1fr; }
   .strategy__purchase-card--horizontal .strategy__purchase-main { justify-content:flex-start; }
   .strategy__footer { flex-direction:column; }
