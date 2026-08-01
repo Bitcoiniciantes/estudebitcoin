@@ -62,7 +62,10 @@ async function generateWithGemini(env, messages) {
       }),
     },
   );
-  if (!response.ok) throw new Error(`gemini-${response.status}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`gemini-${response.status} - Google Payload: ${errorText}`);
+  }
   const payload = await response.json();
   return asText(payload?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join(""), 6000);
 }
