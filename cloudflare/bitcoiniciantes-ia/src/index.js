@@ -58,7 +58,10 @@ async function generateWithGemini(env, messages) {
           .filter((message) => message.role !== "system")
           .map((message) => ({ role: "user", parts: [{ text: message.content }] })),
         systemInstruction: { parts: [{ text: messages[0].content }] },
-        generationConfig: { maxOutputTokens: 700 },
+        generationConfig: {
+          maxOutputTokens: 2048,
+          thinkingConfig: { thinkingLevel: "MINIMAL" },
+        },
       }),
     },
   );
