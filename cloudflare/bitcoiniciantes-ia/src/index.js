@@ -1,4 +1,4 @@
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3.5-flash";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const ALLOWED_ORIGINS = new Set([
   "https://bitcoiniciantes.github.io",
@@ -58,7 +58,7 @@ async function generateWithGemini(env, messages) {
           .filter((message) => message.role !== "system")
           .map((message) => ({ role: "user", parts: [{ text: message.content }] })),
         systemInstruction: { parts: [{ text: messages[0].content }] },
-        generationConfig: { temperature: 0.25, maxOutputTokens: 700 },
+        generationConfig: { maxOutputTokens: 700 },
       }),
     },
   );
