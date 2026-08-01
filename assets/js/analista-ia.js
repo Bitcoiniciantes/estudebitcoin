@@ -5,6 +5,7 @@
   var result = document.getElementById("ai-result");
   var provider = document.getElementById("ai-provider");
   var disclaimer = document.getElementById("ai-disclaimer");
+  var requestId = 0;
   if (!input || !button || !result) return;
 
   function contextValue(value, fallback) {
@@ -48,6 +49,7 @@
   }
   function runAnalysis(context) {
     context = context || {};
+    var currentRequest = ++requestId;
     var asset = contextValue(context.asset, "BTC");
     var period = contextValue(context.period, "1D");
     var question = (context.question || input.value).trim().replace(/,?\s*sem recomenda[^.]*investimento\.?$/i, "");
@@ -72,14 +74,15 @@
       })
       .then(function (response) { return response.json(); })
       .then(function (payload) {
+        if (currentRequest !== requestId) return;
         if (!payload.analysis) throw new Error(payload.error || "A análise não ficou disponível.");
         result.innerHTML = renderAnalysis(payload.analysis);
         provider.textContent = payload.provider === "gemini" ? "Gemini" : "Groq";
         provider.style.display = "inline-block";
         disclaimer.textContent = payload.disclaimer || disclaimer.textContent;
       })
-      .catch(function (error) { result.textContent = error.message || "Não foi possível gerar a análise agora. Tente novamente."; })
-      .finally(function () { button.disabled = false; button.textContent = "Analisar " + asset; });
+      .catch(function (error) { if (currentRequest === requestId) result.textContent = error.message || "Não foi possível gerar a análise agora. Tente novamente."; })
+      .finally(function () { if (currentRequest === requestId) { button.disabled = false; button.textContent = "Analisar " + asset; } });
   }
 
   document.querySelectorAll("[data-question]").forEach(function (chip) {
@@ -87,7 +90,20 @@
   });
   button.addEventListener("click", function () { runAnalysis({}); });
   window.addEventListener("message", function (event) {
-    if (event.origin !== "https://bitcoiniciantes.github.io" || event.data?.type !== "termometro:open-estudebitcoin-ai") return;
+    if (event.origin !== "https://bitcoiniciantes.github.io") return;
+    if (event.data?.type === "termometro:ai-context-changed") {
+      requestId += 1;
+      var changedAsset = contextValue(event.data.asset, "BTC");
+      var changedPeriod = contextValue(event.data.period, "1D");
+      input.value = "";
+      button.disabled = false;
+      button.textContent = "Analisar " + changedAsset;
+      result.textContent = "Ativo atualizado para " + changedAsset + " no período " + changedPeriod + ". Clique no botão IA do Termômetro para gerar a leitura.";
+      provider.style.display = "none";
+      disclaimer.textContent = "Conteúdo informativo.";
+      return;
+    }
+    if (event.data?.type !== "termometro:open-estudebitcoin-ai") return;
     var asset = contextValue(event.data.asset, "BTC");
     var period = contextValue(event.data.period, "1D");
     var question = "Explique o cenário técnico atual de " + asset + " no período " + period + " de forma educativa.";
