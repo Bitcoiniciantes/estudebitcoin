@@ -23,11 +23,34 @@
       .catch(function () { return "Dados de cotação de " + asset + " indisponíveis no momento."; });
   }
 
+  function escapeHtml(value) {
+    return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function inlineMarkdown(value) {
+    return escapeHtml(value).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  }
+
+  function renderAnalysis(value) {
+    return String(value).replace(/\r\n?/g, "\n").trim().split(/\n{2,}/).map(function (block) {
+      var lines = block.trim().split("\n");
+      var heading = block.match(/^#{1,3}\s+(.+)$/);
+      if (heading) return "<h3>" + inlineMarkdown(heading[1]) + "</h3>";
+      if (block.trim() === "---") return "";
+      if (lines.every(function (line) { return /^[-*]\s+/.test(line); })) {
+        return "<ul>" + lines.map(function (line) { return "<li>" + inlineMarkdown(line.replace(/^[-*]\s+/, "")) + "</li>"; }).join("") + "</ul>";
+      }
+      if (lines.every(function (line) { return /^\d+[.)]\s+/.test(line); })) {
+        return "<ol>" + lines.map(function (line) { return "<li>" + inlineMarkdown(line.replace(/^\d+[.)]\s+/, "")) + "</li>"; }).join("") + "</ol>";
+      }
+      return "<p>" + lines.map(inlineMarkdown).join("<br>") + "</p>";
+    }).join("");
+  }
   function runAnalysis(context) {
     context = context || {};
     var asset = contextValue(context.asset, "BTC");
     var period = contextValue(context.period, "1D");
-    var question = (context.question || input.value).trim();
+    var question = (context.question || input.value).trim().replace(/,?\s*sem recomenda[^.]*investimento\.?$/i, "");
     if (!question) {
       input.focus();
       result.textContent = "Escreva uma pergunta sobre Bitcoin para iniciar a análise.";
@@ -50,7 +73,7 @@
       .then(function (response) { return response.json(); })
       .then(function (payload) {
         if (!payload.analysis) throw new Error(payload.error || "A análise não ficou disponível.");
-        result.textContent = payload.analysis.replace(/\*\*/g, "").replace(/^- /gm, "• ");
+        result.innerHTML = renderAnalysis(payload.analysis);
         provider.textContent = payload.provider === "gemini" ? "Gemini" : "Groq";
         provider.style.display = "inline-block";
         disclaimer.textContent = payload.disclaimer || disclaimer.textContent;

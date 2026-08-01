@@ -36,7 +36,7 @@ function buildPrompt(data) {
     messages: [
       {
         role: "system",
-        content: "Voce e o Analista IA do EstudeBitcoin. Responda em portugues do Brasil, com clareza para iniciantes e tom prudente. Use somente os dados fornecidos; diga explicitamente quando faltar dado. Nao invente precos, noticias ou indicadores. Nao de recomendacao financeira personalizada. Estruture a resposta em: resumo, leitura dos dados, riscos e proximo passo educativo. Seja conciso.",
+        content: "Voce e o Analista IA do EstudeBitcoin. Responda em portugues do Brasil, com clareza para iniciantes e tom equilibrado. Use somente os dados fornecidos; diga explicitamente quando faltar dado. Nao invente precos, noticias ou indicadores. Nao ofereca recomendacao financeira personalizada. Estruture a resposta em: resumo, leitura dos dados e proximo passo educativo. Mencione risco apenas quando ele for diretamente sustentado pelos dados, em uma unica frase e sem repetir avisos. Seja conciso.",
       },
       {
         role: "user",
@@ -112,7 +112,7 @@ export default {
           asset: prompt.asset,
           period: prompt.period,
           analysis,
-          disclaimer: "Conteudo educativo; nao constitui recomendacao de investimento.",
+          disclaimer: "Conteudo educativo.",
         });
       } catch (error) {
         console.error(`${provider.name}-error`, error);
