@@ -62,7 +62,7 @@
     result.textContent = "Consultando o Analista IA para " + asset + " no período " + period + "…";
     provider.style.display = "none";
 
-    marketSnapshot(asset)
+    Promise.resolve(typeof context.marketData === "string" && context.marketData.trim() ? context.marketData : marketSnapshot(asset))
       .then(function (marketData) {
         return fetch(endpoint, {
           method: "POST",
@@ -90,8 +90,8 @@
     if (event.origin !== "https://bitcoiniciantes.github.io" || event.data?.type !== "termometro:open-estudebitcoin-ai") return;
     var asset = contextValue(event.data.asset, "BTC");
     var period = contextValue(event.data.period, "1D");
-    var question = "Explique o cenário técnico atual de " + asset + " no período " + period + " de forma educativa, sem recomendação de investimento.";
+    var question = "Explique o cenário técnico atual de " + asset + " no período " + period + " de forma educativa.";
     document.getElementById("analista-ia")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.setTimeout(function () { runAnalysis({ asset: asset, period: period, question: question }); }, 450);
+    window.setTimeout(function () { runAnalysis({ asset: asset, period: period, marketData: event.data.marketData, question: question }); }, 450);
   });
 })();
