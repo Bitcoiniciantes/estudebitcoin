@@ -47,15 +47,15 @@ function rssTag(xml, tag) {
 
 const NEWS_TAGS = { BTC: "bitcoin", ETH: "ethereum", LINK: "chainlink", AVAX: "avalanche", PAXG: "pax-gold" };
 const NEWS_QUERIES = {
-  BTC: "Bitcoin cryptocurrency",
-  ETH: "Ethereum cryptocurrency",
-  LINK: "Chainlink cryptocurrency",
-  AVAX: "Avalanche AVAX cryptocurrency",
-  PAXG: "gold market",
+  BTC: "Bitcoin criptomoeda",
+  ETH: "Ethereum criptomoeda",
+  LINK: "Chainlink criptomoeda",
+  AVAX: "Avalanche AVAX criptomoeda",
+  PAXG: "ouro mercado",
   MSTR: "Strategy MSTR Bitcoin",
-  PRATA: "silver market price",
-  COBRE: "copper market price",
-  URANIO: "uranium market price",
+  PRATA: "prata mercado",
+  COBRE: "cobre mercado",
+  URANIO: "ur�nio mercado",
 };
 
 function parseRssItems(xml, defaultSource, limit = 20) {
@@ -108,24 +108,49 @@ async function fetchAssetNewsItems(asset) {
   const symbol = String(asset || "").toUpperCase();
   const tag = NEWS_TAGS[symbol];
   const query = `${newsQuery(symbol)} when:2d`;
-  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
-  const requests = [fetchRssItems(googleUrl, "Google News")];
-  if (tag) requests.push(fetchRssItems("https://cointelegraph.com/rss/tag/" + tag, "Cointelegraph"));
-
-  const settled = await Promise.allSettled(requests);
+  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
   const cutoff = Date.now() - 48 * 60 * 60 * 1000;
-  const seen = new Set();
-  return settled
-    .flatMap((result) => result.status === "fulfilled" ? result.value : [])
-    .filter((item) => isRelevantNews(item, symbol))
-    .filter((item) => !item.publishedAt || Date.parse(item.publishedAt) >= cutoff)
-    .filter((item) => {
-      const key = item.title.toLowerCase().replace(/\s+-\s+[^-]+$/, "").replace(/\s+/g, " ").trim();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 3);
+
+  const clean = (items) => {
+    const seen = new Set();
+    return items
+      .filter((item) => isRelevantNews(item, symbol))
+      .filter((item) => !item.publishedAt || Date.parse(item.publishedAt) >= cutoff)
+      .filter((item) => {
+        const key = item.title.toLowerCase().replace(/\s+-\s+[^-]+$/, "").replace(/\s+/g, " ").trim();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+
+  const regional = await Promise.allSettled([
+    fetchRssItems(googleUrl, "Google News Brasil"),
+    fetchRssItems("https://www.criptofacil.com/feed/", "CriptoF\u00e1cil"),
+  ]);
+  const localItems = clean(regional.flatMap((result) => result.status === "fulfilled" ? result.value : []));
+  if (localItems.length >= 3) return localItems.slice(0, 3);
+
+  const fallbackQueries = {
+    BTC: "Bitcoin cryptocurrency",
+    ETH: "Ethereum cryptocurrency",
+    LINK: "Chainlink cryptocurrency",
+    AVAX: "Avalanche AVAX cryptocurrency",
+    PAXG: "gold market",
+    MSTR: "Strategy MSTR Bitcoin",
+    PRATA: "silver market price",
+    COBRE: "copper market price",
+    URANIO: "uranium market price",
+  };
+  const fallbackQuery = `${fallbackQueries[symbol] || symbol} when:2d`;
+  const globalGoogleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fallbackQuery)}&hl=en-US&gl=US&ceid=US:en`;
+  const globalRequests = [fetchRssItems(globalGoogleUrl, "Google News Internacional")];
+  if (tag) globalRequests.push(fetchRssItems("https://cointelegraph.com/rss/tag/" + tag, "Cointelegraph"));
+  const global = await Promise.allSettled(globalRequests);
+  return clean([
+    ...localItems,
+    ...global.flatMap((result) => result.status === "fulfilled" ? result.value : []),
+  ]).slice(0, 3);
 }
 
 async function assetNews(request, asset) {
