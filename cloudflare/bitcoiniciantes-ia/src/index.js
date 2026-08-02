@@ -158,11 +158,15 @@ function formatTermometroContext(data, news) {
 }
 
 function buildTermometroPrompt(data, news) {
+  const localScenario = asText(data?.localPreview?.scenario, 20).toUpperCase();
+  const requiredScenario = SCENARIOS.has(localScenario) ? localScenario : null;
   return {
     asset: asText(data.asset, 24).toUpperCase() || "BTC",
     period: asText(data.period, 12) || "1D",
+    requiredScenario,
     messages: [
       { role: "system", content: TERMOMETRO_SYSTEM_PROMPT },
+      { role: "user", content: `Cenario oficial calculado pelo Termometro: ${requiredScenario || "nao informado"}. O campo scenario, o headline, o summary, a estrategia, os riscos e a invalidacao DEVEM ser coerentes com esse cenario oficial. Nao escolha outro cenario.` },
       { role: "user", content: `Dados do Termômetro:\n${formatTermometroContext(data, news)}\n\nResponda SOMENTE com o JSON pedido.` },
     ],
   };
@@ -310,11 +314,16 @@ export default {
         const raw = await provider.run();
         if (!raw) continue;
         const parsed = parseTermometroAnalysis(raw);
+        if (!parsed) continue;
+        if (prompt.requiredScenario && parsed.scenario !== prompt.requiredScenario) {
+          console.warn(`${provider.name}-scenario-mismatch`, { expected: prompt.requiredScenario, received: parsed.scenario });
+          continue;
+        }
         // Fallback campo-a-campo: usa o que a IA gerou; se algo faltar ou vier
         // malformado, cai de volta pro template local só naquele campo.
         return json(request, {
           headline: boundedText(parsed?.headline, local.headline || `${prompt.asset} em ${prompt.period}`, 120),
-          scenario: local.scenario || parsed?.scenario || "NEUTRO",
+          scenario: prompt.requiredScenario || parsed.scenario || "NEUTRO",
           summary: boundedText(parsed?.summary, local.summary || "", 700),
           strategy: boundedItems(parsed?.strategy, local.strategy || []),
           risks: boundedItems(parsed?.risks, local.risks || []),
