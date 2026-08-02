@@ -42,12 +42,10 @@
       .then(function (response) { return response.ok ? response.json() : null; })
       .then(function (payload) {
         var items = payload && Array.isArray(payload.items) ? payload.items : [];
-        if (!items.length) return "";
-        return "Noticias publicas recentes de " + asset + ":\n" + items.map(function (item) {
-          return "- " + item.title + (item.publishedAt ? " (" + String(item.publishedAt).slice(0, 10) + ")" : "");
-        }).join("\n");
+        if (!items.length) return { prompt: "", items: [] };
+        return { prompt: "Noticias publicas recentes de " + asset + ":\n" + items.map(function (item) { return "- " + item.title + (item.publishedAt ? " (" + String(item.publishedAt).slice(0, 10) + ")" : ""); }).join("\n"), items: items };
       })
-      .catch(function () { return ""; });
+      .catch(function () { return { prompt: "", items: [] }; });
   }
 
   function escapeHtml(value) {
@@ -59,33 +57,28 @@
   }
 
   function renderAnalysis(value) {
-    return String(value).replace(/\r\n?/g, "\n").trim().split(/\n{2,}/).map(function (block) {
-      var lines = block.trim().split("\n");
-      var heading = block.match(/^#{1,3}\s+(.+)$/);
-      if (heading) return "<h3>" + inlineMarkdown(heading[1]) + "</h3>";
-      if (block.trim() === "---") return "";
-      if (lines.every(function (line) { return /^[-*]\s+/.test(line); })) {
-        return "<ul>" + lines.map(function (line) { return "<li>" + inlineMarkdown(line.replace(/^[-*]\s+/, "")) + "</li>"; }).join("") + "</ul>";
-      }
-      if (lines.every(function (line) { return /^\d+[.)]\s+/.test(line); })) {
-        return "<ol>" + lines.map(function (line) { return "<li>" + inlineMarkdown(line.replace(/^\d+[.)]\s+/, "")) + "</li>"; }).join("") + "</ol>";
-      }
-      return "<p>" + lines.map(inlineMarkdown).join("<br>") + "</p>";
-    }).join("");
+    var html=[], paragraph=[], listType=null;
+    function closeParagraph(){ if(paragraph.length){ html.push("<p>"+paragraph.map(inlineMarkdown).join("<br>")+"</p>"); paragraph=[]; } }
+    function closeList(){ if(listType){ html.push("</"+listType+">"); listType=null; } }
+    String(value||"").replace(/\r\n?/g,"\n").trim().split("\n").forEach(function(raw){
+      var line=raw.trim(), heading=line.match(/^#{1,3}\s+(.+)$/), bullet=line.match(/^[-*]\s+(.+)$/), ordered=line.match(/^\d+[.)]\s+(.+)$/);
+      if(!line||line==="---"){closeParagraph();closeList();return;}
+      if(heading){closeParagraph();closeList();html.push("<h3>"+inlineMarkdown(heading[1])+"</h3>");return;}
+      if(bullet||ordered){closeParagraph();var nextType=bullet?"ul":"ol";if(listType!==nextType){closeList();listType=nextType;html.push("<"+listType+">");}html.push("<li>"+inlineMarkdown((bullet||ordered)[1])+"</li>");return;}
+      closeList();paragraph.push(line);
+    });
+    closeParagraph();closeList();return html.join("");
   }
-  function renderRelevantFacts(snapshot) {
-    if (!facts) return;
-    var lines = String(snapshot || "").split("\n").filter(function (line) { return line.indexOf("- ") === 0; });
-    if (!lines.length) {
-      facts.innerHTML = '<span>FATOS RELEVANTES</span><p>Sem notícias relevantes encontradas nas últimas 48 horas.</p>';
-      return;
-    }
-    facts.innerHTML = '<span>FATOS RELEVANTES</span><ul>' + lines.map(function (line) { return '<li>' + escapeHtml(line.slice(2)) + '</li>'; }).join('') + '</ul>';
+  function renderRelevantFacts(items) {
+    if(!facts)return;
+    if(!Array.isArray(items)||!items.length){facts.innerHTML="<span>FATOS RELEVANTES</span><p>Sem noticias relevantes encontradas nas ultimas 48 horas.</p>";return;}
+    facts.innerHTML="<span>FATOS RELEVANTES</span><ul>"+items.map(function(item){var title=escapeHtml(item.title||"Noticia"),source=escapeHtml(item.source||"Fonte"),date=item.publishedAt?" &bull; "+escapeHtml(String(item.publishedAt).slice(0,10).split("-").reverse().join("/")):"",link=item.url?'<a href="'+escapeHtml(item.url)+'" target="_blank" rel="noopener noreferrer">'+title+' &#8599;</a>':title;return "<li>"+link+"<small>"+source+date+"</small></li>";}).join("")+"</ul>";
   }
+
   function runAnalysis(context) {
     context = context || {};
     var currentRequest = ++requestId;
-    var factsSnapshot = "";
+    var factsSnapshot = [];
     var period = contextValue(context.period, "1D");
     var question = (context.question || (input ? input.value : "")).trim().replace(/,?\s*sem recomenda[^.]*investimento\.?$/i, "");
     var asset = inferAsset(question, contextValue(context.asset, "BTC"));
@@ -103,8 +96,8 @@
 
     Promise.all([Promise.resolve(typeof context.marketData === "string" && context.marketData.trim() ? context.marketData : marketSnapshot(asset)), newsSnapshot(asset)])
       .then(function (parts) {
-        factsSnapshot = parts[1];
-        var marketData = parts.filter(Boolean).join("\n\n");
+        factsSnapshot = parts[1].items;
+        var marketData = [parts[0], parts[1].prompt].filter(Boolean).join("\n\n");
         return fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
