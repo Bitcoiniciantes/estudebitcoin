@@ -7,8 +7,8 @@
   var disclaimer = document.getElementById("ai-disclaimer");
   var resultPanel = result && result.closest(".ai-analyst__result");
   var requestId = 0;
-  if (!input || !button || !result) return;
-  button.textContent = "ANALISAR";
+  if (!result) return;
+  if (button) button.textContent = "ANALISAR";
 
   function contextValue(value, fallback) {
     return typeof value === "string" && value.trim() ? value.trim().toUpperCase().slice(0, 20) : fallback;
@@ -76,17 +76,17 @@
     context = context || {};
     var currentRequest = ++requestId;
     var period = contextValue(context.period, "1D");
-    var question = (context.question || input.value).trim().replace(/,?\s*sem recomenda[^.]*investimento\.?$/i, "");
+    var question = (context.question || (input ? input.value : "")).trim().replace(/,?\s*sem recomenda[^.]*investimento\.?$/i, "");
     var asset = inferAsset(question, contextValue(context.asset, "BTC"));
     if (!question) {
-      input.focus();
+      input?.focus();
       result.textContent = "Escreva uma pergunta sobre Bitcoin para iniciar a análise.";
       return;
     }
-    input.value = question;
+    if (input) input.value = question;
     resultPanel?.classList.add("is-visible");
-    button.disabled = true;
-    button.textContent = "Analisando " + asset + "…";
+    if (button) button.disabled = true;
+    if (button) button.textContent = "Analisando " + asset + "…";
     result.textContent = "Consultando o Analista IA para " + asset + " no período " + period + "…";
     provider.style.display = "none";
 
@@ -109,22 +109,22 @@
         disclaimer.textContent = payload.disclaimer || disclaimer.textContent;
       })
       .catch(function (error) { if (currentRequest === requestId) result.textContent = error.message || "Não foi possível gerar a análise agora. Tente novamente."; })
-      .finally(function () { if (currentRequest === requestId) { button.disabled = false; button.textContent = "ANALISAR"; } });
+      .finally(function () { if (currentRequest === requestId && button) { button.disabled = false; button.textContent = "ANALISAR"; } });
   }
 
   document.querySelectorAll("[data-question]").forEach(function (chip) {
     chip.addEventListener("click", function () { input.value = chip.getAttribute("data-question"); input.focus(); });
   });
-  button.addEventListener("click", function () { runAnalysis({}); });
+  if (button) button.addEventListener("click", function () { runAnalysis({}); });
   window.addEventListener("message", function (event) {
     if (event.origin !== "https://bitcoiniciantes.github.io") return;
     if (event.data?.type === "termometro:ai-context-changed") {
       requestId += 1;
       var changedAsset = contextValue(event.data.asset, "BTC");
       var changedPeriod = contextValue(event.data.period, "1D");
-      input.value = "";
-      button.disabled = false;
-      button.textContent = "ANALISAR";
+      if (input) input.value = "";
+      if (button) button.disabled = false;
+      if (button) button.textContent = "ANALISAR";
       result.textContent = "Ativo atualizado para " + changedAsset + " no período " + changedPeriod + ". Clique no botão IA do Termômetro para gerar a leitura.";
       provider.style.display = "none";
       disclaimer.textContent = "Conteúdo informativo.";
