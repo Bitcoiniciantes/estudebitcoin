@@ -5,6 +5,7 @@
   var result = document.getElementById("ai-result");
   var provider = document.getElementById("ai-provider");
   var disclaimer = document.getElementById("ai-disclaimer");
+  var facts = document.getElementById("ai-facts");
   var resultPanel = result && result.closest(".ai-analyst__result");
   var requestId = 0;
   if (!result) return;
@@ -72,9 +73,19 @@
       return "<p>" + lines.map(inlineMarkdown).join("<br>") + "</p>";
     }).join("");
   }
+  function renderRelevantFacts(snapshot) {
+    if (!facts) return;
+    var lines = String(snapshot || "").split("\n").filter(function (line) { return line.indexOf("- ") === 0; });
+    if (!lines.length) {
+      facts.innerHTML = '<span>FATOS RELEVANTES</span><p>Sem notícias relevantes encontradas nas últimas 48 horas.</p>';
+      return;
+    }
+    facts.innerHTML = '<span>FATOS RELEVANTES</span><ul>' + lines.map(function (line) { return '<li>' + escapeHtml(line.slice(2)) + '</li>'; }).join('') + '</ul>';
+  }
   function runAnalysis(context) {
     context = context || {};
     var currentRequest = ++requestId;
+    var factsSnapshot = "";
     var period = contextValue(context.period, "1D");
     var question = (context.question || (input ? input.value : "")).trim().replace(/,?\s*sem recomenda[^.]*investimento\.?$/i, "");
     var asset = inferAsset(question, contextValue(context.asset, "BTC"));
@@ -92,6 +103,7 @@
 
     Promise.all([Promise.resolve(typeof context.marketData === "string" && context.marketData.trim() ? context.marketData : marketSnapshot(asset)), newsSnapshot(asset)])
       .then(function (parts) {
+        factsSnapshot = parts[1];
         var marketData = parts.filter(Boolean).join("\n\n");
         return fetch(endpoint, {
           method: "POST",
@@ -104,6 +116,7 @@
         if (currentRequest !== requestId) return;
         if (!payload.analysis) throw new Error(payload.error || "A análise não ficou disponível.");
         result.innerHTML = renderAnalysis(payload.analysis);
+        renderRelevantFacts(factsSnapshot);
         provider.textContent = payload.provider === "gemini" ? "Gemini" : "Groq";
         provider.style.display = "inline-block";
         disclaimer.textContent = payload.disclaimer || disclaimer.textContent;
