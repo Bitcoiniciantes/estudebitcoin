@@ -44,29 +44,86 @@ function rssTag(xml, tag) {
 }
 
 const NEWS_TAGS = { BTC: "bitcoin", ETH: "ethereum", LINK: "chainlink", AVAX: "avalanche", PAXG: "pax-gold" };
+const NEWS_QUERIES = {
+  BTC: "Bitcoin cryptocurrency",
+  ETH: "Ethereum cryptocurrency",
+  LINK: "Chainlink cryptocurrency",
+  AVAX: "Avalanche AVAX cryptocurrency",
+  PAXG: "gold market",
+  MSTR: "Strategy MSTR Bitcoin",
+  PRATA: "silver market price",
+  COBRE: "copper market price",
+  URANIO: "uranium market price",
+};
+
+function parseRssItems(xml, defaultSource, limit = 20) {
+  return xml.split("<item>").slice(1, limit + 1).map((raw) => {
+    const item = raw.split("</item>")[0];
+    const title = rssTag(item, "title");
+    const url = rssTag(item, "link");
+    const publishedAt = rssTag(item, "pubDate");
+    return {
+      title,
+      url,
+      source: rssTag(item, "source") || defaultSource,
+      publishedAt: publishedAt && !Number.isNaN(Date.parse(publishedAt)) ? new Date(publishedAt).toISOString() : null,
+    };
+  }).filter((item) => item.title && item.url.startsWith("https://"));
+}
+
+async function fetchRssItems(url, defaultSource) {
+  const response = await fetch(url, { headers: { "User-Agent": "BitcoiniciantesIA/1.0" } });
+  if (!response.ok) throw new Error(`news-${response.status}`);
+  return parseRssItems(await response.text(), defaultSource);
+}
+
+function newsQuery(asset) {
+  const symbol = String(asset || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 20);
+  if (!symbol) return "financial markets";
+  return NEWS_QUERIES[symbol] || `${symbol} cryptocurrency market`;
+}
+
+const NEWS_PATTERNS = {
+  BTC: /\b(?:bitcoin|btc)\b/i,
+  ETH: /\b(?:ethereum|ether|eth)\b/i,
+  LINK: /\b(?:chainlink|link)\b/i,
+  AVAX: /\b(?:avalanche|avax)\b/i,
+  PAXG: /\b(?:pax gold|paxg|gold)\b/i,
+  MSTR: /\b(?:strategy|microstrategy|mstr)\b/i,
+  PRATA: /\bsilver\b/i,
+  COBRE: /\bcopper\b/i,
+  URANIO: /\buranium\b/i,
+};
+const LOW_QUALITY_NEWS = /\b(?:casino|price prediction|top sites|betting|gambling)\b/i;
+
+function isRelevantNews(item, symbol) {
+  if (LOW_QUALITY_NEWS.test(item.title)) return false;
+  const pattern = NEWS_PATTERNS[symbol] || new RegExp(`\\b${symbol.replace(/[^A-Z0-9]/g, "")}\\b`, "i");
+  return pattern.test(item.title);
+}
 
 async function fetchAssetNewsItems(asset) {
-  const tag = NEWS_TAGS[String(asset || "").toUpperCase()];
-  if (!tag) return [];
-  try {
-    const response = await fetch("https://cointelegraph.com/rss/tag/" + tag, { headers: { "User-Agent": "BitcoiniciantesIA/1.0" } });
-    if (!response.ok) throw new Error("news unavailable");
-    const xml = await response.text();
-    return xml.split("<item>").slice(1, 4).map((raw) => {
-      const item = raw.split("</item>")[0];
-      const title = rssTag(item, "title");
-      const url = rssTag(item, "link");
-      const publishedAt = rssTag(item, "pubDate");
-      return {
-        title,
-        url,
-        source: rssTag(item, "source") || "Cointelegraph",
-        publishedAt: publishedAt && !Number.isNaN(Date.parse(publishedAt)) ? new Date(publishedAt).toISOString() : null,
-      };
-    }).filter((item) => item.title && item.url.startsWith("https://"));
-  } catch {
-    return [];
-  }
+  const symbol = String(asset || "").toUpperCase();
+  const tag = NEWS_TAGS[symbol];
+  const query = `${newsQuery(symbol)} when:2d`;
+  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+  const requests = [fetchRssItems(googleUrl, "Google News")];
+  if (tag) requests.push(fetchRssItems("https://cointelegraph.com/rss/tag/" + tag, "Cointelegraph"));
+
+  const settled = await Promise.allSettled(requests);
+  const cutoff = Date.now() - 72 * 60 * 60 * 1000;
+  const seen = new Set();
+  return settled
+    .flatMap((result) => result.status === "fulfilled" ? result.value : [])
+    .filter((item) => isRelevantNews(item, symbol))
+    .filter((item) => !item.publishedAt || Date.parse(item.publishedAt) >= cutoff)
+    .filter((item) => {
+      const key = item.title.toLowerCase().replace(/\s+-\s+[^-]+$/, "").replace(/\s+/g, " ").trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 3);
 }
 
 async function assetNews(request, asset) {
