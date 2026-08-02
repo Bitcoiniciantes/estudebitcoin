@@ -5,6 +5,7 @@
   var result = document.getElementById("ai-result");
   var provider = document.getElementById("ai-provider");
   var disclaimer = document.getElementById("ai-disclaimer");
+  var resultPanel = result && result.closest(".ai-analyst__result");
   var requestId = 0;
   if (!input || !button || !result) return;
   button.textContent = "ANALISAR";
@@ -83,6 +84,7 @@
       return;
     }
     input.value = question;
+    resultPanel?.classList.add("is-visible");
     button.disabled = true;
     button.textContent = "Analisando " + asset + "…";
     result.textContent = "Consultando o Analista IA para " + asset + " no período " + period + "…";
