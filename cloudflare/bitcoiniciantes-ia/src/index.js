@@ -111,7 +111,7 @@ async function fetchAssetNewsItems(asset) {
   if (tag) requests.push(fetchRssItems("https://cointelegraph.com/rss/tag/" + tag, "Cointelegraph"));
 
   const settled = await Promise.allSettled(requests);
-  const cutoff = Date.now() - 72 * 60 * 60 * 1000;
+  const cutoff = Date.now() - 48 * 60 * 60 * 1000;
   const seen = new Set();
   return settled
     .flatMap((result) => result.status === "fulfilled" ? result.value : [])
