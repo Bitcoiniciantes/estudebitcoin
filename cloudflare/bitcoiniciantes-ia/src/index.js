@@ -200,6 +200,20 @@ function boundedItems(value, fallback, maxItems = 3) {
   const items = value.map((item) => asText(item, 180)).filter(Boolean).slice(0, maxItems);
   return items.length ? items : fallback;
 }
+function normalizeScenarioText(value) {
+  return asText(value, 2400).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function contradictsScenario(value, scenario) {
+  const text = normalizeScenarioText(value);
+  const bearish = /\b(?:tendencia|cenario|vies|direcao|movimento|pressao)\s+(?:de\s+)?(?:baixa|baixista)\b|\bem baixa\b/.test(text);
+  const bullish = /\b(?:tendencia|cenario|vies|direcao|movimento|pressao)\s+(?:de\s+)?(?:alta|altista)\b|\bem alta\b/.test(text);
+  if (scenario === "NEUTRO") return bearish || bullish;
+  if (scenario === "ALTA") return bearish || /\bcenario neutro\b|\bsem direcao\b/.test(text);
+  if (scenario === "BAIXA") return bullish || /\bcenario neutro\b|\bsem direcao\b/.test(text);
+  return false;
+}
+
 // ---------- Provedores ----------
 
 async function generateWithGemini(env, messages, { jsonMode = false } = {}) {
@@ -319,10 +333,15 @@ export default {
           console.warn(`${provider.name}-scenario-mismatch`, { expected: prompt.requiredScenario, received: parsed.scenario });
           continue;
         }
+        const narrative = [parsed.summary, ...parsed.strategy, ...parsed.risks, parsed.invalidation].join(" ");
+        if (prompt.requiredScenario && contradictsScenario(narrative, prompt.requiredScenario)) {
+          console.warn(`${provider.name}-narrative-mismatch`, { expected: prompt.requiredScenario });
+          continue;
+        }
         // Fallback campo-a-campo: usa o que a IA gerou; se algo faltar ou vier
         // malformado, cai de volta pro template local só naquele campo.
         return json(request, {
-          headline: boundedText(parsed?.headline, local.headline || `${prompt.asset} em ${prompt.period}`, 120),
+          headline: boundedText(local.headline, `${prompt.asset} em ${prompt.period}`, 120),
           scenario: prompt.requiredScenario || parsed.scenario || "NEUTRO",
           summary: boundedText(parsed?.summary, local.summary || "", 700),
           strategy: boundedItems(parsed?.strategy, local.strategy || []),
