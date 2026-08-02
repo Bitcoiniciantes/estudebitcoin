@@ -7,10 +7,21 @@
   var disclaimer = document.getElementById("ai-disclaimer");
   var requestId = 0;
   if (!input || !button || !result) return;
+  button.textContent = "ANALISAR";
 
   function contextValue(value, fallback) {
     return typeof value === "string" && value.trim() ? value.trim().toUpperCase().slice(0, 20) : fallback;
   }
+
+  function inferAsset(question, fallback) {
+    var aliases = { BITCOIN: "BTC", BTC: "BTC", ETHEREUM: "ETH", ETH: "ETH", CHAINLINK: "LINK", LINK: "LINK", AVALANCHE: "AVAX", AVAX: "AVAX", PAXG: "PAXG" };
+    var words = String(question || "").toUpperCase().match(/[A-Z0-9]{2,12}/g) || [];
+    for (var i = 0; i < words.length; i += 1) {
+      if (aliases[words[i]]) return aliases[words[i]];
+    }
+    return fallback;
+  }
+
 
   function marketSnapshot(asset) {
     return fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=" + encodeURIComponent(asset + "USDT"))
@@ -22,6 +33,19 @@
           ". Volume em 24h: " + Number(ticker.quoteVolume).toLocaleString("pt-BR", { maximumFractionDigits: 0 }) + " USDT.";
       })
       .catch(function () { return "Dados de cotação de " + asset + " indisponíveis no momento."; });
+  }
+
+  function newsSnapshot(asset) {
+    return fetch("https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/asset-news?asset=" + encodeURIComponent(asset))
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (payload) {
+        var items = payload && Array.isArray(payload.items) ? payload.items : [];
+        if (!items.length) return "";
+        return "Noticias publicas recentes de " + asset + ":\n" + items.map(function (item) {
+          return "- " + item.title + (item.publishedAt ? " (" + String(item.publishedAt).slice(0, 10) + ")" : "");
+        }).join("\n");
+      })
+      .catch(function () { return ""; });
   }
 
   function escapeHtml(value) {
@@ -50,9 +74,9 @@
   function runAnalysis(context) {
     context = context || {};
     var currentRequest = ++requestId;
-    var asset = contextValue(context.asset, "BTC");
     var period = contextValue(context.period, "1D");
     var question = (context.question || input.value).trim().replace(/,?\s*sem recomenda[^.]*investimento\.?$/i, "");
+    var asset = inferAsset(question, contextValue(context.asset, "BTC"));
     if (!question) {
       input.focus();
       result.textContent = "Escreva uma pergunta sobre Bitcoin para iniciar a análise.";
@@ -64,8 +88,9 @@
     result.textContent = "Consultando o Analista IA para " + asset + " no período " + period + "…";
     provider.style.display = "none";
 
-    Promise.resolve(typeof context.marketData === "string" && context.marketData.trim() ? context.marketData : marketSnapshot(asset))
-      .then(function (marketData) {
+    Promise.all([Promise.resolve(typeof context.marketData === "string" && context.marketData.trim() ? context.marketData : marketSnapshot(asset)), newsSnapshot(asset)])
+      .then(function (parts) {
+        var marketData = parts.filter(Boolean).join("\n\n");
         return fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -82,7 +107,7 @@
         disclaimer.textContent = payload.disclaimer || disclaimer.textContent;
       })
       .catch(function (error) { if (currentRequest === requestId) result.textContent = error.message || "Não foi possível gerar a análise agora. Tente novamente."; })
-      .finally(function () { if (currentRequest === requestId) { button.disabled = false; button.textContent = "Analisar " + asset; } });
+      .finally(function () { if (currentRequest === requestId) { button.disabled = false; button.textContent = "ANALISAR"; } });
   }
 
   document.querySelectorAll("[data-question]").forEach(function (chip) {
@@ -97,7 +122,7 @@
       var changedPeriod = contextValue(event.data.period, "1D");
       input.value = "";
       button.disabled = false;
-      button.textContent = "Analisar " + changedAsset;
+      button.textContent = "ANALISAR";
       result.textContent = "Ativo atualizado para " + changedAsset + " no período " + changedPeriod + ". Clique no botão IA do Termômetro para gerar a leitura.";
       provider.style.display = "none";
       disclaimer.textContent = "Conteúdo informativo.";
