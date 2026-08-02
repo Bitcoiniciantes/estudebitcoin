@@ -26,8 +26,10 @@ function asText(value, maxLength = 1800) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
 
-function num(value) {
-  return Number.isFinite(value) ? value : "não informado";
+function num(value, fractionDigits = 2) {
+  return Number.isFinite(value)
+    ? value.toLocaleString("pt-BR", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
+    : "n�o informado";
 }
 
 // ---------- Notícias (RSS Cointelegraph) ----------
@@ -223,7 +225,7 @@ function buildTermometroPrompt(data, news) {
     requiredScenario,
     messages: [
       { role: "system", content: TERMOMETRO_SYSTEM_PROMPT },
-      { role: "user", content: `Cenario oficial calculado pelo Termometro: ${requiredScenario || "nao informado"}. O campo scenario, o headline, o summary, a estrategia, os riscos e a invalidacao DEVEM ser coerentes com esse cenario oficial. Nao escolha outro cenario.` },
+      { role: "user", content: `Cenario oficial calculado pelo Termometro: ${requiredScenario || "nao informado"}. O campo scenario, o headline, o summary, a estrategia, os riscos e a invalidacao DEVEM ser coerentes com esse cenario oficial. Nao escolha outro cenario. Para pre�os, n�veis e propor��es, use formato brasileiro com no m�ximo 2 casas decimais, como 66.123,23.` },
       { role: "user", content: `Dados do Termômetro:\n${formatTermometroContext(data, news)}\n\nResponda SOMENTE com o JSON pedido.` },
     ],
   };
