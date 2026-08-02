@@ -1,4 +1,4 @@
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const ALLOWED_ORIGINS = new Set([
   "https://bitcoiniciantes.github.io",
