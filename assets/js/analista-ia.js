@@ -88,9 +88,9 @@
       "Interpretando os sinais técnicos…",
       "Montando a resposta educativa…"
     ];
-    loadingPhrases.style.setProperty("--cycle", (phrases.length * perPhrase).toFixed(1) + "s");
+    var cycle = phrases.length * perPhrase;
     loadingPhrases.innerHTML = phrases.map(function (phrase, index) {
-      return '<span style="animation-delay:' + (index * perPhrase).toFixed(2) + 's">' + escapeHtml(phrase) + '</span>';
+      return '<span style="animation-duration:' + cycle.toFixed(1) + 's;animation-delay:' + (index * perPhrase).toFixed(2) + 's">' + escapeHtml(phrase) + '</span>';
     }).join("");
   }
 
