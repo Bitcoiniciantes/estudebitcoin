@@ -7,6 +7,7 @@
   var disclaimer = document.getElementById("ai-disclaimer");
   var facts = document.getElementById("ai-facts");
   var resultPanel = result && result.closest(".ai-analyst__result");
+  var thinking = document.getElementById("ai-thinking");
   var requestId = 0;
   if (!result) return;
   if (button) button.textContent = "ANALISAR";
@@ -85,6 +86,7 @@
     if (!question) {
       input?.focus();
       result.textContent = "Escreva uma pergunta sobre Bitcoin para iniciar a análise.";
+      if (thinking) thinking.hidden = true;
       return;
     }
     if (input) input.value = question;
@@ -92,6 +94,7 @@
     if (button) button.disabled = true;
     if (button) button.textContent = "Analisando " + asset + "…";
     result.textContent = "Consultando o Analista IA para " + asset + " no período " + period + "…";
+    if (thinking) thinking.hidden = false;
     provider.style.display = "none";
 
     Promise.all([Promise.resolve(typeof context.marketData === "string" && context.marketData.trim() ? context.marketData : marketSnapshot(asset)), newsSnapshot(asset)])
@@ -115,7 +118,7 @@
         disclaimer.textContent = payload.disclaimer || disclaimer.textContent;
       })
       .catch(function (error) { if (currentRequest === requestId) result.textContent = error.message || "Não foi possível gerar a análise agora. Tente novamente."; })
-      .finally(function () { if (currentRequest === requestId && button) { button.disabled = false; button.textContent = "ANALISAR"; } });
+      .finally(function () { if (thinking) thinking.hidden = true; if (currentRequest === requestId && button) { button.disabled = false; button.textContent = "ANALISAR"; } });
   }
 
   document.querySelectorAll("[data-question]").forEach(function (chip) {
@@ -131,6 +134,7 @@
       if (input) input.value = "";
       if (button) button.disabled = false;
       if (button) button.textContent = "ANALISAR";
+      if (thinking) thinking.hidden = true;
       result.textContent = "Ativo atualizado para " + changedAsset + " no período " + changedPeriod + ". Clique no botão IA do Termômetro para gerar a leitura.";
       provider.style.display = "none";
       disclaimer.textContent = "Conteúdo informativo.";
