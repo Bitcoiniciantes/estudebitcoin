@@ -446,7 +446,7 @@
     .ai-analyst__form { max-width:780px; }
     .ai-analyst__result { display:none; margin-top:18px; min-height:0; }
     .ai-analyst__result.is-visible { display:block; }
-    .ai-analyst__loading { width:10cm; max-width:100%; height:2cm; margin:14px 0 0; border:1px solid #2b4734; border-radius:8px; background:#0d1512; overflow:hidden; position:relative; }.ai-analyst__loading[hidden] { display:none; }.ai-analyst__loading__phrases { position:absolute; inset:0; }.ai-analyst__loading__phrases span { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:#b7d5bc; font:600 .72rem var(--font-body); letter-spacing:.04em; padding:0 10px; transform:translateY(-100%); animation-name:aiPhraseCycle; animation-timing-function:linear; animation-iteration-count:infinite; animation-duration:14.4s; }@keyframes aiPhraseCycle { 0%{transform:translateY(-100%)} 8%{transform:translateY(0)} 24%{transform:translateY(0)} 32%{transform:translateY(100%)} 100%{transform:translateY(100%)} }    .ai-analyst__facts { border-top:1px solid #263d2d; margin-top:18px; padding-top:14px; }
+    .ai-analyst__loading { width:10cm; max-width:100%; height:2cm; margin:14px 0 0; border:1px solid #2b4734; border-radius:8px; background:#0d1512; overflow:hidden; position:relative; }.ai-analyst__loading[hidden] { display:none; }.ai-analyst__loading__phrases { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:#b7d5bc; font:600 .72rem var(--font-body); letter-spacing:.04em; padding:0 10px; }.ai-analyst__loading__time { position:absolute; right:8px; bottom:4px; color:#6f8f78; font-size:.56rem; font-weight:800; letter-spacing:.08em; }    .ai-analyst__facts { border-top:1px solid #263d2d; margin-top:18px; padding-top:14px; }
     .ai-analyst__facts > span { color:#57c76a; display:block; font-size:.64rem; font-weight:800; letter-spacing:.1em; margin-bottom:8px; }
     .ai-analyst__facts p,.ai-analyst__facts ul { color:#9eb0a3; font-size:.76rem; line-height:1.5; margin:0; padding-left:0; }
     .ai-analyst__facts ul { padding-left:18px; }
@@ -997,7 +997,7 @@
       <a href="https://bitcoiniciantes.github.io/termometro/" target="_blank" rel="noopener">ABRIR TERMÔMETRO COMPLETO ↗</a>
     </div>
     <iframe class="termometro-widget" src="https://bitcoiniciantes.github.io/termometro/widget/?v=20260725-0253" title="Radar Compra e Venda do Termômetro" loading="lazy"></iframe>
-  <div class="ai-analyst" id="analista-ia"><div class="ai-analyst__head"><div><p class="ai-analyst__eyebrow">ANÁLISE EDUCATIVA</p><h2 class="ai-analyst__title">Analista IA · EstudeBitcoin</h2><p class="ai-analyst__subtitle">Selecione um ativo no Termômetro e use o botão IA para gerar uma leitura baseada nos dados públicos.</p></div><div class="ai-analyst__status"><span class="ai-analyst__dot"></span> CLOUDFLARE · ONLINE</div></div><div class="ai-analyst__body"><div class="ai-analyst__result" aria-live="polite"><div class="ai-analyst__result-head"><span class="ai-analyst__result-title">LEITURA DO ANALISTA</span><span class="ai-analyst__provider" id="ai-provider"></span></div><div class="ai-analyst__text" id="ai-result"></div><div class="ai-analyst__loading" id="ai-loading" hidden><div class="ai-analyst__loading__phrases" id="ai-loading-phrases"></div></div><div class="ai-analyst__facts" id="ai-facts"></div><p class="ai-analyst__disclaimer" id="ai-disclaimer">Conteúdo educativo; não constitui recomendação de investimento.</p></div></div></div>
+  <div class="ai-analyst" id="analista-ia"><div class="ai-analyst__head"><div><p class="ai-analyst__eyebrow">ANÁLISE EDUCATIVA</p><h2 class="ai-analyst__title">Analista IA · EstudeBitcoin</h2><p class="ai-analyst__subtitle">Selecione um ativo no Termômetro e use o botão IA para gerar uma leitura baseada nos dados públicos.</p></div><div class="ai-analyst__status"><span class="ai-analyst__dot"></span> CLOUDFLARE · ONLINE</div></div><div class="ai-analyst__body"><div class="ai-analyst__result" aria-live="polite"><div class="ai-analyst__result-head"><span class="ai-analyst__result-title">LEITURA DO ANALISTA</span><span class="ai-analyst__provider" id="ai-provider"></span></div><div class="ai-analyst__text" id="ai-result"></div><div class="ai-analyst__loading" id="ai-loading" hidden><div class="ai-analyst__loading__phrases" id="ai-loading-phrases"></div><span class="ai-analyst__loading__time" id="ai-loading-time"></span></div><div class="ai-analyst__facts" id="ai-facts"></div><p class="ai-analyst__disclaimer" id="ai-disclaimer">Conteúdo educativo; não constitui recomendação de investimento.</p></div></div></div>
   </div>
 </section>
 <!-- ══════════════════════════════════════════════════════════ -->
@@ -1133,7 +1133,7 @@
 <script defer src="assets/js/main.js?v=20260729-2"></script>
 <script defer src="assets/js/projections.js"></script>
 <script defer src="assets/js/conversor.js?v=8"></script>
-<script defer src="assets/js/analista-ia.js?v=5"></script>
+<script defer src="assets/js/analista-ia.js?v=6"></script>
 
 </body>
 </html>
