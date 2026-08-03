@@ -46,7 +46,7 @@
   }
 
   function inferAsset(question, fallback) {
-    var aliases = { BITCOIN: "BTC", BTC: "BTC", ETHEREUM: "ETH", ETH: "ETH", CHAINLINK: "LINK", LINK: "LINK", AVALANCHE: "AVAX", AVAX: "AVAX", PAXG: "PAXG" };
+    var aliases = { BITCOIN: "BTC", BTC: "BTC", ETHEREUM: "ETH", ETH: "ETH", CHAINLINK: "LINK", LINK: "LINK", AVALANCHE: "AVAX", AVAX: "AVAX", PAXG: "PAXG", PRATA: "PRATA", SILVER: "PRATA", COBRE: "COBRE", COPPER: "COBRE", URANIO: "URANIO", URANIUM: "URANIO", MSTR: "MSTR", POL: "POL", POLYGON: "POL" };
     var words = String(question || "").toUpperCase().match(/[A-Z0-9]{2,12}/g) || [];
     for (var i = 0; i < words.length; i += 1) {
       if (aliases[words[i]]) return aliases[words[i]];
@@ -55,7 +55,20 @@
   }
 
 
+  var QUOTE_VIA_WORKER = { PRATA: true, COBRE: true, URANIO: true };
+
   function marketSnapshot(asset) {
+    if (QUOTE_VIA_WORKER[asset]) {
+      return fetch("https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/quote?asset=" + encodeURIComponent(asset))
+        .then(function (response) { return response.ok ? response.json() : null; })
+        .then(function (quote) {
+          if (!quote || typeof quote.price !== "number") return "Dados de cotação de " + asset + " indisponíveis no momento.";
+          return asset + ": US$ " + Number(quote.price).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) +
+            (typeof quote.changePercent === "number" ? ". Variação em 24h: " + Number(quote.changePercent).toFixed(2) + "%" : "") +
+            (typeof quote.volume === "number" && quote.volume > 0 ? ". Volume: " + Number(quote.volume).toLocaleString("pt-BR", { maximumFractionDigits: 0 }) + "." : "");
+        })
+        .catch(function () { return "Dados de cotação de " + asset + " indisponíveis no momento."; });
+    }
     return fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=" + encodeURIComponent(asset + "USDT"))
       .then(function (response) { return response.ok ? response.json() : null; })
       .then(function (ticker) {
