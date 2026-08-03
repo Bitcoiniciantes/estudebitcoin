@@ -11,7 +11,7 @@
   var loadingPhrases = document.getElementById("ai-loading-phrases");
   var requestId = 0;
   if (!result) return;
-  if (button) button.textContent = "GERAR LEITURA";
+  if (button) button.textContent = "Analisar";
   var currentAsset = "BTC";
   var currentPeriod = "1D";
   var currentMarketData = "";
@@ -232,7 +232,7 @@
         disclaimer.textContent = payload.disclaimer || disclaimer.textContent;
       })
       .catch(function (error) { if (currentRequest === requestId) result.textContent = error.message || "Não foi possível gerar a análise agora. Tente novamente."; })
-      .finally(function () { stopLoading(); stopElapsed(); if (loadingBox) loadingBox.hidden = true; if (currentRequest === requestId && button) { button.disabled = false; button.textContent = "GERAR LEITURA"; } });
+      .finally(function () { stopLoading(); stopElapsed(); if (loadingBox) loadingBox.hidden = true; if (currentRequest === requestId && button) { button.disabled = false; button.textContent = "Analisar"; } });
   }
 
   document.querySelectorAll("[data-question]").forEach(function (chip) {
@@ -252,7 +252,7 @@
       updateElapsedText(0);
       if (input) input.value = "";
       if (button) button.disabled = false;
-      if (button) button.textContent = "GERAR LEITURA";
+      if (button) button.textContent = "Analisar";
       stopLoading();
       if (loadingBox) loadingBox.hidden = true;
       result.textContent = "Ativo atualizado para " + changedAsset + " no período " + changedPeriod + ". Clique em GERAR LEITURA ou no botão IA do Termômetro para gerar a leitura.";
