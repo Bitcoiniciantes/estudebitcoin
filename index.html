@@ -445,7 +445,8 @@
     .ai-analyst__body { display:block; padding:20px; }
     .ai-analyst__form { max-width:780px; }
     .ai-analyst__result { display:none; margin-top:18px; min-height:0; }
-    .ai-analyst__result.is-visible { display:block; }    .ai-analyst__facts { border-top:1px solid #263d2d; margin-top:18px; padding-top:14px; }
+    .ai-analyst__result.is-visible { display:block; }
+    .ai-analyst__thinking { display:flex; align-items:center; gap:10px; margin:14px 0 0; padding:10px 12px; border:1px dashed #54b85a44; border-radius:8px; background:#54b85a0d; }.ai-analyst__thinking[hidden] { display:none; }.ai-analyst__thinking-dots { display:inline-flex; gap:4px; }.ai-analyst__thinking-dots i { width:6px; height:6px; border-radius:50%; background:#54b85a; animation:aiThinkDot 1.2s ease-in-out infinite; }.ai-analyst__thinking-dots i:nth-child(2){ animation-delay:.18s; }.ai-analyst__thinking-dots i:nth-child(3){ animation-delay:.36s; }.ai-analyst__thinking-track { position:relative; flex:1; height:3px; border-radius:2px; background:#15241d; overflow:hidden; }.ai-analyst__thinking-track i { position:absolute; top:0; left:-45%; width:45%; height:100%; border-radius:2px; background:linear-gradient(90deg,transparent,#54b85a,transparent); animation:aiThinkingSlide 1.3s ease-in-out infinite; }@keyframes aiThinkDot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}@keyframes aiThinkingSlide{0%{left:-45%}100%{left:100%}}@media(prefers-reduced-motion:reduce){.ai-analyst__thinking-dots i,.ai-analyst__thinking-track i{animation:none}}    .ai-analyst__facts { border-top:1px solid #263d2d; margin-top:18px; padding-top:14px; }
     .ai-analyst__facts > span { color:#57c76a; display:block; font-size:.64rem; font-weight:800; letter-spacing:.1em; margin-bottom:8px; }
     .ai-analyst__facts p,.ai-analyst__facts ul { color:#9eb0a3; font-size:.76rem; line-height:1.5; margin:0; padding-left:0; }
     .ai-analyst__facts ul { padding-left:18px; }
@@ -996,7 +997,7 @@
       <a href="https://bitcoiniciantes.github.io/termometro/" target="_blank" rel="noopener">ABRIR TERMÔMETRO COMPLETO ↗</a>
     </div>
     <iframe class="termometro-widget" src="https://bitcoiniciantes.github.io/termometro/widget/?v=20260725-0253" title="Radar Compra e Venda do Termômetro" loading="lazy"></iframe>
-  <div class="ai-analyst" id="analista-ia"><div class="ai-analyst__head"><div><p class="ai-analyst__eyebrow">ANÁLISE EDUCATIVA</p><h2 class="ai-analyst__title">Analista IA · EstudeBitcoin</h2><p class="ai-analyst__subtitle">Selecione um ativo no Termômetro e use o botão IA para gerar uma leitura baseada nos dados públicos.</p></div><div class="ai-analyst__status"><span class="ai-analyst__dot"></span> CLOUDFLARE · ONLINE</div></div><div class="ai-analyst__body"><div class="ai-analyst__result" aria-live="polite"><div class="ai-analyst__result-head"><span class="ai-analyst__result-title">LEITURA DO ANALISTA</span><span class="ai-analyst__provider" id="ai-provider"></span></div><div class="ai-analyst__text" id="ai-result"></div><div class="ai-analyst__facts" id="ai-facts"></div><p class="ai-analyst__disclaimer" id="ai-disclaimer">Conteúdo educativo; não constitui recomendação de investimento.</p></div></div></div>
+  <div class="ai-analyst" id="analista-ia"><div class="ai-analyst__head"><div><p class="ai-analyst__eyebrow">ANÁLISE EDUCATIVA</p><h2 class="ai-analyst__title">Analista IA · EstudeBitcoin</h2><p class="ai-analyst__subtitle">Selecione um ativo no Termômetro e use o botão IA para gerar uma leitura baseada nos dados públicos.</p></div><div class="ai-analyst__status"><span class="ai-analyst__dot"></span> CLOUDFLARE · ONLINE</div></div><div class="ai-analyst__body"><div class="ai-analyst__result" aria-live="polite"><div class="ai-analyst__result-head"><span class="ai-analyst__result-title">LEITURA DO ANALISTA</span><span class="ai-analyst__provider" id="ai-provider"></span></div><div class="ai-analyst__text" id="ai-result"></div><div class="ai-analyst__thinking" id="ai-thinking" hidden><span class="ai-analyst__thinking-dots"><i></i><i></i><i></i></span><span class="ai-analyst__thinking-track"><i></i></span></div><div class="ai-analyst__facts" id="ai-facts"></div><p class="ai-analyst__disclaimer" id="ai-disclaimer">Conteúdo educativo; não constitui recomendação de investimento.</p></div></div></div>
   </div>
 </section>
 <!-- ══════════════════════════════════════════════════════════ -->
@@ -1132,7 +1133,7 @@
 <script defer src="assets/js/main.js?v=20260729-2"></script>
 <script defer src="assets/js/projections.js"></script>
 <script defer src="assets/js/conversor.js?v=8"></script>
-<script defer src="assets/js/analista-ia.js?v=2"></script>
+<script defer src="assets/js/analista-ia.js?v=3"></script>
 
 </body>
 </html>
