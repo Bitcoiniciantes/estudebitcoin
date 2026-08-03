@@ -73,9 +73,22 @@ function parseRssItems(xml, defaultSource, limit = 20) {
   }).filter((item) => item.title && item.url.startsWith("https://"));
 }
 
+const NEWS_FETCH_TIMEOUT_MS = 4000;
+
+async function fetchWithTimeout(url, timeoutMs = NEWS_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { headers: { "User-Agent": "BitcoiniciantesIA/1.0" }, signal: controller.signal });
+    if (!response.ok) throw new Error(`news-${response.status}`);
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchRssItems(url, defaultSource) {
-  const response = await fetch(url, { headers: { "User-Agent": "BitcoiniciantesIA/1.0" } });
-  if (!response.ok) throw new Error(`news-${response.status}`);
+  const response = await fetchWithTimeout(url);
   return parseRssItems(await response.text(), defaultSource);
 }
 
@@ -107,8 +120,6 @@ function isRelevantNews(item, symbol) {
 async function fetchAssetNewsItems(asset) {
   const symbol = String(asset || "").toUpperCase();
   const tag = NEWS_TAGS[symbol];
-  const query = `${newsQuery(symbol)} when:2d`;
-  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
   const cutoff = Date.now() - 48 * 60 * 60 * 1000;
 
   const clean = (items) => {
@@ -124,12 +135,17 @@ async function fetchAssetNewsItems(asset) {
       });
   };
 
-  const regional = await Promise.allSettled([
-    fetchRssItems(googleUrl, "Google News Brasil"),
-    fetchRssItems("https://www.criptofacil.com/feed/", "CriptoF\u00e1cil"),
-  ]);
-  const localItems = clean(regional.flatMap((result) => result.status === "fulfilled" ? result.value : []));
+  const fulfilled = (results) => results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+
+  const localRequests = [fetchRssItems("https://www.criptofacil.com/feed/", "CriptoF\u00e1cil")];
+  if (tag) localRequests.push(fetchRssItems("https://cointelegraph.com/rss/tag/" + tag, "Cointelegraph"));
+  const localItems = clean(fulfilled(await Promise.allSettled(localRequests)));
   if (localItems.length >= 3) return localItems.slice(0, 3);
+
+  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(`${newsQuery(symbol)} when:2d`)}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
+  const brItems = clean(fulfilled(await Promise.allSettled([fetchRssItems(googleUrl, "Google News Brasil")])));
+  const merged = clean([...localItems, ...brItems]);
+  if (merged.length >= 3) return merged.slice(0, 3);
 
   const fallbackQueries = {
     BTC: "Bitcoin cryptocurrency",
@@ -144,18 +160,46 @@ async function fetchAssetNewsItems(asset) {
   };
   const fallbackQuery = `${fallbackQueries[symbol] || symbol} when:2d`;
   const globalGoogleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fallbackQuery)}&hl=en-US&gl=US&ceid=US:en`;
-  const globalRequests = [fetchRssItems(globalGoogleUrl, "Google News Internacional")];
-  if (tag) globalRequests.push(fetchRssItems("https://cointelegraph.com/rss/tag/" + tag, "Cointelegraph"));
-  const global = await Promise.allSettled(globalRequests);
-  return clean([
-    ...localItems,
-    ...global.flatMap((result) => result.status === "fulfilled" ? result.value : []),
-  ]).slice(0, 3);
+  const enItems = clean(fulfilled(await Promise.allSettled([fetchRssItems(globalGoogleUrl, "Google News Internacional")])));
+
+  return clean([...localItems, ...brItems, ...enItems]).slice(0, 3);
+}
+
+const NEWS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function cachedNewsBody(symbol) {
+  try {
+    const key = `https://bitcoiniciantes-ia.workers.dev/_cache/news/${symbol}`;
+    const cached = await caches.default.match(key);
+    if (!cached) return null;
+    const stale = Date.now() - (Number(cached.headers.get("X-Cached-At")) || 0) > NEWS_CACHE_TTL_MS;
+    if (stale) return null;
+    return cached.json();
+  } catch {
+    return null;
+  }
+}
+
+async function storeNewsBody(symbol, body) {
+  try {
+    const key = `https://bitcoiniciantes-ia.workers.dev/_cache/news/${symbol}`;
+    const response = new Response(JSON.stringify(body), {
+      headers: { "Content-Type": "application/json", "X-Cached-At": String(Date.now()) },
+    });
+    await caches.default.put(key, response);
+  } catch {
+    // cache opcional
+  }
 }
 
 async function assetNews(request, asset) {
-  const items = await fetchAssetNewsItems(asset);
-  return json(request, { asset, updatedAt: new Date().toISOString(), items });
+  const symbol = String(asset || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 20) || "BTC";
+  const cached = await cachedNewsBody(symbol);
+  if (cached) return json(request, cached);
+  const items = await fetchAssetNewsItems(symbol);
+  const body = { asset, updatedAt: new Date().toISOString(), items };
+  await storeNewsBody(symbol, body);
+  return json(request, body);
 }
 
 // ---------- Prompt: EstudeBitcoin (chat livre, sem mudança) ----------
