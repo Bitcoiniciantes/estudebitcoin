@@ -77,9 +77,15 @@
     facts.innerHTML="<span>FATOS RELEVANTES</span><ul>"+items.map(function(item){var title=escapeHtml(item.title||"Noticia"),source=escapeHtml(item.source||"Fonte"),date=item.publishedAt?" &bull; "+escapeHtml(String(item.publishedAt).slice(0,10).split("-").reverse().join("/")):"",link=item.url?'<a href="'+escapeHtml(item.url)+'" target="_blank" rel="noopener noreferrer">'+title+' &#8599;</a>':title;return "<li>"+link+"<small>"+source+date+"</small></li>";}).join("")+"</ul>";
   }
 
-  function setLoadingPhrases(asset, period) {
+  var loadingTimer = null;
+  var loadingPhraseTimer = null;
+  var loadingStartedAt = 0;
+  var loadingPhraseIndex = 0;
+
+  function startLoading(asset, period) {
     if (!loadingPhrases) return;
-    var perPhrase = 2.4;
+    stopLoading();
+    var timeEl = document.getElementById("ai-loading-time");
     var phrases = [
       "Consultando o Analista IA para " + asset + "…",
       "Período " + period + " em análise…",
@@ -88,10 +94,25 @@
       "Interpretando os sinais técnicos…",
       "Montando a resposta educativa…"
     ];
-    var cycle = phrases.length * perPhrase;
-    loadingPhrases.innerHTML = phrases.map(function (phrase, index) {
-      return '<span style="animation-duration:' + cycle.toFixed(1) + 's;animation-delay:' + (index * perPhrase).toFixed(2) + 's">' + escapeHtml(phrase) + '</span>';
-    }).join("");
+    loadingPhraseIndex = 0;
+    loadingPhrases.textContent = phrases[0];
+    loadingStartedAt = Date.now();
+    if (timeEl) timeEl.textContent = "0s";
+    loadingPhraseTimer = window.setInterval(function () {
+      loadingPhraseIndex = (loadingPhraseIndex + 1) % phrases.length;
+      loadingPhrases.textContent = phrases[loadingPhraseIndex];
+    }, 2400);
+    loadingTimer = window.setInterval(function () {
+      var elapsed = Math.round((Date.now() - loadingStartedAt) / 1000);
+      if (timeEl) timeEl.textContent = elapsed + "s";
+    }, 1000);
+  }
+
+  function stopLoading() {
+    if (loadingPhraseTimer) window.clearInterval(loadingPhraseTimer);
+    if (loadingTimer) window.clearInterval(loadingTimer);
+    loadingPhraseTimer = null;
+    loadingTimer = null;
   }
 
   function runAnalysis(context) {
@@ -104,6 +125,7 @@
     if (!question) {
       input?.focus();
       result.textContent = "Escreva uma pergunta sobre Bitcoin para iniciar a análise.";
+      stopLoading();
       if (loadingBox) loadingBox.hidden = true;
       return;
     }
@@ -112,7 +134,7 @@
     if (button) button.disabled = true;
     if (button) button.textContent = "Analisando " + asset + "…";
     result.textContent = "Consultando o Analista IA para " + asset + " no período " + period + "…";
-    setLoadingPhrases(asset, period);
+    startLoading(asset, period);
     if (loadingBox) loadingBox.hidden = false;
     provider.style.display = "none";
 
@@ -137,7 +159,7 @@
         disclaimer.textContent = payload.disclaimer || disclaimer.textContent;
       })
       .catch(function (error) { if (currentRequest === requestId) result.textContent = error.message || "Não foi possível gerar a análise agora. Tente novamente."; })
-      .finally(function () { if (loadingBox) loadingBox.hidden = true; if (currentRequest === requestId && button) { button.disabled = false; button.textContent = "ANALISAR"; } });
+      .finally(function () { stopLoading(); if (loadingBox) loadingBox.hidden = true; if (currentRequest === requestId && button) { button.disabled = false; button.textContent = "ANALISAR"; } });
   }
 
   document.querySelectorAll("[data-question]").forEach(function (chip) {
@@ -153,6 +175,7 @@
       if (input) input.value = "";
       if (button) button.disabled = false;
       if (button) button.textContent = "ANALISAR";
+      stopLoading();
       if (loadingBox) loadingBox.hidden = true;
       result.textContent = "Ativo atualizado para " + changedAsset + " no período " + changedPeriod + ". Clique no botão IA do Termômetro para gerar a leitura.";
       provider.style.display = "none";
