@@ -57,6 +57,30 @@
 
   var QUOTE_VIA_WORKER = { PRATA: true, COBRE: true, URANIO: true };
 
+  var widgetFrame = typeof document !== "undefined" ? document.querySelector(".termometro-widget") : null;
+
+  function requestContextFromWidget() {
+    return new Promise(function (resolve) {
+      if (!widgetFrame || !widgetFrame.contentWindow) return resolve(null);
+      var settled = false;
+      function finish(value) {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener("message", onReply);
+        resolve(value);
+      }
+      function onReply(event) {
+        if (event.origin !== "https://bitcoiniciantes.github.io") return;
+        if (event.data && event.data.type === "termometro:ai-context-reply") {
+          finish({ asset: event.data.asset, period: event.data.period, marketData: event.data.marketData });
+        }
+      }
+      window.addEventListener("message", onReply);
+      widgetFrame.contentWindow.postMessage({ type: "estudebitcoin:request-context" }, "https://bitcoiniciantes.github.io");
+      window.setTimeout(function () { finish(null); }, 1500);
+    });
+  }
+
   function marketSnapshot(asset) {
     if (QUOTE_VIA_WORKER[asset]) {
       return fetch("https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/quote?asset=" + encodeURIComponent(asset))
@@ -177,7 +201,17 @@
     if (loadingBox) loadingBox.hidden = false;
     provider.style.display = "none";
 
-    Promise.all([Promise.resolve(typeof context.marketData === "string" && context.marketData.trim() ? context.marketData : marketSnapshot(asset)), newsSnapshot(asset)])
+    var providedMarketData = typeof context.marketData === "string" && context.marketData.trim() ? context.marketData : (currentMarketData && currentAsset === asset && currentPeriod === period ? currentMarketData : "");
+    var marketDataPromise = providedMarketData ? Promise.resolve(providedMarketData) : requestContextFromWidget().then(function (reply) {
+      if (reply && reply.marketData) {
+        currentAsset = reply.asset || currentAsset;
+        currentPeriod = reply.period || currentPeriod;
+        return reply.marketData;
+      }
+      return marketSnapshot(asset);
+    });
+
+    Promise.all([marketDataPromise, newsSnapshot(asset)])
       .then(function (parts) {
         factsSnapshot = parts[1].items;
         var marketData = [parts[0], parts[1].prompt].filter(Boolean).join("\n\n");
@@ -221,7 +255,7 @@
       if (button) button.textContent = "GERAR LEITURA";
       stopLoading();
       if (loadingBox) loadingBox.hidden = true;
-      result.textContent = "Ativo atualizado para " + changedAsset + " no período " + changedPeriod + ". Clique no botão IA do Termômetro para gerar a leitura.";
+      result.textContent = "Ativo atualizado para " + changedAsset + " no período " + changedPeriod + ". Clique em GERAR LEITURA ou no botão IA do Termômetro para gerar a leitura.";
       provider.style.display = "none";
       disclaimer.textContent = "Conteúdo informativo.";
       return;
