@@ -11,7 +11,35 @@
   var loadingPhrases = document.getElementById("ai-loading-phrases");
   var requestId = 0;
   if (!result) return;
-  if (button) button.textContent = "ANALISAR";
+  if (button) button.textContent = "GERAR LEITURA";
+  var currentAsset = "BTC";
+  var currentPeriod = "1D";
+  var currentMarketData = "";
+  var elapsedEl = document.getElementById("ai-elapsed");
+  var elapsedTimer = null;
+  var elapsedStartedAt = 0;
+
+  function updateElapsedText(secs) {
+    if (elapsedEl) elapsedEl.textContent = String(secs).padStart(2, "0") + "s";
+  }
+
+  function startElapsed() {
+    stopElapsed();
+    elapsedStartedAt = Date.now();
+    updateElapsedText(0);
+    elapsedTimer = window.setInterval(function () {
+      updateElapsedText(Math.round((Date.now() - elapsedStartedAt) / 1000));
+    }, 1000);
+  }
+
+  function stopElapsed() {
+    if (elapsedTimer) window.clearInterval(elapsedTimer);
+    elapsedTimer = null;
+    if (elapsedStartedAt) {
+      updateElapsedText(Math.round((Date.now() - elapsedStartedAt) / 1000));
+      elapsedStartedAt = 0;
+    }
+  }
 
   function contextValue(value, fallback) {
     return typeof value === "string" && value.trim() ? value.trim().toUpperCase().slice(0, 20) : fallback;
@@ -121,19 +149,17 @@
     var factsSnapshot = [];
     var period = contextValue(context.period, "1D");
     var question = (context.question || (input ? input.value : "")).trim().replace(/,?\s*sem recomenda[^.]*investimento\.?$/i, "");
-    var asset = inferAsset(question, contextValue(context.asset, "BTC"));
-    if (!question) {
-      input?.focus();
-      result.textContent = "Escreva uma pergunta sobre Bitcoin para iniciar a análise.";
-      stopLoading();
-      if (loadingBox) loadingBox.hidden = true;
-      return;
-    }
+    var asset = inferAsset(question, contextValue(context.asset, currentAsset));
+    if (!question) question = "Explique o cenário técnico atual de " + asset + " no período " + period + " de forma educativa.";
+    if (context.asset) currentAsset = contextValue(context.asset, currentAsset);
+    if (context.period) currentPeriod = period;
+    if (typeof context.marketData === "string") currentMarketData = context.marketData;
     if (input) input.value = question;
     resultPanel?.classList.add("is-visible");
     if (button) button.disabled = true;
     if (button) button.textContent = "Analisando " + asset + "…";
     result.textContent = "Consultando o Analista IA para " + asset + " no período " + period + "…";
+    startElapsed();
     startLoading(asset, period);
     if (loadingBox) loadingBox.hidden = false;
     provider.style.display = "none";
@@ -159,22 +185,27 @@
         disclaimer.textContent = payload.disclaimer || disclaimer.textContent;
       })
       .catch(function (error) { if (currentRequest === requestId) result.textContent = error.message || "Não foi possível gerar a análise agora. Tente novamente."; })
-      .finally(function () { stopLoading(); if (loadingBox) loadingBox.hidden = true; if (currentRequest === requestId && button) { button.disabled = false; button.textContent = "ANALISAR"; } });
+      .finally(function () { stopLoading(); stopElapsed(); if (loadingBox) loadingBox.hidden = true; if (currentRequest === requestId && button) { button.disabled = false; button.textContent = "GERAR LEITURA"; } });
   }
 
   document.querySelectorAll("[data-question]").forEach(function (chip) {
     chip.addEventListener("click", function () { input.value = chip.getAttribute("data-question"); input.focus(); });
   });
-  if (button) button.addEventListener("click", function () { runAnalysis({}); });
+  if (button) button.addEventListener("click", function () { runAnalysis({ asset: currentAsset, period: currentPeriod, marketData: currentMarketData }); });
   window.addEventListener("message", function (event) {
     if (event.origin !== "https://bitcoiniciantes.github.io") return;
     if (event.data?.type === "termometro:ai-context-changed") {
       requestId += 1;
       var changedAsset = contextValue(event.data.asset, "BTC");
       var changedPeriod = contextValue(event.data.period, "1D");
+      currentAsset = changedAsset;
+      currentPeriod = changedPeriod;
+      currentMarketData = "";
+      stopElapsed();
+      updateElapsedText(0);
       if (input) input.value = "";
       if (button) button.disabled = false;
-      if (button) button.textContent = "ANALISAR";
+      if (button) button.textContent = "GERAR LEITURA";
       stopLoading();
       if (loadingBox) loadingBox.hidden = true;
       result.textContent = "Ativo atualizado para " + changedAsset + " no período " + changedPeriod + ". Clique no botão IA do Termômetro para gerar a leitura.";
@@ -186,6 +217,9 @@
     var asset = contextValue(event.data.asset, "BTC");
     var period = contextValue(event.data.period, "1D");
     var question = "Explique o cenário técnico atual de " + asset + " no período " + period + " de forma educativa.";
+    currentAsset = asset;
+    currentPeriod = period;
+    currentMarketData = typeof event.data.marketData === "string" ? event.data.marketData : "";
     document.getElementById("analista-ia")?.scrollIntoView({ behavior: "smooth", block: "start" });
     window.setTimeout(function () { runAnalysis({ asset: asset, period: period, marketData: event.data.marketData, question: question }); }, 450);
   });
