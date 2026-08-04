@@ -10,7 +10,7 @@
     ["PAXG", "PAXGUSDT", "USD"],
     ["USDT-BRL", "USDTBRL", "BRL"],
   ];
-  var STOCKS = ["SI=F", "MSTR", "HG=F", "URNM", "SPCX", "GLW", "QUBT", "BZ=F"];
+  var STOCKS = ["SI=F", "MSTR", "HG=F", "URNM", "SPCX", "GLW", "QUBT", "BZ=F", "^NDX", "NVDA", "CRCL", "MP", "AMD", "MSTF", "TSLA", "GOOGL", "OKLO", "ABTC", "QBTS", "AAPL", "JPM", "SNDK", "RIO", "BHP", "USAR", "SPY"];
   var CRYPTO_NAMES = {
     BTC: "Bitcoin",
     ETH: "Ethereum",
@@ -25,6 +25,24 @@
     "SI=F": "Prata",
     "HG=F": "Cobre",
     "BZ=F": "Petróleo-Brent",
+    "^NDX": "Nasdaq 100",
+    "NVDA": "Nvidia",
+    "CRCL": "Circle",
+    "MP": "MP Materials",
+    "AMD": "AMD",
+    "MSTF": "MSTF",
+    "TSLA": "Tesla",
+    "GOOGL": "Alphabet",
+    "OKLO": "Oklo",
+    "ABTC": "ABTC",
+    "QBTS": "D-Wave Quantum",
+    "AAPL": "Apple",
+    "JPM": "JPMorgan",
+    "SNDK": "SanDisk",
+    "RIO": "Rio Tinto",
+    "BHP": "BHP",
+    "USAR": "USA Rare Earth",
+    "SPY": "S&P 500 (SPY)",
   };
   var KLINE_CFG = {
     "1h": { interval: "1h", limit: 12, baseFromPrev: true },
@@ -54,9 +72,9 @@
   function esc(value) {
     return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
-  function fmtPrice(value, currency) {
-    if (typeof value !== "number" || !Number.isFinite(value)) return currency === "BRL" ? "R$ —" : "USD —";
-    var prefix = currency === "BRL" ? "R$ " : "USD ";
+  function fmtPrice(value, currency, noPrefix) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+    var prefix = noPrefix ? "" : (currency === "BRL" ? "R$ " : "USD ");
     return prefix + value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function changeClass(change) {
@@ -72,6 +90,10 @@
     if (value >= 1e3) return (value / 1e3).toFixed(2).replace(".", ",") + " K";
     return value.toLocaleString("pt-BR");
   }
+  var cryptoSymbols = {};
+  CRYPTO.forEach(function (e) { cryptoSymbols[e[0]] = true; });
+  function isCrypto(sym) { return !!cryptoSymbols[sym]; }
+
   function card(quote) {
     var change = typeof quote.changePct === "number" ? quote.changePct : null;
     var pct = change === null ? "—" : (change >= 0 ? "+" : "") + change.toFixed(2).replace(".", ",") + "%";
@@ -81,7 +103,7 @@
     return '<div class="tq ' + changeClass(change) + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
       '<b class="tqSym">' + esc(quote.symbol) + "</b>" +
       '<span class="tqPct">' + pct + "</span>" +
-      '<strong class="tqPrice' + small + '">' + fmtPrice(price, currency) + "</strong>" +
+      '<strong class="tqPrice' + small + '">' + fmtPrice(price, currency, !isCrypto(quote.symbol)) + "</strong>" +
       "</div>";
   }
 
@@ -130,7 +152,7 @@
     grid.innerHTML = quotes.length
       ? quotes.map(card).join("")
       : '<div class="tqEmpty">Sem cotações disponíveis no momento.</div>';
-    grid.style.gridTemplateColumns = "repeat(" + Math.max(quotes.length, 1) + ", minmax(0, 1fr))";
+    grid.style.gridTemplateColumns = "repeat(" + Math.min(Math.max(quotes.length, 1), 8) + ", minmax(0, 1fr))";
     if (statusEl) statusEl.textContent = "AO VIVO · " + new Date().toLocaleTimeString("pt-BR");
   }
 
@@ -152,7 +174,7 @@
     }
     if (activeTab !== "crypto") return;
     var priceEl = grid.querySelector('.tq[data-tq="' + symbolKey(symbol) + '"] .tqPrice');
-    if (priceEl) priceEl.textContent = fmtPrice(price, symbolCurrency[symbol] || "USD");
+    if (priceEl) priceEl.textContent = fmtPrice(price, symbolCurrency[symbol] || "USD", !isCrypto(symbol));
   }
 
   function connectWs() {
@@ -240,6 +262,6 @@
 
   bindButtons();
   refresh(true);
-  window.setInterval(function () { refresh(false); }, 60000);
+  window.setInterval(function () { refresh(false); }, 5000);
   connectWs();
 })();

@@ -1,20 +1,15 @@
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
-const ALLOWED_ORIGINS = new Set([
-  "https://bitcoiniciantes.github.io",
-  "http://localhost:3000",
-  "http://localhost:8787",
-]);
 const SCENARIOS = new Set(["ALTA", "BAIXA", "NEUTRO", "RISCO ELEVADO"]);
 
 function corsHeaders(request) {
-  const origin = request.headers.get("Origin");
-  const headers = { "Content-Type": "application/json; charset=utf-8", "Vary": "Origin" };
-  if (origin && ALLOWED_ORIGINS.has(origin)) {
-    headers["Access-Control-Allow-Origin"] = origin;
-    headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
-    headers["Access-Control-Allow-Headers"] = "Content-Type";
-  }
+  const headers = {
+    "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Vary": "Origin",
+  };
   return headers;
 }
 
@@ -58,7 +53,7 @@ const NEWS_QUERIES = {
   URANIO: "ur�nio mercado",
 };
 
-function parseRssItems(xml, defaultSource, limit = 20) {
+function parseRssItems(xml, defaultSource, limit = 60) {
   return xml.split("<item>").slice(1, limit + 1).map((raw) => {
     const item = raw.split("</item>")[0];
     const title = rssTag(item, "title");
@@ -70,16 +65,17 @@ function parseRssItems(xml, defaultSource, limit = 20) {
       source: rssTag(item, "source") || defaultSource,
       publishedAt: publishedAt && !Number.isNaN(Date.parse(publishedAt)) ? new Date(publishedAt).toISOString() : null,
     };
-  }).filter((item) => item.title && item.url.startsWith("https://"));
+  }).filter((item) => item.title && (item.url.startsWith("https://") || item.url.startsWith("http://")));
 }
 
-const NEWS_FETCH_TIMEOUT_MS = 4000;
+const NEWS_FETCH_TIMEOUT_MS = 8000;
+const NEWS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 async function fetchWithTimeout(url, timeoutMs = NEWS_FETCH_TIMEOUT_MS) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { headers: { "User-Agent": "BitcoiniciantesIA/1.0" }, signal: controller.signal });
+    const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" }, signal: controller.signal });
     if (!response.ok) throw new Error(`news-${response.status}`);
     return response;
   } finally {
@@ -87,9 +83,17 @@ async function fetchWithTimeout(url, timeoutMs = NEWS_FETCH_TIMEOUT_MS) {
   }
 }
 
-async function fetchRssItems(url, defaultSource) {
-  const response = await fetchWithTimeout(url);
-  return parseRssItems(await response.text(), defaultSource);
+async function fetchRssItems(url, defaultSource, attempts = 1, timeoutMs = NEWS_FETCH_TIMEOUT_MS) {
+  let lastError;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(url, timeoutMs);
+      return parseRssItems(await response.text(), defaultSource);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("news-failed");
 }
 
 function newsQuery(asset) {
@@ -103,13 +107,36 @@ const NEWS_PATTERNS = {
   ETH: /\b(?:ethereum|ether|eth)\b/i,
   LINK: /\b(?:chainlink|link)\b/i,
   AVAX: /\b(?:avalanche|avax)\b/i,
-  PAXG: /\b(?:pax gold|paxg|gold)\b/i,
+  PAXG: /\b(?:pax gold|paxg|gold|ouro)\b/i,
   MSTR: /\b(?:strategy|microstrategy|mstr)\b/i,
-  PRATA: /\bsilver\b/i,
-  COBRE: /\bcopper\b/i,
-  URANIO: /\buranium\b/i,
+  PRATA: /\b(?:silver|prata)\b/i,
+  COBRE: /\b(?:copper|cobre)\b/i,
+  URANIO: /\b(?:uranium|uranio|urânio)\b/i,
 };
 const LOW_QUALITY_NEWS = /\b(?:casino|price prediction|top sites|betting|gambling)\b/i;
+
+const NICHE_SOURCES = {
+  PAXG: [
+    ["https://goldsilver.com/feed/", "GoldSilver.com"],
+    ["https://investingnews.com/feed/", "Investing News Network"],
+  ],
+  PRATA: [
+    ["https://silverdoctors.com/feed/", "Silver Doctors"],
+    ["https://goldsilver.com/feed/", "GoldSilver.com"],
+    ["https://investingnews.com/feed/", "Investing News Network"],
+    ["https://www.mining.com/feed/", "Mining.com"],
+  ],
+  COBRE: [
+    ["https://investingnews.com/feed/", "Investing News Network"],
+    ["https://www.mining.com/feed/", "Mining.com"],
+    ["https://www.nasdaq.com/feed/rssoutbound?category=Commodities", "Nasdaq Commodities"],
+  ],
+  URANIO: [
+    ["https://www.world-nuclear-news.org/rss", "World Nuclear News"],
+    ["https://investingnews.com/feed/", "Investing News Network"],
+    ["https://www.mining.com/feed/", "Mining.com"],
+  ],
+};
 
 function isRelevantNews(item, symbol) {
   if (LOW_QUALITY_NEWS.test(item.title)) return false;
@@ -120,7 +147,7 @@ function isRelevantNews(item, symbol) {
 async function fetchAssetNewsItems(asset) {
   const symbol = String(asset || "").toUpperCase();
   const tag = NEWS_TAGS[symbol];
-  const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+  const cutoff = Date.now() - NEWS_MAX_AGE_MS;
 
   const clean = (items) => {
     const seen = new Set();
@@ -142,11 +169,26 @@ async function fetchAssetNewsItems(asset) {
   const localItems = clean(fulfilled(await Promise.allSettled(localRequests)));
   if (localItems.length >= 3) return localItems.slice(0, 3);
 
-  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(`${newsQuery(symbol)} when:2d`)}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
-  const brItems = clean(fulfilled(await Promise.allSettled([fetchRssItems(googleUrl, "Google News Brasil")])));
-  const merged = clean([...localItems, ...brItems]);
+  const generalRequests = [
+    fetchRssItems("https://www.theblock.co/rss.xml", "The Block"),
+    fetchRssItems("https://decrypt.co/feed", "Decrypt"),
+    fetchRssItems("https://www.coindesk.com/arc/outboundfeeds/rss/", "CoinDesk"),
+    fetchRssItems("https://www.infomoney.com.br/feed/", "InfoMoney"),
+    fetchRssItems("https://livecoins.com.br/feed/", "LiveCoins"),
+    fetchRssItems("https://exame.com/feed/", "Exame"),
+  ];
+  const generalItems = clean(fulfilled(await Promise.allSettled(generalRequests)));
+  const merged = clean([...localItems, ...generalItems]);
   if (merged.length >= 3) return merged.slice(0, 3);
 
+  const nicheSources = NICHE_SOURCES[symbol] || [];
+  const nicheItems = clean(fulfilled(await Promise.allSettled(
+    nicheSources.map(([url, source]) => fetchRssItems(url, source)),
+  )));
+  const mergedNiche = clean([...localItems, ...generalItems, ...nicheItems]);
+  if (mergedNiche.length >= 3) return mergedNiche.slice(0, 3);
+
+  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(`${newsQuery(symbol)} when:2d`)}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
   const fallbackQueries = {
     BTC: "Bitcoin cryptocurrency",
     ETH: "Ethereum cryptocurrency",
@@ -160,9 +202,12 @@ async function fetchAssetNewsItems(asset) {
   };
   const fallbackQuery = `${fallbackQueries[symbol] || symbol} when:2d`;
   const globalGoogleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fallbackQuery)}&hl=en-US&gl=US&ceid=US:en`;
-  const enItems = clean(fulfilled(await Promise.allSettled([fetchRssItems(globalGoogleUrl, "Google News Internacional")])));
+  const googleItems = clean(fulfilled(await Promise.allSettled([
+    fetchRssItems(googleUrl, "Google News Brasil", 1, 3000),
+    fetchRssItems(globalGoogleUrl, "Google News Internacional", 1, 3000),
+  ])));
 
-  return clean([...localItems, ...brItems, ...enItems]).slice(0, 3);
+  return clean([...localItems, ...generalItems, ...nicheItems, ...googleItems]).slice(0, 3);
 }
 
 const NEWS_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -198,7 +243,179 @@ async function assetNews(request, asset) {
   if (cached) return json(request, cached);
   const items = await fetchAssetNewsItems(symbol);
   const body = { asset, updatedAt: new Date().toISOString(), items };
-  await storeNewsBody(symbol, body);
+  if (items.length) await storeNewsBody(symbol, body);
+  return json(request, body);
+}
+
+// ---------- Cotações (Yahoo Finance) para ativos sem par na Binance ----------
+
+const QUOTE_SYMBOLS = {
+  PRATA: "SI=F",
+  COBRE: "HG=F",
+  URANIO: "URNM",
+};
+
+function parseYahooQuote(raw, symbol) {
+  const result = raw && Array.isArray(raw.chart?.result) ? raw.chart.result[0] : null;
+  if (!result) return null;
+  const meta = result.meta || {};
+  if (typeof meta.regularMarketPrice !== "number") return null;
+  const prev = typeof meta.chartPreviousClose === "number" ? meta.chartPreviousClose : typeof meta.previousClose === "number" ? meta.previousClose : null;
+  const changePercent = prev ? ((meta.regularMarketPrice - prev) / prev) * 100 : null;
+  return {
+    symbol: meta.symbol || symbol,
+    price: meta.regularMarketPrice,
+    changePercent,
+    volume: typeof meta.regularMarketVolume === "number" ? meta.regularMarketVolume : null,
+    currency: meta.currency || "USD",
+  };
+}
+
+async function cachedQuoteBody(symbol) {
+  try {
+    const key = `https://bitcoiniciantes-ia.workers.dev/_cache/quote/${symbol}`;
+    const cached = await caches.default.match(key);
+    if (!cached) return null;
+    const stale = Date.now() - (Number(cached.headers.get("X-Cached-At")) || 0) > NEWS_CACHE_TTL_MS;
+    if (stale) return null;
+    return cached.json();
+  } catch {
+    return null;
+  }
+}
+
+async function storeQuoteBody(symbol, body) {
+  try {
+    const key = `https://bitcoiniciantes-ia.workers.dev/_cache/quote/${symbol}`;
+    const response = new Response(JSON.stringify(body), {
+      headers: { "Content-Type": "application/json", "X-Cached-At": String(Date.now()) },
+    });
+    await caches.default.put(key, response);
+  } catch {
+    // cache opcional
+  }
+}
+
+async function assetQuote(request, asset) {
+  const symbol = String(asset || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 20);
+  const yahooSymbol = QUOTE_SYMBOLS[symbol];
+  if (!yahooSymbol) return json(request, { error: "Ativo sem fonte de cotacao.", asset }, 404);
+  const cached = await cachedQuoteBody(symbol);
+  if (cached) return json(request, cached);
+  let quote = null;
+  try {
+    const response = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`);
+    quote = parseYahooQuote(await response.json(), yahooSymbol);
+  } catch (error) {
+    console.error(`quote-${symbol}-error`, error);
+  }
+  const body = quote
+    ? { asset, ...quote, source: "Yahoo Finance", updatedAt: new Date().toISOString() }
+    : { asset, error: "Cotacao indisponivel." };
+  if (quote) await storeQuoteBody(symbol, body);
+  return json(request, body);
+}
+
+// ---------- Widget de cotações em lote (CRIPTO via Binance no browser; STOCKS via Yahoo aqui) ----------
+
+const QUOTE_CACHE_TTL_MS = 45 * 1000;
+const QUOTE_WINDOWS = {
+  "1h": { range: "1d", interval: "60m", windowMs: 60 * 60 * 1000 },
+  "24h": { range: "1mo", interval: "1d", windowMs: 24 * 60 * 60 * 1000 },
+  "7d": { range: "1mo", interval: "1d", windowMs: 7 * 24 * 60 * 60 * 1000 },
+  "30d": { range: "3mo", interval: "1d", windowMs: 30 * 24 * 60 * 60 * 1000 },
+};
+
+function downsample(points, max) {
+  if (points.length <= max) return points;
+  const step = (points.length - 1) / (max - 1);
+  const out = [];
+  for (let i = 0; i < max; i += 1) out.push(points[Math.round(i * step)]);
+  return out;
+}
+
+function computeQuote(raw, symbol, cfg) {
+  const result = raw && Array.isArray(raw.chart?.result) ? raw.chart.result[0] : null;
+  if (!result) return null;
+  const timestamps = Array.isArray(result.timestamp) ? result.timestamp : [];
+  const closes = result.indicators?.quote?.[0]?.close;
+  if (!timestamps.length || !Array.isArray(closes)) return null;
+  const volumes = result.indicators?.quote?.[0]?.volume;
+  const points = timestamps
+    .map((time, index) => ({ time, close: closes[index], volume: volumes ? volumes[index] : undefined }))
+    .filter((point) => Number.isFinite(point.close));
+  const last = points[points.length - 1];
+  if (!last) return null;
+  const baseTime = last.time - cfg.windowMs / 1000;
+  let base = points[0];
+  for (const point of points) {
+    if (point.time <= baseTime) base = point;
+    else break;
+  }
+  if (base.time >= last.time) base = points[Math.max(0, points.length - 2)] || base;
+  const changePct = base.close ? ((last.close - base.close) / base.close) * 100 : 0;
+  const meta = result.meta || {};
+  return {
+    symbol: meta.symbol || symbol,
+    name: meta.shortName || meta.longName || symbol,
+    price: last.close,
+    changePct,
+    volume: Number.isFinite(last.volume) ? last.volume : null,
+    currency: meta.currency || "USD",
+    closes: downsample(points.map((point) => point.close), 40),
+  };
+}
+
+async function cachedQuotesBody(key) {
+  try {
+    const cached = await caches.default.match(`https://bitcoiniciantes-ia.workers.dev/_cache/quotes/${key}`);
+    if (!cached) return null;
+    const stale = Date.now() - (Number(cached.headers.get("X-Cached-At")) || 0) > QUOTE_CACHE_TTL_MS;
+    if (stale) return null;
+    return cached.json();
+  } catch {
+    return null;
+  }
+}
+
+async function storeQuotesBody(key, body) {
+  try {
+    const response = new Response(JSON.stringify(body), {
+      headers: { "Content-Type": "application/json", "X-Cached-At": String(Date.now()) },
+    });
+    await caches.default.put(`https://bitcoiniciantes-ia.workers.dev/_cache/quotes/${key}`, response);
+  } catch {
+    // cache opcional
+  }
+}
+
+async function assetQuotes(request) {
+  const url = new URL(request.url);
+  const rawAssets = (url.searchParams.get("assets") || "")
+    .split(",")
+    .map((item) => item.trim().toUpperCase().replace(/[^A-Z0-9^.\-=]/g, ""))
+    .filter((item) => item && item.length <= 12)
+    .slice(0, 26);
+  const windowKey = QUOTE_WINDOWS[url.searchParams.get("window")] ? url.searchParams.get("window") : "24h";
+  if (!rawAssets.length) return json(request, { error: "Informe assets." }, 400);
+  const cfg = QUOTE_WINDOWS[windowKey];
+  const cacheKey = `${rawAssets.join(",")}|${windowKey}`;
+  const cached = await cachedQuotesBody(cacheKey);
+  if (cached) return json(request, cached);
+  const settled = await Promise.allSettled(
+    rawAssets.map((symbol) =>
+      fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${cfg.interval}&range=${cfg.range}`)
+        .then((response) => response.json())
+        .then((raw) => computeQuote(raw, symbol, cfg))
+        .catch((error) => {
+          console.error(`quotes-${symbol}-error`, error);
+          return null;
+        }),
+    ),
+  );
+  const quotes = settled.map((result) => (result.status === "fulfilled" ? result.value : null)).filter(Boolean);
+  const body = { window: windowKey, updatedAt: new Date().toISOString(), quotes };
+  if (quotes.length) await storeQuotesBody(cacheKey, body);
   return json(request, body);
 }
 
@@ -403,6 +620,12 @@ export default {
     if (request.method === "GET" && (url.pathname === "/v1/news" || url.pathname === "/api/asset-news")) {
       return assetNews(request, url.searchParams.get("asset"));
     }
+    if (request.method === "GET" && url.pathname === "/api/quote") {
+      return assetQuote(request, url.searchParams.get("asset"));
+    }
+    if (request.method === "GET" && url.pathname === "/api/quotes") {
+      return assetQuotes(request);
+    }
 
     const isTermometro = url.pathname === "/api/ai-analysis";
     const isEstudeBitcoin = url.pathname === "/v1/analyze";
@@ -444,7 +667,10 @@ export default {
 
     // ---- Termômetro ----
     const local = data?.localPreview || {};
-    const news = await fetchAssetNewsItems(data?.asset);
+    const news = await Promise.race([
+      fetchAssetNewsItems(data?.asset),
+      new Promise((resolve) => setTimeout(() => resolve([]), 5000)),
+    ]);
     const prompt = buildTermometroPrompt(data || {}, news);
     const providers = [
       { name: "gemini", run: () => generateWithGemini(env, prompt.messages, { jsonMode: true }) },
