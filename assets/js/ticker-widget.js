@@ -62,9 +62,8 @@
   }
   function changeClass(change) {
     if (change === null || !Number.isFinite(change)) return "flat";
-    if (change >= 3) return "up3";
-    if (change >= 1) return "up1";
-    if (change >= 0) return "up0";
+    if (change >= 2) return "up3";
+    if (change >= 0) return "up1";
     return "down";
   }
   function fmtVolume(value) {
