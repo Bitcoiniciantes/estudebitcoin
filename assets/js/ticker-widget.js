@@ -10,7 +10,7 @@
     ["PAXG", "PAXGUSDT", "USD"],
     ["USDT-BRL", "USDTBRL", "BRL"],
   ];
-  var STOCKS = ["^GSPC", "^NDX", "SI=F", "MSTR", "HG=F", "URNM", "SPCX", "GLW", "QUBT", "BZ=F", "NVDA", "CRCL", "MP", "AMD", "TSLA", "GOOGL", "OKLO", "ABTC", "QBTS", "AAPL", "JPM", "SNDK", "RIO", "BHP", "USAR"];
+  var STOCKS = ["^GSPC", "^NDX", "SI=F", "HG=F", "BZ=F", "URNM", "OKLO", "USAR", "QUBT", "QBTS", "NVDA", "AMD", "GOOGL", "META", "AAPL", "SNDK", "GLW", "MSTR", "CRCL", "MP", "RIO", "BHP", "SPCX", "TSLA"];
   var CRYPTO_NAMES = {
     BTC: "Bitcoin",
     ETH: "Ethereum",
@@ -37,11 +37,10 @@
     "AMD": "AMD",
     "TSLA": "TESLA",
     "GOOGL": "ALPHABET",
+    "META": "META PLATFORMS",
     "OKLO": "OKLO",
-    "ABTC": "ABTC",
     "QBTS": "D-WAVE QUANTUM",
     "AAPL": "APPLE",
-    "JPM": "JPMORGAN",
     "SNDK": "SANDISK",
     "RIO": "RIO TINTO",
     "BHP": "BHP",
@@ -49,7 +48,7 @@
     "^GSPC": "S&P 500",
   };
   var STOCK_LABELS = {
-    "^GSPC": "INDICE S&P 500",
+    "^GSPC": "S&P 500",
     "SI=F": "PRATA",
     "HG=F": "COBRE",
     "BZ=F": "BRENT",
