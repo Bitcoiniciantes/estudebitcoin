@@ -209,7 +209,7 @@
     var symbol = cardEl.getAttribute("data-tq");
     var meta = quoteData[symbol];
     if (!meta) return;
-    var html = "<b>" + esc(meta.name || symbol) + "</b>";
+    var html = "<b>" + esc(isCrypto(symbol) ? (meta.name || symbol) : symbol) + "</b>";
     if (meta.volume !== null && meta.volume !== undefined) {
       html += '<span class="tq-tip-vol">' + esc(meta.volumeLabel || "Volume") + ": " + fmtVolume(meta.volume) + "</span>";
     }
@@ -267,6 +267,6 @@
 
   bindButtons();
   refresh(true);
-  window.setInterval(function () { refresh(false); }, 5000);
+  window.setInterval(function () { refresh(true); }, 5000);
   connectWs();
 })();

@@ -318,7 +318,7 @@ async function assetQuote(request, asset) {
 
 // ---------- Widget de cotações em lote (CRIPTO via Binance no browser; STOCKS via Yahoo aqui) ----------
 
-const QUOTE_CACHE_TTL_MS = 45 * 1000;
+const QUOTE_CACHE_TTL_MS = 10 * 1000;
 const QUOTE_WINDOWS = {
   "1h": {
     range: "1d",
