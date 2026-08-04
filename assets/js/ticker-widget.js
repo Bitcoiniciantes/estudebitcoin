@@ -56,9 +56,8 @@
   }
   function fmtPrice(value, currency) {
     if (typeof value !== "number" || !Number.isFinite(value)) return currency === "BRL" ? "R$ —" : "USD —";
-    var digits = value < 1 ? 4 : 2;
     var prefix = currency === "BRL" ? "R$ " : "USD ";
-    return prefix + value.toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    return prefix + value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function changeClass(change) {
     if (change === null || !Number.isFinite(change)) return "flat";
