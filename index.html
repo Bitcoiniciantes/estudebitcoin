@@ -642,13 +642,14 @@
   .tqSym { font-size:.9rem; font-weight:800; white-space:nowrap; }
   .tqPct { font:800 .82rem ui-monospace,SFMono-Regular,Consolas,monospace; white-space:nowrap; }
   .tqPrice { font-size:.88rem; font-weight:700; white-space:nowrap; }
+  .tqPrice.tq-sm { font-size:.75rem; }
   .tq-tooltip { position:fixed; z-index:1200; max-width:250px; background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:10px; padding:10px 12px; color:#4a4a4a; font:400 .78rem var(--font-body); line-height:1.5; box-shadow:0 8px 24px rgba(0,0,0,.18); pointer-events:none; opacity:0; transform:translate(-50%,-6px); transition:opacity .15s ease, transform .15s ease; }
   .tq-tooltip.show { opacity:1; transform:translate(-50%,0); }
   .tq-tooltip b { display:block; font-size:.84rem; color:#333; margin-bottom:3px; }
   .tq-tip-vol { color:#555; font-weight:700; }
   .tqEmpty { color:#8fa396; font-size:.8rem; padding:22px; text-align:center; }
   .ticker-foot { color:#6b7f72; font-size:.66rem; margin-top:8px; }
-  @media(max-width:720px){ .ticker-grid { grid-template-columns:repeat(auto-fill,minmax(84px,1fr)) !important; } .tq { padding:10px 4px; } .tqPrice { font-size:.66rem; } .tqPct { font-size:.9rem; } }
+  @media(max-width:720px){ .ticker-grid { grid-template-columns:repeat(auto-fill,minmax(84px,1fr)) !important; } .tq { padding:10px 4px; } .tqPrice { font-size:.66rem; } .tqPct { font-size:.9rem; } .tqPrice.tq-sm { font-size:.56rem; } }
   @media(max-width:560px){ .ticker-status { display:none; } }
 </style>
 <section class="ticker-widget" id="cotacoes">
@@ -1184,7 +1185,7 @@
 <script defer src="assets/js/projections.js"></script>
 <script defer src="assets/js/conversor.js?v=8"></script>
 <script defer src="assets/js/analista-ia.js?v=9"></script>
-<script defer src="assets/js/ticker-widget.js?v=6"></script>
+<script defer src="assets/js/ticker-widget.js?v=7"></script>
 
 </body>
 </html>
