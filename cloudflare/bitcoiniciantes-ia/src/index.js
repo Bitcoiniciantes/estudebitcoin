@@ -320,7 +320,12 @@ async function assetQuote(request, asset) {
 
 const QUOTE_CACHE_TTL_MS = 45 * 1000;
 const QUOTE_WINDOWS = {
-  "1h": { range: "1d", interval: "60m", windowMs: 60 * 60 * 1000 },
+  "1h": {
+    range: "1d",
+    interval: "60m",
+    windowMs: 60 * 60 * 1000,
+    fallbacks: [{ range: "1mo", interval: "1d", windowMs: 24 * 60 * 60 * 1000 }],
+  },
   "24h": { range: "1mo", interval: "1d", windowMs: 24 * 60 * 60 * 1000 },
   "7d": { range: "1mo", interval: "1d", windowMs: 7 * 24 * 60 * 60 * 1000 },
   "30d": { range: "3mo", interval: "1d", windowMs: 30 * 24 * 60 * 60 * 1000 },
@@ -402,11 +407,23 @@ async function assetQuotes(request) {
   const cacheKey = `${rawAssets.join(",")}|${windowKey}`;
   const cached = await cachedQuotesBody(cacheKey);
   if (cached) return json(request, cached);
+  const configs = [cfg].concat(cfg.fallbacks || []);
   const settled = await Promise.allSettled(
     rawAssets.map((symbol) =>
-      fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${cfg.interval}&range=${cfg.range}`)
-        .then((response) => response.json())
-        .then((raw) => computeQuote(raw, symbol, cfg))
+      Promise.resolve()
+        .then(async () => {
+          for (const item of configs) {
+            try {
+              const response = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${item.interval}&range=${item.range}`);
+              const raw = await response.json();
+              const quote = computeQuote(raw, symbol, item);
+              if (quote) return quote;
+            } catch (error) {
+              // tenta a próxima configuração
+            }
+          }
+          return null;
+        })
         .catch((error) => {
           console.error(`quotes-${symbol}-error`, error);
           return null;
