@@ -10,7 +10,7 @@
     ["PAXG", "PAXGUSDT", "USD"],
     ["USDT-BRL", "USDTBRL", "BRL"],
   ];
-  var STOCKS = ["SI=F", "MSTR", "HG=F", "URNM", "SPCX", "GLW", "QUBT", "BZ=F", "^NDX", "NVDA", "CRCL", "MP", "AMD", "TSLA", "GOOGL", "OKLO", "ABTC", "QBTS", "AAPL", "JPM", "SNDK", "RIO", "BHP", "USAR", "SPY"];
+  var STOCKS = ["^GSPC", "^NDX", "SI=F", "MSTR", "HG=F", "URNM", "SPCX", "GLW", "QUBT", "BZ=F", "NVDA", "CRCL", "MP", "AMD", "TSLA", "GOOGL", "OKLO", "ABTC", "QBTS", "AAPL", "JPM", "SNDK", "RIO", "BHP", "USAR"];
   var CRYPTO_NAMES = {
     BTC: "Bitcoin",
     ETH: "Ethereum",
@@ -46,9 +46,10 @@
     "RIO": "RIO TINTO",
     "BHP": "BHP",
     "USAR": "USA RARE EARTH",
-    "SPY": "S&P 500",
+    "^GSPC": "S&P 500",
   };
   var STOCK_LABELS = {
+    "^GSPC": "INDICE S&P 500",
     "SI=F": "PRATA",
     "HG=F": "COBRE",
     "BZ=F": "BRENT",
@@ -84,7 +85,7 @@
   }
   function fmtPrice(value, currency, noPrefix) {
     if (typeof value !== "number" || !Number.isFinite(value)) return "—";
-    var prefix = noPrefix ? "" : (currency === "BRL" ? "R$ " : "USD ");
+    var prefix = noPrefix ? "" : (currency === "BRL" ? "R$ " : "$");
     return prefix + value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function changeClass(change) {
@@ -110,9 +111,10 @@
     var price = typeof livePrices[quote.symbol] === "number" ? livePrices[quote.symbol] : quote.price;
     var currency = symbolCurrency[quote.symbol] || "USD";
     var small = quote.symbol === "BTC" || quote.symbol === "ETH" || quote.symbol === "PAXG" ? " tq-sm" : "";
+    var smallLabel = quote.symbol === "^NDX" ? " tq-label-sm" : "";
     var label = STOCK_LABELS[quote.symbol] || quote.symbol;
     return '<div class="tq ' + changeClass(change) + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
-      '<b class="tqSym">' + esc(label) + "</b>" +
+      '<b class="tqSym' + smallLabel + '">' + esc(label) + "</b>" +
       '<span class="tqPct">' + pct + "</span>" +
       '<strong class="tqPrice' + small + '">' + fmtPrice(price, currency, !isCrypto(quote.symbol)) + "</strong>" +
       "</div>";
