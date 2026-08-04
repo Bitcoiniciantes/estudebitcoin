@@ -48,6 +48,12 @@
     "USAR": "USA RARE EARTH",
     "SPY": "S&P 500",
   };
+  var STOCK_LABELS = {
+    "SI=F": "PRATA",
+    "HG=F": "COBRE",
+    "BZ=F": "BRENT",
+    "^NDX": "NASDAQ 100",
+  };
   var KLINE_CFG = {
     "1h": { interval: "1h", limit: 12, baseFromPrev: true },
     "24h": { interval: "1h", limit: 25 },
@@ -104,7 +110,7 @@
     var price = typeof livePrices[quote.symbol] === "number" ? livePrices[quote.symbol] : quote.price;
     var currency = symbolCurrency[quote.symbol] || "USD";
     var small = quote.symbol === "BTC" || quote.symbol === "ETH" || quote.symbol === "PAXG" ? " tq-sm" : "";
-    var label = STOCK_NAMES[quote.symbol] || quote.symbol;
+    var label = STOCK_LABELS[quote.symbol] || quote.symbol;
     return '<div class="tq ' + changeClass(change) + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
       '<b class="tqSym">' + esc(label) + "</b>" +
       '<span class="tqPct">' + pct + "</span>" +
@@ -209,7 +215,7 @@
     var symbol = cardEl.getAttribute("data-tq");
     var meta = quoteData[symbol];
     if (!meta) return;
-    var html = "<b>" + esc(isCrypto(symbol) ? (meta.name || symbol) : symbol) + "</b>";
+    var html = "<b>" + esc(meta.name || symbol) + "</b>";
     if (meta.volume !== null && meta.volume !== undefined) {
       html += '<span class="tq-tip-vol">' + esc(meta.volumeLabel || "Volume") + ": " + fmtVolume(meta.volume) + "</span>";
     }
