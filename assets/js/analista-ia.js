@@ -11,7 +11,7 @@
   var loadingPhrases = document.getElementById("ai-loading-phrases");
   var requestId = 0;
   if (!result) return;
-  if (button) button.textContent = "Analisar";
+  if (button) button.textContent = "ANALISAR";
   var currentAsset = "BTC";
   var currentPeriod = "1D";
   var currentMarketData = "";
@@ -199,7 +199,8 @@
     startElapsed();
     startLoading(asset, period);
     if (loadingBox) loadingBox.hidden = false;
-    provider.style.display = "none";
+    if (provider) provider.style.display = "none";
+    if (facts) facts.innerHTML = "<span>FATOS RELEVANTES</span><p>Buscando notícias recentes…</p>";
 
     var providedMarketData = typeof context.marketData === "string" && context.marketData.trim() ? context.marketData : (currentMarketData && currentAsset === asset && currentPeriod === period ? currentMarketData : "");
     var marketDataPromise = providedMarketData ? Promise.resolve(providedMarketData) : requestContextFromWidget().then(function (reply) {
@@ -221,18 +222,21 @@
           body: JSON.stringify({ asset: asset, period: period, marketData: marketData, question: question }),
         });
       })
-      .then(function (response) { return response.json(); })
+      .then(function (response) {
+        if (!response.ok) throw new Error("A análise falhou no servidor (HTTP " + response.status + "). Tente novamente.");
+        return response.json();
+      })
       .then(function (payload) {
         if (currentRequest !== requestId) return;
         if (!payload.analysis) throw new Error(payload.error || "A análise não ficou disponível.");
         result.innerHTML = renderAnalysis(payload.analysis);
         renderRelevantFacts(factsSnapshot);
-        provider.textContent = payload.provider === "gemini" ? "Gemini" : "Groq";
-        provider.style.display = "inline-block";
-        disclaimer.textContent = payload.disclaimer || disclaimer.textContent;
+        if (provider) provider.textContent = payload.provider === "gemini" ? "Gemini" : "Groq";
+        if (provider) provider.style.display = "inline-block";
+        if (disclaimer) disclaimer.textContent = payload.disclaimer || disclaimer.textContent;
       })
       .catch(function (error) { if (currentRequest === requestId) result.textContent = error.message || "Não foi possível gerar a análise agora. Tente novamente."; })
-      .finally(function () { stopLoading(); stopElapsed(); if (loadingBox) loadingBox.hidden = true; if (currentRequest === requestId && button) { button.disabled = false; button.textContent = "Analisar"; } });
+      .finally(function () { stopLoading(); stopElapsed(); if (loadingBox) loadingBox.hidden = true; if (currentRequest === requestId && button) { button.disabled = false; button.textContent = "ANALISAR"; } });
   }
 
   document.querySelectorAll("[data-question]").forEach(function (chip) {
@@ -252,12 +256,13 @@
       updateElapsedText(0);
       if (input) input.value = "";
       if (button) button.disabled = false;
-      if (button) button.textContent = "Analisar";
+      if (button) button.textContent = "ANALISAR";
       stopLoading();
       if (loadingBox) loadingBox.hidden = true;
-      result.textContent = "Ativo atualizado para " + changedAsset + " no período " + changedPeriod + ". Clique em GERAR LEITURA ou no botão IA do Termômetro para gerar a leitura.";
-      provider.style.display = "none";
-      disclaimer.textContent = "Conteúdo informativo.";
+      result.textContent = "Ativo atualizado para " + changedAsset + " no período " + changedPeriod + ". Clique em ANALISAR ou no botão IA do Termômetro para gerar a leitura.";
+      if (provider) provider.style.display = "none";
+      if (disclaimer) disclaimer.textContent = "Conteúdo informativo.";
+      if (facts) renderRelevantFacts([]);
       return;
     }
     if (event.data?.type !== "termometro:open-estudebitcoin-ai") return;
