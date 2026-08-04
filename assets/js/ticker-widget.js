@@ -1,0 +1,246 @@
+(function () {
+  var WORKER = "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/quotes";
+  var CRYPTO = [
+    ["BTC", "BTCUSDT", "USD"],
+    ["ETH", "ETHUSDT", "USD"],
+    ["SOL", "SOLUSDT", "USD"],
+    ["LINK", "LINKUSDT", "USD"],
+    ["AVAX", "AVAXUSDT", "USD"],
+    ["POL", "POLUSDT", "USD"],
+    ["PAXG", "PAXGUSDT", "USD"],
+    ["USDT-BRL", "USDTBRL", "BRL"],
+  ];
+  var STOCKS = ["SI=F", "MSTR", "HG=F", "URNM", "SPCX", "GLW", "QUBT", "BZ=F"];
+  var CRYPTO_NAMES = {
+    BTC: "Bitcoin",
+    ETH: "Ethereum",
+    SOL: "Solana",
+    LINK: "Chainlink",
+    AVAX: "Avalanche",
+    POL: "Polygon",
+    PAXG: "Pax Gold",
+    "USDT-BRL": "Dólar em Reais (USDT-BRL)",
+  };
+  var STOCK_NAMES = {
+    "SI=F": "Prata",
+    "HG=F": "Cobre",
+    "BZ=F": "Petróleo-Brent",
+  };
+  var KLINE_CFG = {
+    "1h": { interval: "1h", limit: 12, baseFromPrev: true },
+    "24h": { interval: "1h", limit: 25 },
+    "7d": { interval: "1d", limit: 8 },
+    "30d": { interval: "1d", limit: 31 },
+  };
+  var grid = document.getElementById("ticker-grid");
+  var statusEl = document.getElementById("ticker-status");
+  if (!grid) return;
+
+  var activeTab = "crypto";
+  var activeWindow = "24h";
+  var cache = {};
+  var livePrices = {};
+  var liveVolume = {};
+  var quoteData = {};
+  var pairSymbol = {};
+  var symbolCurrency = {};
+  CRYPTO.forEach(function (entry) {
+    pairSymbol[entry[1].toLowerCase()] = entry[0];
+    symbolCurrency[entry[0]] = entry[2];
+  });
+
+  function symbolKey(symbol) { return String(symbol || "").replace(/["\\]/g, ""); }
+
+  function esc(value) {
+    return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function fmtPrice(value, currency) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return currency === "BRL" ? "R$ —" : "USD —";
+    var digits = value < 1 ? 4 : 2;
+    var prefix = currency === "BRL" ? "R$ " : "USD ";
+    return prefix + value.toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  }
+  function changeClass(change) {
+    if (change === null || !Number.isFinite(change)) return "flat";
+    if (change >= 3) return "up3";
+    if (change >= 1) return "up1";
+    if (change >= 0) return "up0";
+    return "down";
+  }
+  function fmtVolume(value) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+    if (value >= 1e9) return (value / 1e9).toFixed(2).replace(".", ",") + " B";
+    if (value >= 1e6) return (value / 1e6).toFixed(2).replace(".", ",") + " M";
+    if (value >= 1e3) return (value / 1e3).toFixed(2).replace(".", ",") + " K";
+    return value.toLocaleString("pt-BR");
+  }
+  function card(quote) {
+    var change = typeof quote.changePct === "number" ? quote.changePct : null;
+    var pct = change === null ? "—" : (change >= 0 ? "+" : "") + change.toFixed(2).replace(".", ",") + "%";
+    var price = typeof livePrices[quote.symbol] === "number" ? livePrices[quote.symbol] : quote.price;
+    var currency = symbolCurrency[quote.symbol] || "USD";
+    return '<div class="tq ' + changeClass(change) + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
+      '<b class="tqSym">' + esc(quote.symbol) + "</b>" +
+      '<span class="tqPct">' + pct + "</span>" +
+      '<strong class="tqPrice">' + fmtPrice(price, currency) + "</strong>" +
+      "</div>";
+  }
+
+  function fetchCrypto() {
+    var cfg = KLINE_CFG[activeWindow];
+    var jobs = CRYPTO.map(function (entry) {
+      var symbol = entry[0], pair = entry[1], currency = entry[2];
+      return fetch("https://api.binance.com/api/v3/klines?symbol=" + pair + "&interval=" + cfg.interval + "&limit=" + cfg.limit, { cache: "no-store" })
+        .then(function (response) { return response.ok ? response.json() : null; })
+        .then(function (klines) {
+          if (!Array.isArray(klines) || klines.length < 2) return null;
+          var closes = klines.map(function (row) { return Number(row[4]); });
+          var volume = klines.reduce(function (sum, row) { return sum + (Number(row[5]) || 0); }, 0);
+          var last = closes[closes.length - 1];
+          var base = cfg.baseFromPrev ? closes[closes.length - 2] : closes[0];
+          quoteData[symbol] = {
+            name: CRYPTO_NAMES[symbol] || symbol,
+            volume: typeof liveVolume[symbol] === "number" ? liveVolume[symbol] : volume,
+            volumeLabel: "Volume 24h",
+          };
+          return { symbol: symbol, currency: currency, price: last, changePct: base ? ((last - base) / base) * 100 : 0 };
+        })
+        .catch(function () { return null; });
+    });
+    return Promise.all(jobs).then(function (quotes) { return quotes.filter(Boolean); });
+  }
+
+  function fetchStocks() {
+    return fetch(WORKER + "?assets=" + encodeURIComponent(STOCKS.join(",")) + "&window=" + activeWindow, { cache: "no-store" })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (payload) {
+        if (!payload || !Array.isArray(payload.quotes)) return [];
+        return payload.quotes.map(function (quote) {
+          quoteData[quote.symbol] = {
+            name: STOCK_NAMES[quote.symbol] || quote.name || quote.symbol,
+            volume: quote.volume,
+            volumeLabel: "Volume hoje",
+          };
+          return { symbol: quote.symbol, currency: "USD", price: quote.price, changePct: quote.changePct };
+        });
+      })
+      .catch(function () { return []; });
+  }
+
+  function render(quotes) {
+    grid.innerHTML = quotes.length
+      ? quotes.map(card).join("")
+      : '<div class="tqEmpty">Sem cotações disponíveis no momento.</div>';
+    grid.style.gridTemplateColumns = "repeat(" + Math.max(quotes.length, 1) + ", minmax(0, 1fr))";
+    if (statusEl) statusEl.textContent = "AO VIVO · " + new Date().toLocaleTimeString("pt-BR");
+  }
+
+  function refresh(force) {
+    var key = activeTab + "|" + activeWindow;
+    if (force) delete cache[key];
+    var promise = cache[key] ? Promise.resolve(cache[key]) : (activeTab === "crypto" ? fetchCrypto() : fetchStocks()).then(function (quotes) {
+      cache[key] = quotes;
+      return quotes;
+    });
+    promise.then(render).catch(function () { render([]); });
+  }
+
+  function updateLivePrice(symbol, price, volume) {
+    livePrices[symbol] = price;
+    if (typeof volume === "number" && Number.isFinite(volume)) {
+      liveVolume[symbol] = volume;
+      if (quoteData[symbol]) quoteData[symbol].volume = volume;
+    }
+    if (activeTab !== "crypto") return;
+    var priceEl = grid.querySelector('.tq[data-tq="' + symbolKey(symbol) + '"] .tqPrice');
+    if (priceEl) priceEl.textContent = fmtPrice(price, symbolCurrency[symbol] || "USD");
+  }
+
+  function connectWs() {
+    var streams = CRYPTO.map(function (entry) { return entry[1].toLowerCase() + "@ticker"; }).join("/");
+    var ws;
+    try { ws = new WebSocket("wss://stream.binance.com:9443/stream?streams=" + streams); }
+    catch (error) { return; }
+    ws.onmessage = function (event) {
+      try {
+        var payload = JSON.parse(event.data);
+        var pair = String(payload.stream || "").replace("@ticker", "");
+        var symbol = pairSymbol[pair];
+        if (symbol && payload.data && typeof payload.data.c !== "undefined") {
+          updateLivePrice(symbol, parseFloat(payload.data.c), parseFloat(payload.data.q));
+        }
+      } catch (error) { /* ignora mensagens invalidas */ }
+    };
+    ws.onclose = function () { window.setTimeout(connectWs, 3000); };
+    ws.onerror = function () { try { ws.close(); } catch (error) { /* noop */ } };
+  }
+
+  var tooltip = document.createElement("div");
+  tooltip.className = "tq-tooltip";
+  document.body.appendChild(tooltip);
+  var pinnedSymbol = null;
+  function showTooltip(cardEl) {
+    var symbol = cardEl.getAttribute("data-tq");
+    var meta = quoteData[symbol];
+    if (!meta) return;
+    var html = "<b>" + esc(meta.name || symbol) + "</b>";
+    if (meta.volume !== null && meta.volume !== undefined) {
+      html += '<span class="tq-tip-vol">' + esc(meta.volumeLabel || "Volume") + ": " + fmtVolume(meta.volume) + "</span>";
+    }
+    tooltip.innerHTML = html;
+    var rect = cardEl.getBoundingClientRect();
+    tooltip.style.left = Math.round(rect.left + rect.width / 2) + "px";
+    tooltip.style.top = (rect.top > 90 ? rect.top - 10 : rect.bottom + 10) + "px";
+    tooltip.classList.add("show");
+  }
+  function hideTooltip() {
+    tooltip.classList.remove("show");
+  }
+  grid.addEventListener("mouseover", function (event) {
+    var cardEl = event.target.closest(".tq");
+    if (cardEl && !pinnedSymbol) showTooltip(cardEl);
+  });
+  grid.addEventListener("mouseout", function (event) {
+    if (event.target.closest(".tq") && !pinnedSymbol) hideTooltip();
+  });
+  grid.addEventListener("click", function (event) {
+    var cardEl = event.target.closest(".tq");
+    if (!cardEl) return;
+    var symbol = cardEl.getAttribute("data-tq");
+    if (pinnedSymbol === symbol) {
+      pinnedSymbol = null;
+      hideTooltip();
+    } else {
+      pinnedSymbol = symbol;
+      showTooltip(cardEl);
+    }
+  });
+  document.addEventListener("click", function (event) {
+    if (!event.target.closest(".tq") && pinnedSymbol) {
+      pinnedSymbol = null;
+      hideTooltip();
+    }
+  });
+
+  function bindButtons() {
+    document.querySelectorAll(".ticker-window button").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        activeWindow = btn.getAttribute("data-window") || "24h";
+        document.querySelectorAll(".ticker-window button").forEach(function (b) { b.classList.toggle("active", b === btn); });
+        refresh(true);
+      });
+    });
+    document.querySelectorAll(".ticker-tabs button").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        activeTab = btn.getAttribute("data-tab") || "crypto";
+        document.querySelectorAll(".ticker-tabs button").forEach(function (b) { b.classList.toggle("active", b === btn); });
+        refresh(true);
+      });
+    });
+  }
+
+  bindButtons();
+  refresh(true);
+  window.setInterval(function () { refresh(false); }, 60000);
+  connectWs();
+})();
