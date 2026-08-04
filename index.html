@@ -481,6 +481,7 @@
       <a href="#nupl-root">NUPL</a>
       <a href="#strategy-tesouraria">Strategy</a>
       <a href="#sif-root">Simulador IF</a>
+      <a href="#cotacoes">Cotações</a>
       <a href="#projecoes">Projeções</a>
     </div>
     </div>
@@ -620,6 +621,54 @@
   <div class="ws ws-2">
     <div id="halving-root"></div>
   </div>
+
+<style>
+  .ticker-widget { grid-column:1/-1; padding-top:6px; padding-bottom:4px; width:100%; }
+  .ticker-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:14px 0 10px; }
+  .ticker-eyebrow { color:#57c76a; font-size:.66rem; font-weight:800; letter-spacing:.12em; margin:0 0 2px; }
+  .ticker-window { display:flex; gap:6px; }
+  .ticker-window button, .ticker-tabs button { background:#111c17; border:1px solid #2b4734; border-radius:8px; color:#b7d5bc; cursor:pointer; font:800 .7rem var(--font-body); letter-spacing:.06em; padding:7px 12px; }
+  .ticker-window button:hover, .ticker-tabs button:hover { border-color:#54b85a; color:#fff; }
+  .ticker-window button.active, .ticker-tabs button.active { background:#54b85a; border-color:#54b85a; color:#071009; }
+  .ticker-tabs { display:flex; gap:6px; }
+  .ticker-tabs button { border-radius:8px; }
+  .ticker-status { margin-left:auto; color:#8fa396; font-size:.66rem; font-weight:800; letter-spacing:.08em; }
+  .ticker-grid { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:8px; }
+  .tq { border:1px solid rgba(255,255,255,.06); border-radius:10px; padding:14px 8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-height:88px; text-align:center; cursor:pointer; color:#fff; }
+  .tq.up3 { background:#0f5e2d; }
+  .tq.up1 { background:#1f9d4c; }
+  .tq.up0 { background:#8fd6a8; }
+  .tq.down { background:#d5342b; }
+  .tq.flat { background:#2f4d3e; }
+  .tqSym { font-size:.9rem; font-weight:800; white-space:nowrap; }
+  .tqPct { font:800 .82rem ui-monospace,SFMono-Regular,Consolas,monospace; white-space:nowrap; }
+  .tqPrice { font-size:.88rem; font-weight:700; white-space:nowrap; }
+  .tq-tooltip { position:fixed; z-index:1200; max-width:250px; background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:10px; padding:10px 12px; color:#4a4a4a; font:400 .78rem var(--font-body); line-height:1.5; box-shadow:0 8px 24px rgba(0,0,0,.18); pointer-events:none; opacity:0; transform:translate(-50%,-6px); transition:opacity .15s ease, transform .15s ease; }
+  .tq-tooltip.show { opacity:1; transform:translate(-50%,0); }
+  .tq-tooltip b { display:block; font-size:.84rem; color:#333; margin-bottom:3px; }
+  .tq-tip-vol { color:#555; font-weight:700; }
+  .tqEmpty { color:#8fa396; font-size:.8rem; padding:22px; text-align:center; }
+  .ticker-foot { color:#6b7f72; font-size:.66rem; margin-top:8px; }
+  @media(max-width:720px){ .ticker-grid { grid-template-columns:repeat(auto-fill,minmax(84px,1fr)) !important; } .tq { padding:10px 4px; } }
+  @media(max-width:560px){ .ticker-status { display:none; } }
+</style>
+<section class="ticker-widget" id="cotacoes">
+  <div class="ticker-head">
+    <div class="ticker-window" role="group" aria-label="Período das variações">
+      <button type="button" data-window="1h">1H</button>
+      <button type="button" data-window="24h" class="active">24H</button>
+      <button type="button" data-window="7d">7D</button>
+      <button type="button" data-window="30d">30D</button>
+    </div>
+    <div class="ticker-tabs" role="tablist" aria-label="Mercado">
+      <button type="button" class="active" data-tab="crypto">CRIPTO</button>
+      <button type="button" data-tab="stocks">STOCKS</button>
+    </div>
+    <span class="ticker-status" id="ticker-status"></span>
+  </div>
+  <div class="ticker-grid" id="ticker-grid"><div class="tqEmpty">Carregando cotações…</div></div>
+  <p class="ticker-foot">Cotações indicativas em tempo real · Binance (cripto) &amp; Yahoo Finance (ações/índices) · preço cripto ao vivo via WebSocket, variações recalculadas a cada 60s.</p>
+</section>
 
   <div class="ws ws-3">
     <div class="dark-card" style="display:flex;flex-direction:column;height:auto;" id="conversor">
@@ -866,9 +915,11 @@
     if (grid && conversor && halving) {
       var conversorSection = conversor.closest('.ws');
       var halvingSection = halving.closest('.ws');
+      var widgetSection = document.getElementById('cotacoes');
       conversorSection.classList.remove('ws-3');
       conversorSection.classList.add('ws-5');
       grid.insertBefore(conversorSection, halvingSection);
+      if (widgetSection) grid.insertBefore(widgetSection, conversorSection);
     }
 
     if (muralSection && projecoes) {
@@ -1134,6 +1185,7 @@
 <script defer src="assets/js/projections.js"></script>
 <script defer src="assets/js/conversor.js?v=8"></script>
 <script defer src="assets/js/analista-ia.js?v=9"></script>
+<script defer src="assets/js/ticker-widget.js?v=5"></script>
 
 </body>
 </html>
