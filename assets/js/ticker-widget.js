@@ -84,7 +84,7 @@
   }
   function fmtPrice(value, currency, noPrefix) {
     if (typeof value !== "number" || !Number.isFinite(value)) return "—";
-    var prefix = noPrefix ? "" : (currency === "BRL" ? "R$ " : "$");
+    var prefix = noPrefix ? "" : (currency === "BRL" ? "R$ " : "$ ");
     return prefix + value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function changeClass(change) {
