@@ -10,7 +10,7 @@
     ["PAXG", "PAXGUSDT", "USD"],
     ["USDT-BRL", "USDTBRL", "BRL"],
   ];
-  var STOCKS = ["SI=F", "MSTR", "HG=F", "URNM", "SPCX", "GLW", "QUBT", "BZ=F", "^NDX", "NVDA", "CRCL", "MP", "AMD", "MSTF", "TSLA", "GOOGL", "OKLO", "ABTC", "QBTS", "AAPL", "JPM", "SNDK", "RIO", "BHP", "USAR", "SPY"];
+  var STOCKS = ["SI=F", "MSTR", "HG=F", "URNM", "SPCX", "GLW", "QUBT", "BZ=F", "^NDX", "NVDA", "CRCL", "MP", "AMD", "TSLA", "GOOGL", "OKLO", "ABTC", "QBTS", "AAPL", "JPM", "SNDK", "RIO", "BHP", "USAR", "SPY"];
   var CRYPTO_NAMES = {
     BTC: "Bitcoin",
     ETH: "Ethereum",
@@ -22,27 +22,31 @@
     "USDT-BRL": "Dólar em Reais (USDT-BRL)",
   };
   var STOCK_NAMES = {
-    "SI=F": "Prata",
-    "HG=F": "Cobre",
-    "BZ=F": "Petróleo-Brent",
-    "^NDX": "Nasdaq 100",
-    "NVDA": "Nvidia",
-    "CRCL": "Circle",
-    "MP": "MP Materials",
+    "SI=F": "PRATA",
+    "MSTR": "STRATEGY",
+    "HG=F": "COBRE",
+    "URNM": "URÂNIO ETF",
+    "SPCX": "SPACEX",
+    "GLW": "CORNING",
+    "QUBT": "QUANTUM",
+    "BZ=F": "BRENT",
+    "^NDX": "NASDAQ 100",
+    "NVDA": "NVIDIA",
+    "CRCL": "CIRCLE",
+    "MP": "MP MATERIALS",
     "AMD": "AMD",
-    "MSTF": "MSTF",
-    "TSLA": "Tesla",
-    "GOOGL": "Alphabet",
-    "OKLO": "Oklo",
+    "TSLA": "TESLA",
+    "GOOGL": "ALPHABET",
+    "OKLO": "OKLO",
     "ABTC": "ABTC",
-    "QBTS": "D-Wave Quantum",
-    "AAPL": "Apple",
-    "JPM": "JPMorgan",
-    "SNDK": "SanDisk",
-    "RIO": "Rio Tinto",
+    "QBTS": "D-WAVE QUANTUM",
+    "AAPL": "APPLE",
+    "JPM": "JPMORGAN",
+    "SNDK": "SANDISK",
+    "RIO": "RIO TINTO",
     "BHP": "BHP",
-    "USAR": "USA Rare Earth",
-    "SPY": "S&P 500 (SPY)",
+    "USAR": "USA RARE EARTH",
+    "SPY": "S&P 500",
   };
   var KLINE_CFG = {
     "1h": { interval: "1h", limit: 12, baseFromPrev: true },
@@ -100,8 +104,9 @@
     var price = typeof livePrices[quote.symbol] === "number" ? livePrices[quote.symbol] : quote.price;
     var currency = symbolCurrency[quote.symbol] || "USD";
     var small = quote.symbol === "BTC" || quote.symbol === "ETH" || quote.symbol === "PAXG" ? " tq-sm" : "";
+    var label = STOCK_NAMES[quote.symbol] || quote.symbol;
     return '<div class="tq ' + changeClass(change) + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
-      '<b class="tqSym">' + esc(quote.symbol) + "</b>" +
+      '<b class="tqSym">' + esc(label) + "</b>" +
       '<span class="tqPct">' + pct + "</span>" +
       '<strong class="tqPrice' + small + '">' + fmtPrice(price, currency, !isCrypto(quote.symbol)) + "</strong>" +
       "</div>";
