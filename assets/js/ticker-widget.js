@@ -78,10 +78,11 @@
     var pct = change === null ? "—" : (change >= 0 ? "+" : "") + change.toFixed(2).replace(".", ",") + "%";
     var price = typeof livePrices[quote.symbol] === "number" ? livePrices[quote.symbol] : quote.price;
     var currency = symbolCurrency[quote.symbol] || "USD";
+    var small = quote.symbol === "BTC" || quote.symbol === "ETH" || quote.symbol === "PAXG" ? " tq-sm" : "";
     return '<div class="tq ' + changeClass(change) + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
       '<b class="tqSym">' + esc(quote.symbol) + "</b>" +
       '<span class="tqPct">' + pct + "</span>" +
-      '<strong class="tqPrice">' + fmtPrice(price, currency) + "</strong>" +
+      '<strong class="tqPrice' + small + '">' + fmtPrice(price, currency) + "</strong>" +
       "</div>";
   }
 
