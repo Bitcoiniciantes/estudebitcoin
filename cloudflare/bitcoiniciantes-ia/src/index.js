@@ -436,6 +436,104 @@ async function assetQuotes(request) {
   return json(request, body);
 }
 
+// ---------- Candles OHLC (Yahoo) para ações/ETFs no Termômetro ----------
+
+const CANDLE_PERIODS = {
+  "15M": { interval: "15m", range: "1mo", group: 1 },
+  "1H": { interval: "1h", range: "6mo", group: 1 },
+  "4H": { interval: "1h", range: "6mo", group: 4 },
+  "1D": { interval: "1d", range: "1y", group: 1 },
+  "1S": { interval: "1wk", range: "5y", group: 1 },
+  "1M": { interval: "1mo", range: "max", group: 1 },
+};
+const CANDLE_SYMBOL_ALIAS = { PRATA: "SI=F", COBRE: "HG=F", URANIO: "URNM" };
+
+function buildCandles(raw, groupSize) {
+  const result = raw && Array.isArray(raw.chart?.result) ? raw.chart.result[0] : null;
+  if (!result) return null;
+  const timestamps = Array.isArray(result.timestamp) ? result.timestamp : [];
+  const quote = result.indicators?.quote?.[0];
+  if (!timestamps.length || !quote) return null;
+  const opens = quote.open, highs = quote.high, lows = quote.low, closes = quote.close, volumes = quote.volume;
+  const points = [];
+  for (let i = 0; i < timestamps.length; i += 1) {
+    const open = opens[i], high = highs[i], low = lows[i], close = closes[i];
+    if (![open, high, low, close].every(Number.isFinite)) continue;
+    points.push({
+      time: timestamps[i] * 1000,
+      open, high, low, close,
+      volume: Number.isFinite(volumes?.[i]) ? volumes[i] : 0,
+    });
+  }
+  if (!points.length) return null;
+  if (groupSize > 1) {
+    const grouped = [];
+    for (let i = 0; i < points.length; i += groupSize) {
+      const chunk = points.slice(i, i + groupSize);
+      if (!chunk.length) continue;
+      grouped.push({
+        time: chunk[0].time,
+        open: chunk[0].open,
+        high: Math.max(...chunk.map((c) => c.high)),
+        low: Math.min(...chunk.map((c) => c.low)),
+        close: chunk[chunk.length - 1].close,
+        volume: chunk.reduce((s, c) => s + c.volume, 0),
+      });
+    }
+    return grouped;
+  }
+  return points;
+}
+
+const CANDLE_CACHE_TTL_MS = 60 * 1000;
+
+async function cachedCandlesBody(key) {
+  try {
+    const cached = await caches.default.match(`https://bitcoiniciantes-ia.workers.dev/_cache/candles/${key}`);
+    if (!cached) return null;
+    const stale = Date.now() - (Number(cached.headers.get("X-Cached-At")) || 0) > CANDLE_CACHE_TTL_MS;
+    if (stale) return null;
+    return cached.json();
+  } catch {
+    return null;
+  }
+}
+
+async function storeCandlesBody(key, body) {
+  try {
+    const response = new Response(JSON.stringify(body), {
+      headers: { "Content-Type": "application/json", "X-Cached-At": String(Date.now()) },
+    });
+    await caches.default.put(`https://bitcoiniciantes-ia.workers.dev/_cache/candles/${key}`, response);
+  } catch {
+    // cache opcional
+  }
+}
+
+async function assetCandles(request, asset, period) {
+  const symbol = String(asset || "").toUpperCase().trim().replace(/[^A-Z0-9.-]/g, "").slice(0, 20);
+  if (!symbol) return json(request, { error: "Informe asset." }, 400);
+  const yahooSymbol = CANDLE_SYMBOL_ALIAS[symbol] || symbol;
+  const periodKey = CANDLE_PERIODS[period] ? period : "1D";
+  const cfg = CANDLE_PERIODS[periodKey];
+  const cacheKey = `${symbol}|${periodKey}`;
+  const cached = await cachedCandlesBody(cacheKey);
+  if (cached) return json(request, cached);
+  let candles = null;
+  try {
+    const response = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${cfg.interval}&range=${cfg.range}`);
+    candles = buildCandles(await response.json(), cfg.group);
+  } catch (error) {
+    console.error(`candles-${symbol}-error`, error);
+  }
+  if (candles) candles = candles.slice(-130);
+  const body = candles && candles.length
+    ? { asset: symbol, symbol: yahooSymbol, pair: `${symbol}/USD`, source: "Yahoo Finance via Worker", updatedAt: Date.now(), period: periodKey, candles }
+    : { asset: symbol, error: "Candles indisponíveis." };
+  if (candles && candles.length) await storeCandlesBody(cacheKey, body);
+  return json(request, body);
+}
+
 // ---------- Prompt: EstudeBitcoin (chat livre, sem mudança) ----------
 
 function buildEstudeBitcoinPrompt(data) {
@@ -642,6 +740,9 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/api/quotes") {
       return assetQuotes(request);
+    }
+    if (request.method === "GET" && url.pathname === "/api/candles") {
+      return assetCandles(request, url.searchParams.get("asset"), url.searchParams.get("period"));
     }
 
     const isTermometro = url.pathname === "/api/ai-analysis";
