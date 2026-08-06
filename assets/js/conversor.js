@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const titleEl = document.querySelector('.preev__title'); // Seleciona o título
 
   let activeTimeframe = '1D';
+  let externalAsset = null;       // { kind:'crypto'|'stock', symbol, pair, label }
+  let stockPollTimer = null;
   let exchangeRate = 0; 
   let pricesHistory = [];
   let candlesHistory = [];
@@ -60,6 +62,58 @@ document.addEventListener('DOMContentLoaded', () => {
     liveDotEl.classList.toggle('live', isLive);
     liveDotEl.classList.toggle('offline', !isLive);
     if (liveTextEl) liveTextEl.textContent = isLive ? 'AO VIVO' : 'OFFLINE';
+  }
+
+  /**
+   * Ativa/desativa o modo "ativo carregado pelo ticker" (cripto ou stock).
+   */
+  function setExternalAsset(asset) {
+    externalAsset = asset || null;
+    clearTimeout(stockPollTimer);
+    stockPollTimer = null;
+    if (externalAsset && externalAsset.kind === 'stock') setLiveStatus(false);
+    updateChartTitle();
+    hideTooltip();
+    fetchCurrentTicker();
+    fetchHistoricalTrends();
+    if (externalAsset && externalAsset.kind === 'stock') {
+      stockPollTimer = setInterval(fetchHistoricalTrends, 20000);
+    }
+  }
+
+  function isExternal() {
+    return !!(externalAsset);
+  }
+
+  function isExternalStock() {
+    return !!externalAsset && externalAsset.kind === 'stock';
+  }
+
+  /**
+   * Título do cartão: nome do ativo carregado, ou o par normal do conversor.
+   */
+  function updateChartTitle() {
+    if (!titleEl) return;
+    if (externalAsset) {
+      titleEl.textContent = externalAsset.label ? `${externalAsset.label} · GRÁFICO` : 'Gráfico de preço';
+    } else {
+      const fromName = assetNames[selectLeft.value] || selectLeft.value;
+      const toName = assetNames[selectRight.value] || selectRight.value;
+      titleEl.textContent = `${fromName} para ${toName}`;
+    }
+  }
+
+  /**
+   * Moeda usada no rodapé/tooltips: no modo externo usamos USD (stocks) ou USDT (cripto).
+   */
+  function displayCurrency() {
+    if (isExternal()) return externalAsset.kind === 'crypto' ? 'USDT' : 'USD';
+    return selectRight.value;
+  }
+
+  function displayDecimals() {
+    if (isExternal()) return 2;
+    return displayCurrency() === 'BTC' ? 8 : 2;
   }
 
   const timeframeParams = {
@@ -129,10 +183,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getPairConfig() {
+    if (externalAsset && externalAsset.kind === 'crypto') {
+      return { symbol: externalAsset.pair, invert: false };
+    }
+    if (externalAsset && externalAsset.kind === 'stock') return null;
     const from = selectLeft.value;
     const to = selectRight.value;
-    if (from === to) return null; 
-    
+    if (from === to) return null;
+
     if (from === 'BTC' && to === 'USD') return { symbol: 'BTCUSDT', invert: false };
     if (from === 'USD' && to === 'BTC') return { symbol: 'BTCUSDT', invert: true };
     if (from === 'BTC' && to === 'BRL') return { symbol: 'BTCBRL', invert: false };
@@ -180,13 +238,14 @@ document.addEventListener('DOMContentLoaded', () => {
   async function fetchCurrentTicker() {
     const config = getPairConfig();
     if (!config) {
-        exchangeRate = 1; 
-        calculateConversion('left');
+        if (isExternalStock()) return; // stocks buscam stats/p e candles via fetchStockCandles
+        exchangeRate = 1;
+        if (!isExternal()) calculateConversion('left');
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         chartState = null;
         hideTooltip();
-        renderStats(1, 1, 0); 
+        renderStats(1, 1, 0);
         return;
     }
 
@@ -199,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (data && data.price) {
         exchangeRate = parseFloat(data.price);
-        if (document.activeElement !== inputLeft && document.activeElement !== inputRight) {
+        if (!isExternal() && document.activeElement !== inputLeft && document.activeElement !== inputRight) {
           calculateConversion('left');
         }
       }
@@ -212,6 +271,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchHistoricalTrends() {
+    if (isExternalStock()) {
+      await fetchStockCandles();
+      return;
+    }
     const config = getPairConfig();
     if (!config) return;
 
@@ -232,6 +295,39 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       if (err.name === 'AbortError') return;
       console.error("Klines error", err);
+    }
+  }
+
+  /**
+   * Carrega velas de uma ação/índice via worker Yahoo Finance (sem WebSocket).
+   */
+  const exportPeriodMap = {
+    '1H': '1H',
+    '1D': '1D',
+    '1W': '1S',
+    '1M': '1M',
+    '1Y': '1M'
+  };
+  async function fetchStockCandles() {
+    const asset = externalAsset ? externalAsset.symbol : '';
+    if (!asset) return;
+    if (historyAbortController) historyAbortController.abort();
+    historyAbortController = new AbortController();
+    const period = exportPeriodMap[activeTimeframe] || '1D';
+    try {
+      const res = await fetch(`https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/candles?asset=${encodeURIComponent(asset)}&period=${period}`, { signal: historyAbortController.signal });
+      const data = await res.json();
+      if (!data || !Array.isArray(data.candles) || !data.candles.length) return;
+      let candles = data.candles.map(c => ({ time: Number(c.time), open: Number(c.open), high: Number(c.high), low: Number(c.low), close: Number(c.close) }));
+      if (activeTimeframe === '1Y') {
+        candles = aggregateAnnualCandles(candles);
+      }
+      candlesHistory = candles.slice(-130);
+      updateChartFromCandles();
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      console.warn('Stock candles error', err);
+      setLiveStatus(false);
     }
   }
 
@@ -317,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!kline || !currentConfig || payload.s !== currentConfig.symbol) return;
         const candle = normalizeKline([kline.t, kline.o, kline.h, kline.l, kline.c], currentConfig.invert);
         exchangeRate = parseFloat(kline.c);
-        if (document.activeElement !== inputLeft && document.activeElement !== inputRight) calculateConversion('left');
+        if (!isExternal() && document.activeElement !== inputLeft && document.activeElement !== inputRight) calculateConversion('left');
         const activeParams = timeframeParams[activeTimeframe];
         if (activeParams.aggregate === 'year') updateAnnualCandle(candle);
         else {
@@ -343,10 +439,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   function renderStats(high, low, pct) {
-    const pR = selectRight.value;
-    const prefix = pR === 'BRL' ? 'R$ ' : pR === 'USD' ? '$ ' : '₿ ';
-    highEl.textContent = `↑ ${prefix}${formatNumber(high, pR)}`;
-    lowEl.textContent = `↓ ${prefix}${formatNumber(low, pR)}`;
+    const ccy = displayCurrency();
+    const prefix = ccy === 'BRL' ? 'R$ ' : ccy === 'BTC' ? '₿ ' : '$ ';
+    highEl.textContent = `↑ ${prefix}${formatNumber(high, ccy)}`;
+    lowEl.textContent = `↓ ${prefix}${formatNumber(low, ccy)}`;
     changeEl.textContent = `${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(2)}%`;
     changeEl.className = `preev__stat-item change-indicator ${pct >= 0 ? 'up' : 'down'}`;
   }
@@ -488,19 +584,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function showPriceTooltip(price, isUp) {
     if (!tooltipEl) return;
-    const pR = selectRight.value;
-    const prefix = pR === 'BRL' ? 'R$ ' : pR === 'USD' ? '$ ' : '₿ ';
-    tooltipEl.innerHTML = `<span class="ohlc-value ${isUp ? 'up' : 'down'}">${prefix}${formatNumber(price, pR)}</span>`;
+    const ccy = displayCurrency();
+    const prefix = ccy === 'BRL' ? 'R$ ' : ccy === 'BTC' ? '₿ ' : '$ ';
+    tooltipEl.innerHTML = `<span class="ohlc-value ${isUp ? 'up' : 'down'}">${prefix}${formatNumber(price, ccy)}</span>`;
     keepTooltipVisible();
   }
 
   function showCandleTooltip(candle) {
     if (!tooltipEl) return;
     const tone = candle.close >= candle.open ? 'up' : 'down';
-    const asset = selectRight.value;
+    const ccy = displayCurrency();
     tooltipEl.innerHTML = [
       ['A', candle.open], ['MÁX', candle.high], ['MÍN', candle.low], ['F', candle.close]
-    ].map(([label, value]) => `<span class="ohlc-label">${label}</span><span class="ohlc-value ${tone}">${formatNumber(value, asset)}</span>`).join('');
+    ].map(([label, value]) => `<span class="ohlc-label">${label}</span><span class="ohlc-value ${tone}">${formatNumber(value, ccy)}</span>`).join('');
     keepTooltipVisible();
   }
 
@@ -561,9 +657,23 @@ document.addEventListener('DOMContentLoaded', () => {
   
   [selectLeft, selectRight].forEach(s => s.addEventListener('change', () => { 
     hideTooltip();
+    setExternalAsset(null); // voltar ao modo normal BTC/fiat ao mexer nos selects
     updateTitle(); // Atualiza o título ao mudar o ativo
     updateAll(); 
   }));
+
+  // --- CARREGAR ATIVO CLICADO NO TICKER ---
+  window.addEventListener('estudebitcoin:load-asset', (event) => {
+    const detail = event && event.detail;
+    if (!detail || !detail.symbol) return;
+    const asset = {
+      kind: detail.kind === 'stock' ? 'stock' : 'crypto',
+      symbol: detail.kind === 'stock' ? detail.symbol : detail.symbol,
+      pair: detail.pair || (detail.symbol + 'USDT'),
+      label: detail.label || detail.symbol
+    };
+    setExternalAsset(asset);
+  });
 
   // --- HOVER / TOOLTIP NO GRÁFICO ---
   canvas.addEventListener('mousemove', handleChartHover);
@@ -604,6 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('beforeunload', () => {
     clearTimeout(klineReconnectTimer);
+    clearTimeout(stockPollTimer);
     klineSocketKey = '';
     const socket = klineSocket;
     klineSocket = null;

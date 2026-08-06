@@ -72,9 +72,11 @@
   var quoteData = {};
   var pairSymbol = {};
   var symbolCurrency = {};
+  var displayToPair = {};
   CRYPTO.forEach(function (entry) {
     pairSymbol[entry[1].toLowerCase()] = entry[0];
     symbolCurrency[entry[0]] = entry[2];
+    displayToPair[entry[0]] = entry[1];
   });
 
   function symbolKey(symbol) { return String(symbol || "").replace(/["\\]/g, ""); }
@@ -247,6 +249,17 @@
       pinnedSymbol = symbol;
       showTooltip(cardEl);
     }
+    try {
+      var detail;
+      if (isCrypto(symbol)) {
+        detail = { kind: "crypto", symbol: symbol, pair: displayToPair[symbol] || (symbol + "USDT"), label: CRYPTO_NAMES[symbol] || symbol };
+      } else {
+        detail = { kind: "stock", symbol: symbol, pair: null, label: STOCK_NAMES[symbol] || STOCK_LABELS[symbol] || symbol };
+      }
+      window.dispatchEvent(new CustomEvent("estudebitcoin:load-asset", { detail: detail }));
+      var conversor = document.getElementById("conversor");
+      if (conversor) conversor.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (err) { /* evento opcional, ignorar falhas */ }
   });
   document.addEventListener("click", function (event) {
     if (!event.target.closest(".tq") && pinnedSymbol) {

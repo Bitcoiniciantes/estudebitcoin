@@ -394,6 +394,30 @@ async function storeQuotesBody(key, body) {
   }
 }
 
+function mapLimit(items, limit, worker) {
+  return new Promise((resolve) => {
+    const results = new Array(items.length);
+    let index = 0;
+    let running = 0;
+    (function next() {
+      while (running < limit && index < items.length) {
+        const i = index;
+        index += 1;
+        running += 1;
+        Promise.resolve()
+          .then(() => worker(items[i], i))
+          .then((value) => { results[i] = value; })
+          .catch(() => { results[i] = null; })
+          .finally(() => {
+            running -= 1;
+            if (running === 0 && index >= items.length) resolve(results);
+            else next();
+          });
+      }
+    })();
+  });
+}
+
 async function assetQuotes(request) {
   const url = new URL(request.url);
   const rawAssets = (url.searchParams.get("assets") || "")
@@ -408,29 +432,20 @@ async function assetQuotes(request) {
   const cached = await cachedQuotesBody(cacheKey);
   if (cached) return json(request, cached);
   const configs = [cfg].concat(cfg.fallbacks || []);
-  const settled = await Promise.allSettled(
-    rawAssets.map((symbol) =>
-      Promise.resolve()
-        .then(async () => {
-          for (const item of configs) {
-            try {
-              const response = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${item.interval}&range=${item.range}`);
-              const raw = await response.json();
-              const quote = computeQuote(raw, symbol, item);
-              if (quote) return quote;
-            } catch (error) {
-              // tenta a próxima configuração
-            }
-          }
-          return null;
-        })
-        .catch((error) => {
-          console.error(`quotes-${symbol}-error`, error);
-          return null;
-        }),
-    ),
-  );
-  const quotes = settled.map((result) => (result.status === "fulfilled" ? result.value : null)).filter(Boolean);
+  const results = await mapLimit(rawAssets, 4, async (symbol) => {
+    for (const item of configs) {
+      try {
+        const response = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${item.interval}&range=${item.range}`);
+        const raw = await response.json();
+        const quote = computeQuote(raw, symbol, item);
+        if (quote) return quote;
+      } catch (error) {
+        // tenta a próxima configuração
+      }
+    }
+    return null;
+  });
+  const quotes = results.filter(Boolean);
   const body = { window: windowKey, updatedAt: new Date().toISOString(), quotes };
   if (quotes.length) await storeQuotesBody(cacheKey, body);
   return json(request, body);
@@ -511,7 +526,7 @@ async function storeCandlesBody(key, body) {
 }
 
 async function assetCandles(request, asset, period) {
-  const symbol = String(asset || "").toUpperCase().trim().replace(/[^A-Z0-9.-]/g, "").slice(0, 20);
+  const symbol = String(asset || "").toUpperCase().trim().replace(/[^A-Z0-9^.\-=]/g, "").slice(0, 20);
   if (!symbol) return json(request, { error: "Informe asset." }, 400);
   const yahooSymbol = CANDLE_SYMBOL_ALIAS[symbol] || symbol;
   const periodKey = CANDLE_PERIODS[period] ? period : "1D";
