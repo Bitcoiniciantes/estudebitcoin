@@ -40,17 +40,45 @@ function rssTag(xml, tag) {
   return open < 0 || end < 0 ? "" : decodeXml(xml.slice(open + 1, end));
 }
 
-const NEWS_TAGS = { BTC: "bitcoin", ETH: "ethereum", LINK: "chainlink", AVAX: "avalanche", PAXG: "pax-gold" };
+const NEWS_TAGS = { BTC: "bitcoin", ETH: "ethereum", SOL: "solana", LINK: "chainlink", AVAX: "avalanche", POL: "polygon", PAXG: "pax-gold" };
 const NEWS_QUERIES = {
   BTC: "Bitcoin criptomoeda",
   ETH: "Ethereum criptomoeda",
+  SOL: "Solana criptomoeda",
   LINK: "Chainlink criptomoeda",
   AVAX: "Avalanche AVAX criptomoeda",
+  POL: "Polygon POL criptomoeda",
   PAXG: "ouro mercado",
   MSTR: "Strategy MSTR Bitcoin",
+  NVDA: "Nvidia ações",
+  AMD: "AMD ações",
+  TSLA: "Tesla ações",
+  GOOGL: "Google Alphabet ações",
+  META: "Meta ações",
+  AAPL: "Apple ações",
   PRATA: "prata mercado",
   COBRE: "cobre mercado",
-  URANIO: "ur�nio mercado",
+  URANIO: "urânio mercado",
+};
+
+const BING_QUERIES = {
+  BTC: "Bitcoin cryptocurrency price news",
+  ETH: "Ethereum cryptocurrency price news",
+  SOL: "Solana SOL price news",
+  LINK: "Chainlink LINK price news",
+  AVAX: "Avalanche AVAX price news",
+  POL: "Polygon POL price news",
+  PAXG: "gold price market news",
+  MSTR: "Strategy MSTR MicroStrategy Bitcoin",
+  NVDA: "Nvidia stock news",
+  AMD: "AMD Advanced Micro Devices stock",
+  TSLA: "Tesla stock news",
+  GOOGL: "Alphabet Google stock news",
+  META: "Meta stock news",
+  AAPL: "Apple stock news",
+  PRATA: "silver price market news",
+  COBRE: "copper price market news",
+  URANIO: "uranium price market news",
 };
 
 function parseRssItems(xml, defaultSource, limit = 60) {
@@ -59,9 +87,11 @@ function parseRssItems(xml, defaultSource, limit = 60) {
     const title = rssTag(item, "title");
     const url = rssTag(item, "link");
     const publishedAt = rssTag(item, "pubDate");
+    const description = rssTag(item, "description");
     return {
       title,
       url,
+      description,
       source: rssTag(item, "source") || defaultSource,
       publishedAt: publishedAt && !Number.isNaN(Date.parse(publishedAt)) ? new Date(publishedAt).toISOString() : null,
     };
@@ -105,10 +135,18 @@ function newsQuery(asset) {
 const NEWS_PATTERNS = {
   BTC: /\b(?:bitcoin|btc)\b/i,
   ETH: /\b(?:ethereum|ether|eth)\b/i,
+  SOL: /\b(?:solana|sol)\b/i,
   LINK: /\b(?:chainlink|link)\b/i,
   AVAX: /\b(?:avalanche|avax)\b/i,
+  POL: /\b(?:polygon|pol)\b/i,
   PAXG: /\b(?:pax gold|paxg|gold|ouro)\b/i,
   MSTR: /\b(?:strategy|microstrategy|mstr)\b/i,
+  NVDA: /\b(?:nvidia|nvda)\b/i,
+  AMD: /\b(?:amd|advanced micro devices)\b/i,
+  TSLA: /\b(?:tesla|tsla)\b/i,
+  GOOGL: /\b(?:google|alphabet|googl)\b/i,
+  META: /\b(?:meta|facebook)\b/i,
+  AAPL: /\b(?:apple|aapl)\b/i,
   PRATA: /\b(?:silver|prata)\b/i,
   COBRE: /\b(?:copper|cobre)\b/i,
   URANIO: /\b(?:uranium|uranio|urânio)\b/i,
@@ -136,12 +174,30 @@ const NICHE_SOURCES = {
     ["https://investingnews.com/feed/", "Investing News Network"],
     ["https://www.mining.com/feed/", "Mining.com"],
   ],
+  NVDA: [
+    ["https://beincrypto.com/feed/", "BeInCrypto"],
+  ],
+  AMD: [
+    ["https://beincrypto.com/feed/", "BeInCrypto"],
+  ],
+  TSLA: [
+    ["https://beincrypto.com/feed/", "BeInCrypto"],
+  ],
+  GOOGL: [
+    ["https://beincrypto.com/feed/", "BeInCrypto"],
+  ],
+  META: [
+    ["https://beincrypto.com/feed/", "BeInCrypto"],
+  ],
+  AAPL: [
+    ["https://beincrypto.com/feed/", "BeInCrypto"],
+  ],
 };
 
 function isRelevantNews(item, symbol) {
   if (LOW_QUALITY_NEWS.test(item.title)) return false;
   const pattern = NEWS_PATTERNS[symbol] || new RegExp(`\\b${symbol.replace(/[^A-Z0-9]/g, "")}\\b`, "i");
-  return pattern.test(item.title);
+  return pattern.test(item.title) || (item.description && pattern.test(item.description.slice(0, 400)));
 }
 
 async function fetchAssetNewsItems(asset) {
@@ -176,6 +232,8 @@ async function fetchAssetNewsItems(asset) {
     fetchRssItems("https://www.infomoney.com.br/feed/", "InfoMoney"),
     fetchRssItems("https://livecoins.com.br/feed/", "LiveCoins"),
     fetchRssItems("https://exame.com/feed/", "Exame"),
+    fetchRssItems("https://beincrypto.com/feed/", "BeInCrypto"),
+    fetchRssItems("https://ambcrypto.com/feed/", "AMBCrypto"),
   ];
   const generalItems = clean(fulfilled(await Promise.allSettled(generalRequests)));
   const merged = clean([...localItems, ...generalItems]);
@@ -188,26 +246,39 @@ async function fetchAssetNewsItems(asset) {
   const mergedNiche = clean([...localItems, ...generalItems, ...nicheItems]);
   if (mergedNiche.length >= 3) return mergedNiche.slice(0, 3);
 
-  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(`${newsQuery(symbol)} when:2d`)}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
+  const bingUrl = `https://www.bing.com/news/search?format=rss&q=${encodeURIComponent(BING_QUERIES[symbol] || `${symbol} market news`)}`;
+  const bingItems = clean(fulfilled(await Promise.allSettled([
+    fetchRssItems(bingUrl, "Bing Notícias", 1, NEWS_FETCH_TIMEOUT_MS),
+  ])));
+
+  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(`${newsQuery(symbol)} when:7d`)}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
   const fallbackQueries = {
     BTC: "Bitcoin cryptocurrency",
     ETH: "Ethereum cryptocurrency",
+    SOL: "Solana cryptocurrency",
     LINK: "Chainlink cryptocurrency",
     AVAX: "Avalanche AVAX cryptocurrency",
+    POL: "Polygon POL cryptocurrency",
     PAXG: "gold market",
     MSTR: "Strategy MSTR Bitcoin",
+    NVDA: "Nvidia stock",
+    AMD: "AMD stock",
+    TSLA: "Tesla stock",
+    GOOGL: "Google Alphabet stock",
+    META: "Meta stock",
+    AAPL: "Apple stock",
     PRATA: "silver market price",
     COBRE: "copper market price",
     URANIO: "uranium market price",
   };
-  const fallbackQuery = `${fallbackQueries[symbol] || symbol} when:2d`;
+  const fallbackQuery = `${fallbackQueries[symbol] || symbol} when:7d`;
   const globalGoogleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fallbackQuery)}&hl=en-US&gl=US&ceid=US:en`;
   const googleItems = clean(fulfilled(await Promise.allSettled([
-    fetchRssItems(googleUrl, "Google News Brasil", 1, 3000),
-    fetchRssItems(globalGoogleUrl, "Google News Internacional", 1, 3000),
+    fetchRssItems(googleUrl, "Google News Brasil", 1, NEWS_FETCH_TIMEOUT_MS),
+    fetchRssItems(globalGoogleUrl, "Google News Internacional", 1, NEWS_FETCH_TIMEOUT_MS),
   ])));
 
-  return clean([...localItems, ...generalItems, ...nicheItems, ...googleItems]).slice(0, 3);
+  return clean([...localItems, ...generalItems, ...nicheItems, ...bingItems, ...googleItems]).slice(0, 3);
 }
 
 const NEWS_CACHE_TTL_MS = 5 * 60 * 1000;
