@@ -139,13 +139,10 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function updateChartTitle() {
     if (!titleEl) return;
-    if (externalAsset) {
-      titleEl.textContent = externalAsset.label ? `${externalAsset.label} · GRÁFICO` : 'Gráfico de preço';
-    } else {
-      const fromName = assetNames[selectLeft.value] || selectLeft.value;
-      const toName = assetNames[selectRight.value] || selectRight.value;
-      titleEl.textContent = `${fromName} para ${toName}`;
-    }
+    // O título reflete SEMPRE o par do conversor (BTC/BRL/USD), mesmo com ativo externo carregado.
+    const fromName = assetNames[selectLeft.value] || selectLeft.value;
+    const toName = assetNames[selectRight.value] || selectRight.value;
+    titleEl.textContent = `${fromName} para ${toName}`;
   }
 
   /**
@@ -163,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const timeframeParams = {
     '1H': { interval: '1h', limit: 60 },
+    '15M': { interval: '15m', limit: 60 },
     '1D': { interval: '1d', limit: 60 },
     '1W': { interval: '1w', limit: 60 },
     '1M': { interval: '1M', limit: 60 },
@@ -227,11 +225,11 @@ document.addEventListener('DOMContentLoaded', () => {
     input.value = valor.replace('.', ',');
   }
 
-  function getPairConfig() {
-    if (externalAsset && externalAsset.kind === 'crypto') {
-      return { symbol: externalAsset.pair, invert: false };
-    }
-    if (externalAsset && externalAsset.kind === 'stock') return null;
+  /**
+   * Config do CONVERSOR: par BTC/BRL/USD selecionado. Independente do ativo do gráfico.
+   * Nunca retorna config de ativo externo (ETH, stocks, etc.).
+   */
+  function getConverterConfig() {
     const from = selectLeft.value;
     const to = selectRight.value;
     if (from === to) return null;
@@ -243,6 +241,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (from === 'USD' && to === 'BRL') return { symbol: 'USDTBRL', invert: false };
     if (from === 'BRL' && to === 'USD') return { symbol: 'USDTBRL', invert: true };
     return null;
+  }
+
+  /**
+   * Config do GRÁFICO (ativo exibido): ativo externo (crypto/stock) se houver,
+   * senão o par do conversor. É o que alimenta candles/stats/histórico.
+   */
+  function getChartConfig() {
+    if (externalAsset && externalAsset.kind === 'crypto') {
+      return { symbol: externalAsset.pair, invert: false };
+    }
+    if (externalAsset && externalAsset.kind === 'stock') {
+      return null; // stocks usam fetchStockCandles separado
+    }
+    return getConverterConfig();
   }
 
   function parseCleanFloat(val) {
@@ -266,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    const config = getPairConfig();
+    const config = getConverterConfig();
     if (!config || exchangeRate <= 0) return;
 
     const rate = config.invert ? (1 / exchangeRate) : exchangeRate;
@@ -281,16 +293,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchCurrentTicker() {
-    const config = getPairConfig();
+    // O conversor usa SEMPRE o par BTC/BRL/USD selecionado, independente do gráfico.
+    const config = getConverterConfig();
+
+    // Sem par de conversão (selects iguais): apenas atualiza stats do gráfico via candles.
     if (!config) {
-        if (isExternalStock()) return; // stocks buscam stats/p e candles via fetchStockCandles
-        exchangeRate = 1;
-        if (!isExternal()) calculateConversion('left');
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        chartState = null;
-        hideTooltip();
-        renderStats(1, 1, 0);
+        const candles = candlesHistory;
+        if (candles.length) {
+          const highs = candles.map(c => c.high);
+          const lows = candles.map(c => c.low);
+          const lastClose = candles[candles.length - 1].close;
+          renderStats(Math.max(...highs), Math.min(...lows), ((lastClose - openPriceReference) / openPriceReference) * 100);
+        }
         return;
     }
 
@@ -303,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (data && data.price) {
         exchangeRate = parseFloat(data.price);
-        if (!isExternal() && document.activeElement !== inputLeft && document.activeElement !== inputRight) {
+        if (document.activeElement !== inputLeft && document.activeElement !== inputRight) {
           calculateConversion('left');
         }
       }
@@ -320,7 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await fetchStockCandles();
       return;
     }
-    const config = getPairConfig();
+    const config = getChartConfig();
     if (!config) return;
 
     // Cancela uma requisição de histórico anterior ainda pendente
@@ -347,12 +361,13 @@ document.addEventListener('DOMContentLoaded', () => {
    * Carrega velas de uma ação/índice via worker Yahoo Finance (sem WebSocket).
    */
   const exportPeriodMap = {
+    '15M': '15M',
     '1H': '1H',
     '1D': '1D',
     '1W': '1S',
     '1M': '1M',
     '1Y': '1M'
-  };
+  }
   async function fetchStockCandles() {
     const asset = externalAsset ? externalAsset.symbol : '';
     if (!asset) return;
@@ -432,7 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function connectKlineStream() {
-    const config = getPairConfig();
+    const config = getChartConfig();
     const tf = timeframeParams[activeTimeframe];
     if (!config || !tf) return;
     const nextKey = `${config.symbol.toLowerCase()}@kline_${tf.interval}`;
@@ -454,11 +469,14 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const payload = JSON.parse(event.data);
         const kline = payload.k;
-        const currentConfig = getPairConfig();
+        const currentConfig = getChartConfig();
         if (!kline || !currentConfig || payload.s !== currentConfig.symbol) return;
         const candle = normalizeKline([kline.t, kline.o, kline.h, kline.l, kline.c], currentConfig.invert);
-        exchangeRate = parseFloat(kline.c);
-        if (!isExternal() && document.activeElement !== inputLeft && document.activeElement !== inputRight) calculateConversion('left');
+        // A conversão usa o par do CONVERSOR; o stream reflete o ativo do GRÁFICO.
+        if (!isExternal() && document.activeElement !== inputLeft && document.activeElement !== inputRight) {
+          exchangeRate = parseFloat(kline.c);
+          calculateConversion('left');
+        }
         const activeParams = timeframeParams[activeTimeframe];
         if (activeParams.aggregate === 'year') updateAnnualCandle(candle);
         else {
@@ -513,6 +531,66 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     ctx.beginPath(); ctx.moveTo(axisX, 0); ctx.lineTo(axisX, h);
     ctx.strokeStyle = 'rgba(0,0,0,0.28)'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  /**
+   * Desenha o nome do ativo no centro do corpo do gráfico.
+   */
+  function drawChartLabel() {
+    if (!chartState) return;
+    const { w, h } = chartState;
+    const ctx = canvas.getContext('2d');
+    let label;
+    if (externalAsset) {
+      label = externalAsset.label ? `${externalAsset.label} (${externalAsset.symbol})` : externalAsset.symbol;
+    } else {
+      const fromName = assetNames[selectLeft.value] || selectLeft.value;
+      const toName = assetNames[selectRight.value] || selectRight.value;
+      label = `${fromName}/${toName}`;
+    }
+    ctx.save();
+    ctx.font = 'bold 12px ui-monospace, SFMono-Regular, Consolas, monospace';
+    const tw = ctx.measureText(label).width;
+    const cx = (w - AXIS_W) / 2;
+    const x = cx - tw / 2;
+    ctx.fillStyle = 'rgba(0,0,0,0.06)';
+    ctx.fillRect(x - 4, 6, tw + 8, 18);
+    ctx.fillStyle = '#222222';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, 16);
+    ctx.restore();
+  }
+
+  /**
+   * Desenha o preço atual (último close) como uma linha + rótulo no eixo direito.
+   */
+  function drawLivePrice() {
+    if (!chartState || !candlesHistory.length) return;
+    const { w, h } = chartState;
+    const yFn = chartState.priceY || chartState.yOf;
+    if (!yFn) return;
+    const last = candlesHistory[candlesHistory.length - 1].close;
+    const y = yFn(last);
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w - AXIS_W, y);
+    ctx.strokeStyle = 'rgba(21, 101, 192, 0.5)'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.setLineDash([]);
+    const ccy = displayCurrency();
+    const prefix = ccy === 'BRL' ? 'R$ ' : ccy === 'BTC' ? '₿ ' : '$ ';
+    const label = prefix + formatAxisValue(last);
+    ctx.font = 'bold 10px ui-monospace, SFMono-Regular, Consolas, monospace';
+    const tw = ctx.measureText(label).width;
+    const yClamped = Math.max(9, Math.min(h - 9, y));
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(w - AXIS_W, yClamped - 9, tw + 8, 18);
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, w - AXIS_W + 4, yClamped);
+    ctx.restore();
   }
 
   function drawMarkers() {
@@ -618,6 +696,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.beginPath(); coords.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
     ctx.strokeStyle = isBullish ? '#34d399' : '#f87171'; ctx.lineWidth = 2.5; ctx.stroke();
     drawMarkers();
+    drawChartLabel();
+    drawLivePrice();
   }
 
   /**
@@ -647,6 +727,8 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.fillRect(x - candleWidth / 2, bodyY, candleWidth, bodyHeight);
     });
     drawMarkers();
+    drawChartLabel();
+    drawLivePrice();
   }
   function handleChartHover(evt) {
     if (!chartState || !chartState.coords.length) return;
@@ -769,7 +851,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const candleDate = new Date(time);
     let candleLabel;
 
-    if (activeTimeframe === '1H') {
+    if (activeTimeframe === '1H' || activeTimeframe === '15M') {
       const date = candleDate.toLocaleDateString('pt-BR', {
         timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric'
       });
