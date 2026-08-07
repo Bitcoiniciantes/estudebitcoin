@@ -20,6 +20,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeTimeframe = '1D';
   let externalAsset = null;       // { kind:'crypto'|'stock', symbol, pair, label }
   let stockPollTimer = null;
+  let markerMode = false;
+  let markerLines = [];      // [{ y }] linhas horizontais (fração da altura do canvas)
+  let markerDraft = null;    // reservado
   let exchangeRate = 0; 
   let pricesHistory = [];
   let candlesHistory = [];
@@ -33,6 +36,19 @@ document.addEventListener('DOMContentLoaded', () => {
   let klineReconnectTimer = null;
   let tooltipHideTimer = null;
   let resizeTimeout = null;
+
+  // Largura (em px) reservada para o eixo de preços à esquerda do gráfico
+  const AXIS_W = 56;
+
+  function formatAxisValue(val) {
+    const abs = Math.abs(val);
+    if (abs >= 1e12) return (val / 1e12).toFixed(1) + " T";
+    if (abs >= 1e9) return (val / 1e9).toFixed(1) + " B";
+    if (abs >= 1e6) return (val / 1e6).toFixed(1) + " M";
+    if (abs >= 1e4) return val.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
+    if (abs >= 100) return val.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
+    return val.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
 
   // Elemento de tooltip (criado dinamicamente e inserido no wrapper do gráfico)
   const chartWrap = document.querySelector('.preev__chart-wrap');
@@ -79,10 +95,39 @@ document.addEventListener('DOMContentLoaded', () => {
     if (externalAsset && externalAsset.kind === 'stock') {
       stockPollTimer = setInterval(fetchHistoricalTrends, 20000);
     }
+    loadMarkers();
   }
 
   function isExternal() {
     return !!(externalAsset);
+  }
+
+  /**
+   * Chave do localStorage para as linhas horizontais por ativo.
+   */
+  function markerStorageKey() {
+    const key = externalAsset
+      ? `${externalAsset.kind}:${externalAsset.symbol}`
+      : `pair:${selectLeft.value}:${selectRight.value}`;
+    return `estudebitcoin:markers:${key}`;
+  }
+
+  function saveMarkers() {
+    try {
+      localStorage.setItem(markerStorageKey(), JSON.stringify(markerLines));
+    } catch (err) { /* localStorage indisponível */ }
+  }
+
+  function loadMarkers() {
+    markerLines = [];
+    try {
+      const raw = localStorage.getItem(markerStorageKey());
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) markerLines = parsed.filter(l => typeof l.price === 'number');
+      }
+    } catch (err) { /* localStorage indisponível */ }
+    renderBaseChart();
   }
 
   function isExternalStock() {
@@ -447,6 +492,63 @@ document.addEventListener('DOMContentLoaded', () => {
     changeEl.className = `preev__stat-item change-indicator ${pct >= 0 ? 'up' : 'down'}`;
   }
 
+  function drawAxis(yOf) {
+    const ctx = canvas.getContext('2d');
+    const { min, range, w, h } = chartState;
+    const ccy = displayCurrency();
+    const prefix = ccy === 'BRL' ? 'R$ ' : ccy === 'BTC' ? '₿ ' : '$ ';
+    const ticks = 5;
+    const axisX = w - AXIS_W;
+    ctx.font = '10px ui-monospace, SFMono-Regular, Consolas, monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    for (let t = 0; t <= ticks; t++) {
+      const v = min + (range * t) / ticks;
+      const y = yOf(v);
+      ctx.beginPath();
+      ctx.moveTo(0, y); ctx.lineTo(axisX, y);
+      ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = '#111111';
+      ctx.fillText(prefix + formatAxisValue(v), axisX + 6, y);
+    }
+    ctx.beginPath(); ctx.moveTo(axisX, 0); ctx.lineTo(axisX, h);
+    ctx.strokeStyle = 'rgba(0,0,0,0.28)'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  function drawMarkers() {
+    if (!chartState || !markerLines.length) { return; }
+    const { w, h, mode } = chartState;
+    const plotW = w - AXIS_W;
+    const yFn = chartState.priceY || chartState.yOf;
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.setLineDash([6, 5]);
+    const ccy = displayCurrency();
+    const prefix = ccy === 'BRL' ? 'R$ ' : ccy === 'BTC' ? '₿ ' : '$ ';
+    ctx.font = 'bold 10px ui-monospace, SFMono-Regular, Consolas, monospace';
+    markerLines.forEach(line => {
+      const y = yFn(line.price);
+      ctx.setLineDash([6, 5]);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(plotW, y);
+      ctx.stroke();
+      const label = prefix + formatAxisValue(line.price);
+      const tw = ctx.measureText(label).width;
+      const yClamped = Math.max(9, Math.min(h - 9, y));
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#222222';
+      ctx.fillRect(w - AXIS_W, yClamped - 9, tw + 8, 18);
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, w - AXIS_W + 4, yClamped);
+    });
+    ctx.restore();
+  }
+
   function drawTrendChart(prices, isBullish) {
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
@@ -455,11 +557,13 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.setTransform(1, 0, 0, 1, 0, 0); // reseta a matriz antes de reaplicar a escala
     ctx.scale(dpr, dpr);
     const w = rect.width, h = rect.height;
+    const plotW = w - AXIS_W;
     const min = Math.min(...prices), range = Math.max(...prices) - min || 1;
-    const coords = prices.map((p, i) => ({ x: (i/(prices.length-1))*w, y: h-15-((p-min)/range)*(h-30) }));
+    const yOf = p => h - 15 - ((p - min) / range) * (h - 30);
+    const coords = prices.map((p, i) => ({ x: (i / (prices.length - 1)) * plotW, y: yOf(p) }));
 
     // Guarda o estado atual do gráfico para o hover reaproveitar sem redimensionar o canvas
-    chartState = { mode: 'line', prices, coords, isBullish, min, range, w, h };
+    chartState = { mode: 'line', prices, coords, isBullish, min, range, w, h, yOf };
 
     renderBaseChart();
   }
@@ -478,9 +582,10 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.scale(dpr, dpr);
     const w = rect.width, h = rect.height;
     const top = 18, bottom = 15;
+    const plotW = w - AXIS_W;
     const min = Math.min(...candles.map(candle => candle.low));
     const range = Math.max(...candles.map(candle => candle.high)) - min || 1;
-    const spacing = w / candles.length;
+    const spacing = plotW / candles.length;
     const candleWidth = Math.max(2, Math.min(10, spacing * 0.62));
     const priceY = price => h - bottom - ((price - min) / range) * (h - top - bottom);
     const coords = candles.map((candle, index) => ({ x: index * spacing + spacing / 2, y: priceY(candle.close) }));
@@ -493,12 +598,13 @@ document.addEventListener('DOMContentLoaded', () => {
       renderCandles();
       return;
     }
-    const { coords, isBullish, min, range, w, h } = chartState;
+    const { coords, isBullish, min, range, w, h, yOf } = chartState;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, w, h);
+    drawAxis(yOf);
 
     const openY = h-15-((openPriceReference-min)/range)*(h-30);
-    ctx.beginPath(); ctx.setLineDash([6,6]); ctx.moveTo(0, openY); ctx.lineTo(w, openY); ctx.strokeStyle = '#d5d7dc'; ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.setLineDash([6,6]); ctx.moveTo(0, openY); ctx.lineTo(w - AXIS_W, openY); ctx.strokeStyle = '#d5d7dc'; ctx.stroke(); ctx.setLineDash([]);
 
     ctx.beginPath(); ctx.moveTo(coords[0].x, h);
     coords.forEach(c => ctx.lineTo(c.x, c.y));
@@ -511,6 +617,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ctx.beginPath(); coords.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
     ctx.strokeStyle = isBullish ? '#34d399' : '#f87171'; ctx.lineWidth = 2.5; ctx.stroke();
+    drawMarkers();
   }
 
   /**
@@ -521,6 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const { candles, w, h, spacing, candleWidth, priceY } = chartState;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, w, h);
+    drawAxis(priceY);
     const openY = priceY(openPriceReference);
     ctx.beginPath(); ctx.setLineDash([6, 6]);
     ctx.moveTo(0, openY); ctx.lineTo(w, openY);
@@ -538,27 +646,57 @@ document.addEventListener('DOMContentLoaded', () => {
       const bodyHeight = Math.max(1.5, Math.abs(yClose - yOpen));
       ctx.fillRect(x - candleWidth / 2, bodyY, candleWidth, bodyHeight);
     });
+    drawMarkers();
   }
   function handleChartHover(evt) {
     if (!chartState || !chartState.coords.length) return;
     const rect = canvas.getBoundingClientRect();
     const clientX = evt.touches && evt.touches.length ? evt.touches[0].clientX : evt.clientX;
+    const clientY = evt.touches && evt.touches.length ? evt.touches[0].clientY : evt.clientY;
     const x = clientX - rect.left;
-    const { coords, w, h } = chartState;
-    let idx = Math.round((x / w) * (coords.length - 1));
+    const mouseY = clientY - rect.top;
+    const { coords, w, h, min, range } = chartState;
+    const plotW = w - AXIS_W;
+    let idx = 0;
+    if (x <= 0) idx = 0;
+    else if (x >= plotW) idx = coords.length - 1;
+    else idx = Math.round((x / plotW) * (coords.length - 1));
     idx = Math.max(0, Math.min(coords.length - 1, idx));
     const point = coords[idx];
     renderBaseChart();
 
+    // Preço correspondente ao Y do mouse (permite selecionar pavios high/low)
+    const top = chartState.mode === 'candles' ? 18 : 15;
+    const bottom = 15;
+    const hoverY = Math.max(top, Math.min(h - bottom, mouseY));
+    const hoverPrice = min + ((h - bottom - hoverY) / (h - top - bottom)) * range;
     const ctx = canvas.getContext('2d');
-    ctx.save(); ctx.beginPath(); ctx.setLineDash([3, 3]);
+    // Guia vertical roam
+    ctx.save(); ctx.beginPath(); ctx.setLineDash([4, 4]);
     ctx.moveTo(point.x, 0); ctx.lineTo(point.x, h);
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.stroke();
+    // Linha horizontal pontilhada até o eixo de preços à direita
+    ctx.beginPath(); ctx.setLineDash([4, 4]);
+    ctx.moveTo(0, hoverY); ctx.lineTo(w - AXIS_W, hoverY);
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
     if (chartState.mode === 'line') {
       ctx.beginPath(); ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
       ctx.fillStyle = chartState.isBullish ? '#34d399' : '#f87171'; ctx.fill();
       ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
     }
+    ctx.restore();
+
+    // Rótulo do preço no eixo direito
+    ctx.save();
+    ctx.font = 'bold 10px ui-monospace, SFMono-Regular, Consolas, monospace';
+    const ccy = displayCurrency();
+    const prefix = ccy === 'BRL' ? 'R$ ' : ccy === 'BTC' ? '₿ ' : '$ ';
+    const label = prefix + formatAxisValue(hoverPrice);
+    const tw = ctx.measureText(label).width;
+    const yClamped = Math.max(9, Math.min(h - 9, hoverY));
+    ctx.fillStyle = '#222222'; ctx.fillRect(w - AXIS_W, yClamped - 9, tw + 8, 18);
+    ctx.fillStyle = '#ffffff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, w - AXIS_W + 4, yClamped);
     ctx.restore();
 
     if (chartState.mode === 'candles') {
@@ -573,6 +711,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function handleChartLeave() {
     hideCandleDate();
+    renderBaseChart();
+  }
+
+  function handleChartClick(evt) {
+    if (!markerMode || !chartState) return;
+    const rect = canvas.getBoundingClientRect();
+    const hasTouch = evt.touches && evt.touches.length;
+    const touch = hasTouch ? evt.touches[0] : (evt.changedTouches && evt.changedTouches[0]);
+    const clientX = touch ? touch.clientX : evt.clientX;
+    const clientY = touch ? touch.clientY : evt.clientY;
+    const x = (clientX - rect.left) / chartState.w;
+    const y = (clientY - rect.top) / chartState.h;
+    if (x <= 0 || x >= 1 || y <= 0 || y >= 1) return;
+    // Converte o Y do clique em preço usando a escala inversa
+    const { h, min, range, mode } = chartState;
+    const top = mode === 'candles' ? 18 : 15;
+    const bottom = 15;
+    const py = Math.max(top, Math.min(h - bottom, clientY - rect.top));
+    const price = min + ((h - bottom - py) / (h - top - bottom)) * range;
+    const existing = markerLines.findIndex(l => Math.abs(l.price - price) < range * 0.01);
+    if (existing >= 0) {
+      markerLines.splice(existing, 1);
+    } else {
+      markerLines.push({ price });
+    }
+    saveMarkers();
     renderBaseChart();
   }
 
@@ -678,9 +842,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- HOVER / TOOLTIP NO GRÁFICO ---
   canvas.addEventListener('mousemove', handleChartHover);
   canvas.addEventListener('mouseleave', handleChartLeave);
+  canvas.addEventListener('mouseup', handleChartClick);
   canvas.addEventListener('touchstart', handleChartHover, { passive: true });
   canvas.addEventListener('touchmove', handleChartHover, { passive: true });
   canvas.addEventListener('touchend', handleChartLeave);
+  canvas.addEventListener('touchend', handleChartClick);
 
   // Redesenha o gráfico (com o mesmo histórico) quando a janela é redimensionada,
   // evitando que fique desalinhado até a próxima atualização de dados
@@ -703,6 +869,14 @@ document.addEventListener('DOMContentLoaded', () => {
   
   chartTypeBtns.forEach(button => button.addEventListener('click', () => {
     hideTooltip();
+    if (button.dataset.chartType === 'markers') {
+      markerMode = !markerMode;
+      if (!markerMode) markerDraft = null;
+      button.classList.toggle('active', markerMode);
+      button.setAttribute('aria-pressed', String(markerMode));
+      renderBaseChart();
+      return;
+    }
     chartMode = button.dataset.chartType;
     chartTypeBtns.forEach(item => {
       const active = item === button;

@@ -258,7 +258,14 @@
       }
       window.dispatchEvent(new CustomEvent("estudebitcoin:load-asset", { detail: detail }));
       var conversor = document.getElementById("conversor");
-      if (conversor) conversor.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (conversor) {
+        var cv = conversor.getBoundingClientRect();
+        var vh = window.innerHeight;
+        /// Só rola quando o conversor não está visível na janela
+        if (cv.bottom < 0 || cv.top > vh) {
+          conversor.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
     } catch (err) { /* evento opcional, ignorar falhas */ }
   });
   document.addEventListener("click", function (event) {
