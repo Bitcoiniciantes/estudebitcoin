@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let klineReconnectTimer = null;
   let tooltipHideTimer = null;
   let resizeTimeout = null;
+  let lastTouchMarkerAt = 0;
 
   // Largura (em px) reservada para o eixo de preços à esquerda do gráfico
   const AXIS_W = 56;
@@ -798,6 +799,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function handleChartClick(evt) {
     if (!markerMode || !chartState) return;
+    const now = Date.now();
+    if (evt.type === 'mouseup' && now - lastTouchMarkerAt < 750) return;
+    if (evt.type === 'touchend') lastTouchMarkerAt = now;
     const rect = canvas.getBoundingClientRect();
     const hasTouch = evt.touches && evt.touches.length;
     const touch = hasTouch ? evt.touches[0] : (evt.changedTouches && evt.changedTouches[0]);
