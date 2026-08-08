@@ -1,3 +1,7 @@
 name = "bitcoiniciantes-ia"
 main = "src/index.js"
 compatibility_date = "2026-08-01"
+
+[[kv_namespaces]]
+binding = "MARKER_SYNC"
+id = "6842da5945f34022b6bd1516152a94ca"

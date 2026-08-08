@@ -724,6 +724,13 @@
           </div>
           <canvas id="preev-canvas"></canvas>
         </div>
+        <div class="preev__marker-sync" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;margin:4px 0 8px;">
+          <label for="preev-pair-code" style="font-size:11px;font-weight:700;color:#666;">LINHAS PRIVADAS</label>
+          <input id="preev-pair-code" type="text" inputmode="text" autocomplete="off" maxlength="24" placeholder="código de pareamento" aria-label="Código de pareamento das linhas" style="width:168px;max-width:48vw;height:28px;padding:0 8px;border:1px solid #c7ccd2;border-radius:6px;font:700 11px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.06em;text-transform:uppercase;">
+          <button id="preev-pair-create" type="button" style="height:28px;padding:0 8px;border:1px solid #8a929b;border-radius:6px;background:#fff;color:#333;font-size:11px;font-weight:700;cursor:pointer;">CRIAR</button>
+          <button id="preev-pair-connect" type="button" style="height:28px;padding:0 8px;border:0;border-radius:6px;background:#252525;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">CONECTAR</button>
+          <span id="preev-pair-status" style="width:100%;text-align:center;color:#777;font-size:10px;">Somente neste dispositivo</span>
+        </div>
         <div class="preev__footer" style="flex-direction:column;align-items:center;gap:4px;margin-top:auto;">
           <div class="preev__tf-group">
             <button class="preev__tf-btn" data-tf="15M">15M</button>
@@ -1220,7 +1227,7 @@
 <script src="assets/js/utils.js"></script>
 <script defer src="assets/js/main.js?v=20260729-2"></script>
 <script defer src="assets/js/projections.js"></script>
-<script defer src="assets/js/conversor.js?v=12"></script>
+<script defer src="assets/js/conversor.js?v=13"></script>
 <script defer src="assets/js/analista-ia.js?v=10"></script>
 <script defer src="assets/js/ticker-widget.js?v=17"></script>
 

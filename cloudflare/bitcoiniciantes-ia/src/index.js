@@ -17,6 +17,45 @@ function json(request, body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders(request) });
 }
 
+function markerSyncKey(url) {
+  const pair = (url.searchParams.get("pair") || "").toUpperCase();
+  const asset = url.searchParams.get("asset") || "";
+  if (!/^[A-Z2-9]{20}$/.test(pair) || !/^[a-zA-Z0-9:_-]{3,120}$/.test(asset)) return null;
+  return { pair, asset, key: `marker-sync:${pair}:${asset}` };
+}
+
+function cleanMarkers(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((line) => Number.isFinite(line?.price) && line.price > 0 && line.price < 1e15)
+    .slice(0, 30)
+    .map((line) => ({ price: Number(line.price) }));
+}
+
+async function markerSync(request, url, env) {
+  const sync = markerSyncKey(url);
+  if (!sync) return json(request, { error: "Codigo ou ativo invalido." }, 400);
+  if (!env.MARKER_SYNC) return json(request, { error: "Sincronizacao indisponivel." }, 503);
+
+  if (request.method === "GET") {
+    const stored = await env.MARKER_SYNC.get(sync.key, "json");
+    return json(request, {
+      markers: cleanMarkers(stored?.markers),
+      updatedAt: Number(stored?.updatedAt) || 0,
+    });
+  }
+
+  if (request.method !== "POST") return json(request, { error: "Metodo nao permitido." }, 405);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json(request, { error: "Envie um JSON valido." }, 400);
+  }
+  const payload = { markers: cleanMarkers(body?.markers), updatedAt: Date.now() };
+  await env.MARKER_SYNC.put(sync.key, JSON.stringify(payload), { expirationTtl: 60 * 60 * 24 * 90 });
+  return json(request, payload);
+}
 function asText(value, maxLength = 1800) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
@@ -831,6 +870,9 @@ export default {
       return assetCandles(request, url.searchParams.get("asset"), url.searchParams.get("period"));
     }
 
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/marker-sync") {
+      return markerSync(request, url, env);
+    }
     const isTermometro = url.pathname === "/api/ai-analysis";
     const isEstudeBitcoin = url.pathname === "/v1/analyze";
     if (request.method !== "POST" || (!isTermometro && !isEstudeBitcoin)) {
