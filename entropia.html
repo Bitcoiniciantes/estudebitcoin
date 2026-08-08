@@ -230,6 +230,16 @@
     background:transparent; color:var(--muted); border:1px solid var(--line); border-radius:8px; cursor:pointer;
   }
   .t4 .retry:hover{color:var(--text); border-color:var(--muted);}
+
+  @media (max-width:600px){
+    .topnav{padding:12px 16px;}
+    .main-layout{padding:24px 16px; gap:16px;}
+    .col{flex-basis:100%;}
+    .card{padding:22px;}
+    .card h1{font-size:20px;}
+    .t3 .row{flex-direction:column; gap:0; align-items:stretch;}
+    .t3 .entropy-grid{grid-template-columns:repeat(2, minmax(0, 1fr));}
+  }
 </style>
 </head>
 <body>
