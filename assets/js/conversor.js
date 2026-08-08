@@ -16,13 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const highEl = document.getElementById('preev-high');
   const lowEl = document.getElementById('preev-low');
   const titleEl = document.querySelector('.preev__title'); // Seleciona o título
-  const pairCodeInput = document.getElementById('preev-pair-code');
-  const pairCreateButton = document.getElementById('preev-pair-create');
-  const pairConnectButton = document.getElementById('preev-pair-connect');
-  const pairStatusEl = document.getElementById('preev-pair-status');
-  const MARKER_SYNC_URL = 'https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/marker-sync';
-  const PAIRING_STORAGE_KEY = 'estudebitcoin:marker-pair-code';
-  const PAIR_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
   let activeTimeframe = '1D';
   let externalAsset = null;       // { kind:'crypto'|'stock', symbol, pair, label }
   let stockPollTimer = null;
@@ -43,8 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let tooltipHideTimer = null;
   let resizeTimeout = null;
   let lastTouchMarkerAt = 0;
-  let pairCode = '';
-  let lastRemoteMarkerUpdate = 0;
 
   // Largura (em px) reservada para o eixo de preços à esquerda do gráfico
   const AXIS_W = 56;
@@ -128,7 +120,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function loadMarkers() {
-    lastRemoteMarkerUpdate = 0;
     markerLines = [];
     try {
       const raw = localStorage.getItem(markerStorageKey());
@@ -138,89 +129,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (err) { /* localStorage indisponível */ }
     renderBaseChart();
-    void pullMarkerLines();
-  }
-
-  function normalizePairCode(value) {
-    return String(value || '').toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 20);
-  }
-
-  function formatPairCode(value) {
-    return normalizePairCode(value).match(/.{1,4}/g)?.join('-') || '';
-  }
-
-  function setPairStatus(message) {
-    if (pairStatusEl) pairStatusEl.textContent = message;
-  }
-
-  function setPairCode(value) {
-    pairCode = normalizePairCode(value);
-    lastRemoteMarkerUpdate = 0;
-    if (pairCode) localStorage.setItem(PAIRING_STORAGE_KEY, pairCode);
-    else localStorage.removeItem(PAIRING_STORAGE_KEY);
-    if (pairCodeInput) pairCodeInput.value = formatPairCode(pairCode);
-  }
-
-  function createPairCode() {
-    const bytes = crypto.getRandomValues(new Uint8Array(20));
-    return Array.from(bytes, byte => PAIR_CHARS[byte % PAIR_CHARS.length]).join('');
-  }
-
-  async function markerSyncRequest(method, markers) {
-    if (!pairCode) return null;
-    const url = new URL(MARKER_SYNC_URL);
-    url.searchParams.set('pair', pairCode);
-    url.searchParams.set('asset', markerStorageKey());
-    const response = await fetch(url, {
-      method,
-      cache: 'no-store',
-      headers: method === 'POST' ? { 'Content-Type': 'application/json' } : undefined,
-      body: method === 'POST' ? JSON.stringify({ markers }) : undefined,
-    });
-    if (!response.ok) throw new Error(`marker-sync-${response.status}`);
-    return response.json();
-  }
-
-  async function pushMarkerLines() {
-    if (!pairCode) return;
-    try {
-      const data = await markerSyncRequest('POST', markerLines);
-      lastRemoteMarkerUpdate = Number(data?.updatedAt) || lastRemoteMarkerUpdate;
-      setPairStatus('Linhas sincronizadas');
-    } catch (err) {
-      setPairStatus('Sem conexão para sincronizar');
-    }
-  }
-
-  async function pullMarkerLines(pushWhenEmpty = false) {
-    if (!pairCode) return false;
-    try {
-      const data = await markerSyncRequest('GET');
-      const updatedAt = Number(data?.updatedAt) || 0;
-      if (!updatedAt) {
-        if (pushWhenEmpty) await pushMarkerLines();
-        else setPairStatus('Aguardando linhas pareadas');
-        return false;
-      }
-      if (updatedAt > lastRemoteMarkerUpdate) {
-        markerLines = Array.isArray(data.markers) ? data.markers.filter(line => Number.isFinite(line?.price)) : [];
-        lastRemoteMarkerUpdate = updatedAt;
-        saveMarkers();
-        renderBaseChart();
-      }
-      setPairStatus('Linhas sincronizadas');
-      return true;
-    } catch (err) {
-      setPairStatus('Sem conexão para sincronizar');
-      return false;
-    }
-  }
-
-  function restorePairing() {
-    try {
-      setPairCode(localStorage.getItem(PAIRING_STORAGE_KEY));
-      if (pairCode) setPairStatus('Pareado — sincronizando');
-    } catch (err) { /* localStorage indisponível */ }
   }
 
   function isExternalStock() {
@@ -916,7 +824,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     saveMarkers();
     renderBaseChart();
-    void pushMarkerLines();
   }
 
   function keepTooltipVisible() {
@@ -988,32 +895,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('pointerdown', event => {
     if (chartWrap && !chartWrap.contains(event.target)) hideTooltip();
   });
-  pairCreateButton?.addEventListener('click', () => {
-    setPairCode(createPairCode());
-    setPairStatus('Código criado — use-o no celular');
-    void pushMarkerLines();
-  });
-
-  pairConnectButton?.addEventListener('click', async () => {
-    const code = normalizePairCode(pairCodeInput?.value);
-    if (code.length !== 20) {
-      setPairStatus('Informe o código de 20 caracteres');
-      return;
-    }
-    setPairCode(code);
-    setPairStatus('Conectando dispositivos');
-    await pullMarkerLines(true);
-  });
-
-  pairCodeInput?.addEventListener('input', () => {
-    pairCodeInput.value = formatPairCode(pairCodeInput.value);
-  });
-
-  window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') void pullMarkerLines();
-  });
-
-  setInterval(() => void pullMarkerLines(), 5000);
   // --- EVENTOS FINAIS ---
   inputLeft.addEventListener('input', () => {
       limitarCasas(inputLeft, selectLeft.value);
@@ -1103,8 +984,6 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Inicialização
   setInitialDefaults(); // Força Bitcoin para US Dólar no carregamento
-  restorePairing();
-  loadMarkers();
   updateAll();
   setInterval(fetchCurrentTicker, 10000);     // preço ao vivo a cada 10s
   setInterval(fetchHistoricalTrends, 60000);  // gráfico/histórico a cada 60s
