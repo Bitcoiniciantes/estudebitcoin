@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estudo de Entropia — Embaralhador e Segurança</title>
+<style>
+  :root{
+    --text:#e8e9ee;
+    --muted:#8d95ab;
+    --border:#323a4d;
+    --line:#323a4d;
+    --bg:#0d1117;
+    --card:#161b22;
+    --amber:#e8a33d;
+    --bitcoin:#f7931a;
+  }
+  *{box-sizing:border-box; padding:0; margin:0;}
+  body{
+    font-family:"Segoe UI", "Inter", system-ui, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    line-height:1.55;
+  }
+
+  /* ===== NAV CENTRALIZADA ===== */
+  .topnav{
+    position:sticky; top:0; z-index:50;
+    background:rgba(13,17,23,.92); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+    padding:14px 20px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .topnav .brand{
+    font-weight:800; font-size:16px; letter-spacing:.02em;
+    display:flex; align-items:center; gap:10px;
+  }
+  .topnav .brand .btc{
+    width:28px;height:28px;border-radius:50%;background:var(--bitcoin);
+    color:#0d1117;font-weight:800;display:flex;align-items:center;justify-content:center;
+    font-size:16px;
+  }
+
+  /* ===== LAYOUT PRINCIPAL (CARDS ALINHADOS) ===== */
+  .main-layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    padding: 40px 20px;
+    justify-content: center;
+    align-items: flex-start;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .col {
+    flex: 1 1 450px;
+    max-width: 540px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 32px;
+    width: 100%;
+    box-shadow: 0 8px 30px rgba(0,0,0,.4);
+  }
+
+  .logo-header {display:flex; align-items:center; gap:12px; margin-bottom:14px;}
+  .logo-header .btc {
+    width:34px; height:34px; border-radius:50%;
+    background:var(--bitcoin); color:#0d1117;
+    font-weight:800; font-size:18px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .card h1 {font-size:22px; margin-bottom:4px;}
+  .card p.sub {color:var(--muted); font-size:14px;}
+  
+  .footer-note {
+    margin-top: 16px; text-align: center; font-size: 12.5px; color: var(--muted);
+  }
+
+  /* ===========================================================
+     ESTILOS DO EMBARALHADOR (T3)
+     =========================================================== */
+  .t3 label{display:block; font-size:13px; color:var(--muted); margin:18px 0 8px;}
+  .t3 textarea, .t3 input[type=number], .t3 input[type=text], .t3 input[type=password]{
+    width:100%;
+    background:#0d1117; border:1px solid var(--line); border-radius:8px;
+    color:var(--text); font-size:15px;
+    font-family:"Cascadia Code", Consolas, monospace;
+    padding:14px; outline:none;
+  }
+  .t3 textarea{min-height:110px; resize:vertical;}
+  .t3 textarea:focus, .t3 input:focus{border-color:var(--bitcoin);}
+  .t3 .row{display:flex; gap:12px; align-items:flex-end;}
+  .t3 .row .field{flex:1;}
+  
+  .t3 button.primary-btn {
+    margin-top:18px; width:100%; padding:14px;
+    font-size:16px; font-weight:700; color:#0d1117;
+    background:var(--bitcoin); border:none; border-radius:8px; cursor:pointer;
+    transition:filter .2s, transform .1s;
+  }
+  .t3 button.primary-btn:hover:not(:disabled){filter:brightness(1.1);}
+  .t3 button.primary-btn:active:not(:disabled){transform:scale(0.99);}
+  .t3 button.primary-btn:disabled{background:var(--border); color:var(--muted); cursor:not-allowed;}
+
+  .t3 .msg.error { color: #f85149; font-size: 13.5px; margin-top: 10px; }
+
+  .t3 .analyzing{
+    display:none; margin-top:20px; padding:18px;
+    border:1px solid var(--line); border-radius:10px; text-align:center;
+    background:#0d1117;
+  }
+  .t3 .spin{
+    width:30px; height:30px; margin:0 auto 12px;
+    border:3px solid var(--line); border-top-color:var(--bitcoin);
+    border-radius:50%; animation:t3-rotate 1s linear infinite;
+  }
+  @keyframes t3-rotate{ to{ transform:rotate(360deg); } }
+  .t3 .status-line{font-size:14px; color:var(--bitcoin); animation:t3-pulse 1.4s ease-in-out infinite;}
+  @keyframes t3-pulse{ 0%,100%{opacity:1;} 50%{opacity:.45;} }
+
+  .t3 .keybox{
+    margin-top:20px; border:1px solid var(--line); border-radius:10px; padding:16px; background:#0d1117;
+  }
+  .t3 .keybox .lbl{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; margin-bottom:6px;}
+  .t3 .keystr{
+    font-family:"Cascadia Code", Consolas, monospace;
+    font-size:13px; color:var(--bitcoin); word-break:break-all; line-height:1.6;
+  }
+  .t3 .keystr .sep{color:#3a3f50;}
+
+  .t3 .outbox{
+    display:none; margin-top:16px; border:1px solid var(--line); border-radius:10px; padding:16px; background:#0d1117;
+  }
+  .t3 .outbox .lbl{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; margin-bottom:6px;}
+  .t3 .seq{
+    display:flex; flex-wrap:wrap; gap:6px; font-family:"Cascadia Code", Consolas, monospace; font-size:14px;
+  }
+  .t3 .seq span{
+    background:#1b2436; border:1px solid var(--line); border-radius:6px; padding:4px 8px; color:#c9d1d9;
+  }
+
+  .t3 .secret-row{ display:flex; gap:8px; align-items:stretch; }
+  .t3 .secret-toggle{
+    width:52px; flex-shrink:0; font-size:16px; cursor:pointer;
+    background:var(--border); color:var(--text); border:1px solid var(--line); border-radius:8px;
+  }
+  .t3 .secret-toggle:hover{ filter:brightness(1.15); }
+
+  .t3 .mixbox{
+    margin-top:16px; padding:14px 16px; background:#0d1117; border:1px solid var(--line); border-radius:10px;
+  }
+  .t3 .mixbox .mix-label{
+    display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:var(--text); cursor:pointer; line-height:1.45;
+  }
+  .t3 .mixbox .mix-label code{
+    font-family:"Cascadia Code", Consolas, monospace; font-size:12px; background:#1b2436; padding:1px 5px; border-radius:4px; color:var(--bitcoin);
+  }
+  .t3 .mixbox .mix-label input{ accent-color:var(--bitcoin); margin-top:3px; flex-shrink:0; }
+  .t3 .mixbox .mix-hint{ font-size:12px; color:var(--muted); margin:8px 0 0 22px; line-height:1.5; }
+
+  .t3 .entropy-panel{
+    margin-top:16px; padding:16px; border:1px solid var(--line); border-radius:10px; background:#0d1117;
+  }
+  .t3 .entropy-panel .lbl{ font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; margin-bottom:10px; }
+  .t3 .entropy-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:10px; }
+  .t3 .e-cell{
+    background:#1b2436; border:1px solid var(--line); border-radius:8px; padding:10px 12px; text-align:center;
+  }
+  .t3 .e-cell .e-num{ display:block; font-family:"Cascadia Code", Consolas, monospace; font-size:20px; font-weight:700; color:var(--bitcoin); }
+  .t3 .e-cell .e-lbl{ display:block; font-size:11px; color:var(--muted); margin-top:3px; line-height:1.3; }
+  .t3 .e-verdict{ margin-top:12px; font-size:13px; line-height:1.5; padding:10px 12px; border-radius:8px; }
+  .t3 .e-verdict.good{ background:rgba(63,185,80,.1); border:1px solid rgba(63,185,80,.4); color:#8fd6a0; }
+  .t3 .e-verdict.warn{ background:rgba(210,153,34,.1); border:1px solid rgba(210,153,34,.4); color:#e3b341; }
+  .t3 .e-verdict.bad{ background:rgba(248,81,73,.1); border:1px solid rgba(248,81,73,.4); color:#f2a8a0; }
+
+  /* ===========================================================
+     ESTILOS DO QUIZ (T4)
+     =========================================================== */
+  .t4 .q{border-top:1px solid var(--line); padding:20px 0;}
+  .t4 .q:first-of-type{border-top:none; padding-top:10px;}
+  .t4 .q .qnum{font-family:"Cascadia Code", Consolas, monospace; color:var(--bitcoin); font-size:12.5px; letter-spacing:.08em; margin-bottom:6px;}
+  .t4 .q .qtext{font-size:15.5px; font-weight:600; margin-bottom:14px; line-height:1.4;}
+  .t4 .opt{display:block; position:relative; margin-bottom:8px;}
+  .t4 .opt input{position:absolute; opacity:0; inset:0; cursor:pointer;}
+  .t4 .opt span{
+    display:block; padding:11px 14px; background:#0d1117; border:1px solid var(--line);
+    border-radius:8px; font-size:14px; cursor:pointer; transition:.15s;
+  }
+  .t4 .opt input:checked + span{border-color:var(--bitcoin); background:rgba(247,147,26,.1); color:var(--bitcoin);}
+  .t4 .opt input:focus-visible + span{outline:2px solid var(--bitcoin); outline-offset:1px;}
+
+  .t4 button#quizSubmit{
+    margin-top:12px; width:100%; padding:14px; font-size:16px; font-weight:700; color:#0d1117;
+    background:var(--bitcoin); border:none; border-radius:8px; cursor:pointer;
+    transition:filter .2s, transform .1s;
+  }
+  .t4 button#quizSubmit:hover{filter:brightness(1.1);}
+  .t4 button#quizSubmit:active{transform:scale(0.99);}
+  .t4 .quizMsg{margin-top:12px; font-size:13px; color:#f85149; min-height:16px;}
+
+  .t4 .qresult{
+    display:none; margin-top:22px; padding:26px; text-align:center;
+    border-radius:12px; background:#0d1117; border:1px solid var(--line);
+  }
+  .t4 .qresult .score{font-size:15px; color:var(--muted); margin-bottom:6px;}
+  .t4 .qresult .verdict{font-size:22px; font-weight:800; margin-bottom:10px;}
+  .t4 .qresult .note{font-size:14px; color:var(--text); line-height:1.6; max-width:46ch; margin:0 auto;}
+  .t4 .qresult.good .verdict{color:#3fb950;}
+  .t4 .qresult.good{border-color:rgba(63,185,80,.4);}
+  .t4 .qresult.mid .verdict{color:var(--bitcoin);}
+  .t4 .qresult.mid{border-color:rgba(247,147,26,.4);}
+  .t4 .qresult.bad{border-color:rgba(248,81,73,.5); box-shadow:0 0 30px rgba(248,81,73,.15);}
+  .t4 .qresult.bad .skull{font-size:52px; margin-bottom:10px; filter:drop-shadow(0 0 10px #f85149);}
+  .t4 .qresult.bad .verdict{color:#f85149;}
+  .t4 .qresult .review{
+    margin-top:20px; text-align:left; font-size:13px; color:var(--muted);
+    border-top:1px solid var(--line); padding-top:16px;
+  }
+  .t4 .qresult .review .ritem{margin-bottom:8px; line-height:1.5;}
+  .t4 .qresult .review .ritem b{color:var(--text);}
+  .t4 .retry{
+    margin-top:16px; width:100%; padding:10px; font-size:13.5px; font-weight:600;
+    background:transparent; color:var(--muted); border:1px solid var(--line); border-radius:8px; cursor:pointer;
+  }
+  .t4 .retry:hover{color:var(--text); border-color:var(--muted);}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand"><span class="btc">₿</span> Estudo de Entropia</div>
+</nav>
+
+<div class="main-layout">
+  <!-- ============ CARD 1: EMBARALHADOR DE NÚMEROS ============ -->
+  <div class="col t3">
+    <div class="card">
+      <div class="logo-header">
+        <div class="btc">₿</div>
+        <div>
+          <h1>Embaralhador de Números</h1>
+          <p class="sub">Transforma uma massa de dados numa chave SHA-256 (256 bits) e embaralha números de forma determinística</p>
+        </div>
+      </div>
+
+      <label for="data3">Massa de dados de entrada (qualquer texto):</label>
+      <textarea id="data3" placeholder="ex: 7F2a!#k..9 pia??QD4 81023 dados aleatórios que você quiser..."></textarea>
+
+      <div class="row">
+        <div class="field">
+          <label for="count3">Total de números (índices)</label>
+          <input type="number" id="count3" min="2" max="100000" value="10">
+        </div>
+        <div class="field">
+          <label for="max3">Faixa máxima (0 a N-1)</label>
+          <input type="number" id="max3" min="2" max="100000" value="10">
+        </div>
+      </div>
+
+      <label for="secret3">Entropia oculta pessoal (opcional — número/dígitos que só você sabe):</label>
+      <div class="secret-row">
+        <input type="password" id="secret3" placeholder="ex: 537291 se seu número oculto de 6 casas" autocomplete="off">
+        <button type="button" id="secretToggle" class="secret-toggle" title="Mostrar/ocultar">👁</button>
+      </div>
+      <p class="mix-hint">O valor só é misturado localmente ao hash — nunca é gravado.</p>
+
+      <div class="mixbox">
+        <label class="mix-label">
+          <input type="checkbox" id="mixCrypto" checked>
+          <span>Misturar entropia criptográfica do navegador (<code>CSPRNG</code>)</span>
+        </label>
+        <p class="mix-hint">Se marcado, sua chave garante 256 bits reais mesmo que o texto digitado tenha pouca entropia.</p>
+      </div>
+
+      <button id="shuffleBtn" class="primary-btn">Gerar chave 256 bits e embaralhar</button>
+      <div class="msg" id="msg3"></div>
+
+      <div class="analyzing" id="analyzing3">
+        <div class="spin"></div>
+        <div class="status-line" id="analyzingText3">Processando dados...</div>
+      </div>
+
+      <div class="entropy-panel" id="entropyPanel3" style="display:none;">
+        <div class="lbl">Análise de entropia da entrada</div>
+        <div class="entropy-grid">
+          <div class="e-cell">
+            <span class="e-num" id="eLen3">--</span>
+            <span class="e-lbl">caracteres</span>
+          </div>
+          <div class="e-cell">
+            <span class="e-num" id="eShannon3">--</span>
+            <span class="e-lbl">bits/char (Shannon)</span>
+          </div>
+          <div class="e-cell">
+            <span class="e-num" id="eMin3">--</span>
+            <span class="e-lbl">bits/char (min)</span>
+          </div>
+          <div class="e-cell">
+            <span class="e-num" id="eSecret3">--</span>
+            <span class="e-lbl">segredo (bits)</span>
+          </div>
+          <div class="e-cell">
+            <span class="e-num" id="eTotal3">--</span>
+            <span class="e-lbl">entropia total</span>
+          </div>
+          <div class="e-cell">
+            <span class="e-num" id="eReal3">--</span>
+            <span class="e-lbl">entropia final</span>
+          </div>
+        </div>
+        <div class="e-verdict" id="eVerdict3"></div>
+      </div>
+
+      <div class="keybox" id="keybox3" style="display:none;">
+        <div class="lbl">Chave gerada (SHA-256 — 64 caracteres hex / 256 bits)</div>
+        <div class="keystr" id="keystr3"></div>
+      </div>
+
+      <div class="outbox" id="outbox3">
+        <div class="lbl">Sequência embaralhada</div>
+        <div class="seq" id="seq3"></div>
+        <!-- ==== BULLET POINTS CORRIGIDOS E ESCLARECIDOS ==== -->
+        <div style="margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line);">
+          <span style="font-size: 13px; color: var(--text); font-weight: 600;">💡 O que é esta sequência?</span>
+          <ul style="margin-top: 8px; margin-left: 20px; font-size: 12.5px; color: var(--muted); line-height: 1.5;">
+            <li>É uma permutação randômica e imparcial de índices numéricos (vetores) gerada pelo algoritmo de Fisher-Yates.</li>
+            <li>Serve para reordenar listas, arrays ou posições computacionais de forma estritamente controlada pela sua chave hash.</li>
+            <li>Com o CSPRNG desativado, o embaralhamento é 100% determinístico: a mesma entrada sempre produzirá exatamente a mesma sequência de números.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="footer-note">Redefinida a cada mudança nos dados &bull; Processamento 100% local</div>
+  </div>
+
+  <!-- ============ CARD 2: QUIZ DE SEGURANÇA ============ -->
+  <div class="col t4">
+    <div class="card">
+      <div class="logo-header">
+        <div class="btc">₿</div>
+        <div>
+          <h1>Quiz de Segurança</h1>
+          <p class="sub">5 perguntas sobre boas práticas com seed phrases.</p>
+        </div>
+      </div>
+
+      <form id="quizForm">
+        <div class="q">
+          <div class="qnum">PERGUNTA 1 DE 5</div>
+          <div class="qtext">Um site oferece "verificar a força da sua seed" e pede pra você colar as 12 ou 24 palavras nele. O que fazer?</div>
+          <label class="opt"><input type="radio" name="q1" value="a"><span>Colar, já que é só para checar a entropia</span></label>
+          <label class="opt"><input type="radio" name="q1" value="b"><span>Nunca colar — nenhum site legítimo precisa da seed</span></label>
+          <label class="opt"><input type="radio" name="q1" value="c"><span>Colar só a metade das palavras, por segurança</span></label>
+        </div>
+
+        <div class="q">
+          <div class="qnum">PERGUNTA 2 DE 5</div>
+          <div class="qtext">Onde é mais seguro guardar sua seed phrase?</div>
+          <label class="opt"><input type="radio" name="q2" value="a"><span>Em print de tela salvo no celular</span></label>
+          <label class="opt"><input type="radio" name="q2" value="b"><span>Anotada à mão, offline, em local físico seguro</span></label>
+          <label class="opt"><input type="radio" name="q2" value="c"><span>Em um e-mail enviado para você mesmo</span></label>
+        </div>
+
+        <div class="q">
+          <div class="qnum">PERGUNTA 3 DE 5</div>
+          <div class="qtext">Depois de digitar a seed em um site, aparece: "sua seed está comprometida, mova seus fundos AGORA". O que isso indica?</div>
+          <label class="opt"><input type="radio" name="q3" value="a"><span>Que o site é confiável e está te ajudando</span></label>
+          <label class="opt"><input type="radio" name="q3" value="b"><span>Golpe: cria urgência para você agir sem pensar</span></label>
+          <label class="opt"><input type="radio" name="q3" value="c"><span>Que você deve digitar a seed de novo para confirmar</span></label>
+        </div>
+
+        <div class="q">
+          <div class="qnum">PERGUNTA 4 DE 5</div>
+          <div class="qtext">O que define a força (entropia) de uma seed BIP39?</div>
+          <label class="opt"><input type="radio" name="q4" value="a"><span>A aleatoriedade usada na escolha de uma lista padronizada</span></label>
+          <label class="opt"><input type="radio" name="q4" value="b"><span>O site onde a seed foi gerada</span></label>
+          <label class="opt"><input type="radio" name="q4" value="c"><span>Quantas vezes você mostrou a seed para conhecidos</span></label>
+        </div>
+
+        <div class="q">
+          <div class="qnum">PERGUNTA 5 DE 5</div>
+          <div class="qtext">O "suporte da exchange" liga e pede sua seed para "verificar a conta". Você deve:</div>
+          <label class="opt"><input type="radio" name="q5" value="a"><span>Fornecer, já que é suporte oficial</span></label>
+          <label class="opt"><input type="radio" name="q5" value="b"><span>Desligar — nenhum suporte pede sua seed</span></label>
+          <label class="opt"><input type="radio" name="q5" value="c"><span>Fornecer só metade das palavras</span></label>
+        </div>
+
+        <button type="button" id="quizSubmit">Ver resultado</button>
+        <div class="quizMsg" id="quizMsg"></div>
+      </form>
+
+      <div class="qresult" id="quizResult">
+        <div class="skull" id="quizSkull" style="display:none;">💀</div>
+        <div class="score" id="quizScore"></div>
+        <div class="verdict" id="quizVerdict"></div>
+        <div class="note" id="quizNote"></div>
+        <div class="review" id="quizReview"></div>
+        <button class="retry" id="quizRetry">Refazer o quiz</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================
+   SCRIPT 1: EMBARALHADOR DE NÚMEROS
+   =========================================================== */
+(() => {
+  const dataInput   = document.getElementById('data3');
+  const countInput  = document.getElementById('count3');
+  const maxInput    = document.getElementById('max3');
+  const btn         = document.getElementById('shuffleBtn');
+  const msg         = document.getElementById('msg3');
+  const analyzing   = document.getElementById('analyzing3');
+  const aText       = document.getElementById('analyzingText3');
+  const keybox      = document.getElementById('keybox3');
+  const keystr      = document.getElementById('keystr3');
+  const outbox      = document.getElementById('outbox3');
+  const seq         = document.getElementById('seq3');
+  const mixCrypto   = document.getElementById('mixCrypto');
+  const secretInput = document.getElementById('secret3');
+  const secretToggle = document.getElementById('secretToggle');
+  const entropyPanel = document.getElementById('entropyPanel3');
+  
+  secretToggle.addEventListener('click', () => {
+    secretInput.type = secretInput.type === 'password' ? 'text' : 'password';
+    secretToggle.textContent = secretInput.type === 'password' ? '👁' : '🙈';
+  });
+
+  function estimateEntropy(text){
+    const N = text.length;
+    if (N === 0) return { len: 0, shannonBits: 0, minBits: 0, total: 0 };
+    const freq = new Map();
+    for (const ch of text) freq.set(ch, (freq.get(ch) || 0) + 1);
+    let shannon = 0;
+    let pmax = 0;
+    for (const c of freq.values()){
+      const p = c / N;
+      shannon -= p * Math.log2(p);
+      if (p > pmax) pmax = p;
+    }
+    const total = Math.min(N * shannon, 256);
+    const totalMin = Math.min(N * (Math.log2(1 / pmax)), 256);
+    return { len: N, shannonBits: shannon, minBits: Math.log2(1 / pmax), total, totalMin };
+  }
+
+  function seedFromHex(hex){
+    const words = [];
+    for (let i = 0; i < hex.length; i += 8){
+      words.push(parseInt(hex.substr(i, 8), 16) >>> 0);
+    }
+    return words;
+  }
+
+  // PRNG Corrigido
+  function shuffleWithSeed(arr, seedWords){
+    const out = arr.slice();
+    const state = seedWords.slice(); 
+    let idx = 0;
+    const rand = () => {
+      let a = state[idx % state.length];
+      a ^= a << 13; a >>>= 0;
+      a ^= a >>> 17;
+      a ^= a << 5;  a >>>= 0;
+      state[idx % state.length] = a; 
+      idx++;
+      return (a >>> 0) / 4294967296;
+    };
+    for (let i = out.length - 1; i > 0; i--){
+      const j = Math.floor(rand() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  }
+
+  async function sha256Hex(text){
+    const buf = new TextEncoder().encode(text);
+    const digest = await crypto.subtle.digest('SHA-256', buf);
+    const bytes = new Uint8Array(digest);
+    let hex = '';
+    for (const b of bytes) hex += b.toString(16).padStart(2, '0');
+    return hex;
+  }
+
+  function estimateSecretBits(secret){
+    if (!secret) return 0;
+    const chars = secret.trim();
+    if (/^\d+$/.test(chars)){
+      const digits = chars.length;
+      return Math.min(digits, 20) * 3.321928;
+    }
+    const e = estimateEntropy(chars);
+    return Math.min(e.minBits * chars.length, 18 * chars.length, 256);
+  }
+
+  btn.addEventListener('click', async () => {
+    msg.textContent = '';
+    const data = dataInput.value;
+    if (!data.trim()) {
+      msg.className = 'msg error';
+      msg.textContent = 'Digite uma massa de dados de entrada.';
+      return;
+    }
+    const count = parseInt(countInput.value, 10) || 10;
+    const max = parseInt(maxInput.value, 10) || count;
+    if (count < 2 || max < 2) {
+      msg.className = 'msg error';
+      msg.textContent = 'O total e a faixa precisam ser no mínimo 2.';
+      return;
+    }
+
+    outbox.style.display = 'none';
+    keybox.style.display = 'none';
+    entropyPanel.style.display = 'none';
+    analyzing.style.display = 'block';
+    btn.disabled = true;
+
+    const lines = ['Transformando dados em hash...', 'Gerando chave SHA-256...', 'Embaralhando sequência...'];
+    let i = 0;
+    const loop = setInterval(() => {
+      aText.textContent = lines[i % lines.length];
+      i++;
+    }, 600);
+
+    const est = estimateEntropy(data);
+    const secret = secretInput.value;
+    const secretBits = estimateSecretBits(secret);
+    const totalBits = Math.min(est.totalMin + secretBits, 256);
+
+    let mixHex = '';
+    if (mixCrypto.checked) {
+      const mixBytes = new Uint8Array(32);
+      crypto.getRandomValues(mixBytes);
+      for (const b of mixBytes) mixHex += b.toString(16).padStart(2, '0');
+    }
+    const inputForHash = mixCrypto.checked ? data + '::' + secret + '::' + mixHex : data + '::' + secret;
+
+    let hex;
+    try {
+      hex = await sha256Hex(inputForHash);
+    } catch (e) {
+      msg.className = 'msg error';
+      msg.textContent = 'Navegador incompatível com Web Crypto API.';
+      clearInterval(loop); analyzing.style.display = 'none'; btn.disabled = false;
+      return;
+    }
+
+    setTimeout(() => {
+      clearInterval(loop);
+      analyzing.style.display = 'none';
+      btn.disabled = false;
+
+      document.getElementById('eLen3').textContent = est.len;
+      document.getElementById('eShannon3').textContent = est.shannonBits.toFixed(2) + ' b';
+      document.getElementById('eMin3').textContent = est.minBits.toFixed(2) + ' b';
+      document.getElementById('eSecret3').textContent = secretBits.toFixed(1) + ' bits';
+      document.getElementById('eTotal3').textContent = Math.round(totalBits) + ' bits';
+      document.getElementById('eReal3').textContent = mixCrypto.checked ? '256 bits' : Math.round(totalBits) + ' bits';
+      entropyPanel.style.display = 'block';
+
+      // --- NOVA LÓGICA DE ALERTA DE ENTROPIA ---
+      const eVerdictEl = document.getElementById('eVerdict3');
+      eVerdictEl.className = 'e-verdict';
+      
+      if (totalBits < 128) {
+        // Abaixo de 128 bits -> Fica Vermelho
+        eVerdictEl.classList.add('bad');
+        if (mixCrypto.checked) {
+          eVerdictEl.innerHTML = `🚨 <b>Entropia de entrada muito fraca (${Math.round(totalBits)} bits).</b> O CSPRNG garantiu uma chave final segura, mas seu texto/segredo base é vulnerável e facilmente adivinhável.`;
+        } else {
+          eVerdictEl.innerHTML = `🚨 <b>Entropia fraca (${Math.round(totalBits)} bits).</b> Use um texto/segredo maior e mais complexo para chegar a pelo menos 128 bits.`;
+        }
+      } else {
+        // 128 bits ou mais -> Fica Verde
+        eVerdictEl.classList.add('good');
+        if (mixCrypto.checked) {
+          eVerdictEl.textContent = '🛡️ Entropia base excelente + CSPRNG ativo. Segurança máxima (256 bits).';
+        } else {
+          eVerdictEl.textContent = '✅ Entropia (texto + segredo) forte e suficiente para proteção (≥ 128 bits).';
+        }
+      }
+
+      keystr.innerHTML = '';
+      for (let c = 0; c < hex.length; c += 4){
+        const s = document.createElement('span');
+        s.textContent = hex.substr(c, 4);
+        keystr.appendChild(s);
+        if ((c / 4) % 8 === 7 && c < 60){
+          const sep = document.createElement('span');
+          sep.className = 'sep'; sep.textContent = '  ';
+          keystr.appendChild(sep);
+        }
+      }
+      keybox.style.display = 'block';
+
+      const arr = [];
+      for (let n = 0; n < count; n++) arr.push(Math.abs(((n * 37) % max)));
+      const keys = seedFromHex(hex);
+      const shuffled = shuffleWithSeed(arr, keys);
+
+      seq.innerHTML = '';
+      shuffled.forEach(num => {
+        const chip = document.createElement('span');
+        chip.textContent = num;
+        seq.appendChild(chip);
+      });
+      outbox.style.display = 'block';
+    }, 2800);
+  });
+})();
+
+/* ===========================================================
+   SCRIPT 2: QUIZ DE SEGURANÇA
+   =========================================================== */
+(() => {
+  const form    = document.getElementById('quizForm');
+  const submit  = document.getElementById('quizSubmit');
+  const msg     = document.getElementById('quizMsg');
+  const resBox  = document.getElementById('quizResult');
+  const skullEl = document.getElementById('quizSkull');
+  const scoreEl = document.getElementById('quizScore');
+  const verdictEl = document.getElementById('quizVerdict');
+  const noteEl  = document.getElementById('quizNote');
+  const reviewEl = document.getElementById('quizReview');
+  const retryBtn = document.getElementById('quizRetry');
+
+  const ANSWERS = {
+    q1: { correct: 'b', why: 'Nenhum site legítimo precisa da sua seed real para avaliar segurança.' },
+    q2: { correct: 'b', why: 'Papel offline evita exposição a malware ou vazamento na nuvem.' },
+    q3: { correct: 'b', why: 'Urgência artificial é a assinatura clássica de golpes online.' },
+    q4: { correct: 'a', why: 'A entropia vem puramente da aleatoriedade padronizada do algoritmo (BIP39).' },
+    q5: { correct: 'b', why: 'Nenhuma exchange ou suporte oficial pede sua seed.' },
+  };
+
+  submit.addEventListener('click', () => {
+    const answers = {};
+    let unanswered = 0;
+    Object.keys(ANSWERS).forEach(q => {
+      const checked = form.querySelector(`input[name=${q}]:checked`);
+      answers[q] = checked ? checked.value : null;
+      if (!checked) unanswered++;
+    });
+
+    if (unanswered > 0) {
+      msg.textContent = `Faltam ${unanswered} pergunta(s).`;
+      return;
+    }
+    msg.textContent = '';
+
+    let score = 0;
+    const missed = [];
+    Object.entries(ANSWERS).forEach(([q, def]) => {
+      if (answers[q] === def.correct) score++;
+      else missed.push({ q, why: def.why });
+    });
+
+    form.style.display = 'none';
+    submit.style.display = 'none';
+    resBox.style.display = 'block';
+    scoreEl.textContent = `${score} de 5 respostas corretas`;
+    resBox.classList.remove('good', 'mid', 'bad');
+    skullEl.style.display = 'none';
+    reviewEl.innerHTML = '';
+
+    if (score === 5) {
+      resBox.classList.add('good');
+      verdictEl.textContent = '🎉 Excelente!';
+      noteEl.textContent = 'Você entende perfeitamente os princípios de segurança.';
+    } else if (score >= 3) {
+      resBox.classList.add('mid');
+      verdictEl.textContent = '📚 Bom, mas revise';
+      noteEl.textContent = 'Você acertou a maioria, mas pequenos descuidos podem custar caro.';
+    } else {
+      resBox.classList.add('bad');
+      skullEl.style.display = 'block';
+      verdictEl.textContent = 'Alerta Alto';
+      noteEl.textContent = 'Seus hábitos atuais apresentam risco extremo de perda de fundos.';
+    }
+
+    if (missed.length){
+      const title = document.createElement('div');
+      title.innerHTML = '<b>O que você errou:</b>';
+      title.style.marginBottom = '8px';
+      reviewEl.appendChild(title);
+      missed.forEach(m => {
+        const item = document.createElement('div');
+        item.className = 'ritem';
+        item.textContent = '• ' + m.why;
+        reviewEl.appendChild(item);
+      });
+    }
+  });
+
+  retryBtn.addEventListener('click', () => {
+    form.reset();
+    form.style.display = 'block';
+    submit.style.display = 'block';
+    resBox.style.display = 'none';
+    msg.textContent = '';
+  });
+})();
+</script>
+</body>
+</html>
