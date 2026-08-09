@@ -32,9 +32,27 @@ window.BIWidgets.strategyTreasury = async function () {
       </div>
 
       <div class="strategy__purchase-card strategy__purchase-card--horizontal">
-        <div class="strategy__purchase-intro">
-          <div class="strategy__section-label">ÚLTIMA COMPRA REALIZADA</div>
-          <div class="strategy__purchase-date" id="strategy-purchase-date">—</div>
+        <div class="strategy__movement strategy__movement--buy">
+          <div class="strategy__purchase-intro">
+            <div class="strategy__section-label">ÚLTIMA COMPRA REALIZADA</div>
+            <div class="strategy__purchase-date" id="strategy-purchase-date">—</div>
+          </div>
+          <div class="strategy__purchase-main">
+            <div class="strategy__purchase-btc"><strong id="strategy-purchase-btc">—</strong><span>BTC</span></div>
+            <div class="strategy__purchase-detail"><span>Investimento total</span><strong id="strategy-purchase-total">—</strong></div>
+            <div class="strategy__purchase-detail"><span>Preço médio</span><strong id="strategy-purchase-price">—</strong></div>
+          </div>
+        </div>
+        <div class="strategy__movement strategy__movement--sale">
+          <div class="strategy__purchase-intro">
+            <div class="strategy__section-label strategy__sale-label">ÚLTIMA VENDA REALIZADA</div>
+            <div class="strategy__purchase-date" id="strategy-sale-date">—</div>
+          </div>
+          <div class="strategy__purchase-main strategy__sale-main">
+            <div class="strategy__purchase-btc"><strong id="strategy-sale-btc">—</strong><span>BTC</span></div>
+            <div class="strategy__purchase-detail"><span>Valor da venda</span><strong id="strategy-sale-total">—</strong></div>
+            <div class="strategy__purchase-detail"><span>Preço médio</span><strong id="strategy-sale-price">—</strong></div>
+          </div>
         </div>
         <div class="strategy__purchase-guide">
           <div class="strategy__mnav-guide" aria-label="Como interpretar o mNAV">
@@ -44,17 +62,11 @@ window.BIWidgets.strategyTreasury = async function () {
           </div>
           <div class="strategy__availability" id="strategy-availability"></div>
         </div>
-        <div class="strategy__purchase-main">
-          <div class="strategy__purchase-btc"><strong id="strategy-purchase-btc">—</strong><span>BTC</span></div>
-          <div class="strategy__purchase-detail"><span>Investimento total</span><strong id="strategy-purchase-total">—</strong></div>
-          <div class="strategy__purchase-detail"><span>Preço médio</span><strong id="strategy-purchase-price">—</strong></div>
-        </div>
         <div class="strategy__purchase-grid">
           <div class="strategy__purchase-usd-reserve"><span>Reserva USD (US$ mi)</span><strong id="strategy-usd-reserve">—</strong></div>
         </div>
         <a id="strategy-purchase-source" class="strategy__source-link" href="https://www.strategy.com/purchases" target="_blank" rel="noopener noreferrer">Ver documento oficial ↗</a>
       </div>
-
       <div class="strategy__layout strategy__layout--full">
         <div class="strategy__chart-card">
           <div class="strategy__chart-head">
@@ -143,6 +155,9 @@ window.BIWidgets.strategyTreasury = async function () {
     var latestBuy = purchaseData.compras.filter(function (item) {
       return !item.venda && item.quantidadeBtc > 0;
     }).pop();
+    var latestSell = purchaseData.compras.filter(function (item) {
+      return item.venda || item.quantidadeBtc < 0;
+    }).pop();
 
     if (!mstr || !btc || !latestMovement || !latestBuy) throw new Error('Dados oficiais incompletos.');
 
@@ -172,6 +187,10 @@ window.BIWidgets.strategyTreasury = async function () {
     setText('strategy-purchase-btc', fmtInt(latestBuy.quantidadeBtc));
     setText('strategy-purchase-price', fmtUsd(latestBuy.precoOperacaoUsd, 0));
     setText('strategy-purchase-total', fmtCompactUsd(latestBuy.valorOperacaoUsd));
+    setText('strategy-sale-date', latestSell ? fmtDate(latestSell.data) : 'Sem venda registrada');
+    setText('strategy-sale-btc', latestSell ? fmtInt(Math.abs(latestSell.quantidadeBtc)) : '—');
+    setText('strategy-sale-price', latestSell ? fmtUsd(latestSell.precoOperacaoUsd, 0) : '—');
+    setText('strategy-sale-total', latestSell ? fmtCompactUsd(Math.abs(latestSell.valorOperacaoUsd)) : '—');
     setText('strategy-usd-reserve', fmtInt(current.usdReserve / 1000000));
     var sourceLink = document.getElementById('strategy-purchase-source');
     if (sourceLink && latestBuy.documentoSec) sourceLink.href = latestBuy.documentoSec;

@@ -1053,3 +1053,27 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
   .strategy__purchase-card--horizontal .strategy__purchase-main { justify-content:flex-start; }
   .strategy__footer { flex-direction:column; }
 }
+/* Últimos movimentos — compra e venda em colunas compactas, sem alterar o gráfico. */
+.strategy__purchase-card--horizontal {
+  grid-template-columns:minmax(275px,.9fr) minmax(275px,.9fr) minmax(360px,1.2fr);
+  grid-template-areas:"buy sale guide" "buy sale metrics" "source source source";
+}
+.strategy__movement { min-width:0; display:grid; gap:6px; align-content:center; }
+.strategy__movement--buy { grid-area:buy; }
+.strategy__movement--sale { grid-area:sale; }
+.strategy__purchase-card--horizontal .strategy__movement .strategy__purchase-main { grid-area:auto; margin:0; justify-content:space-between; }
+.strategy__movement .strategy__purchase-intro { grid-area:auto; }
+.strategy__sale-label { color:#ff6b84; }
+.strategy__sale-main { border:1px solid rgba(255,77,109,.28); }
+@media (max-width:1200px) {
+  .strategy__purchase-card--horizontal {
+    grid-template-columns:minmax(250px,1fr) minmax(250px,1fr);
+    grid-template-areas:"buy sale" "guide guide" "metrics metrics" "source source";
+  }
+}
+@media (max-width:700px) {
+  .strategy__purchase-card--horizontal {
+    grid-template-columns:1fr;
+    grid-template-areas:"buy" "sale" "guide" "metrics" "source";
+  }
+}
