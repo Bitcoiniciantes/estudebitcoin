@@ -19,7 +19,7 @@ function json(request, body, status = 200) {
 
 function publicMarkerKey(url) {
   const asset = url.searchParams.get("asset") || "";
-  if (!/^[a-zA-Z0-9:_-]{3,120}$/.test(asset)) return null;
+  if (!/^[a-zA-Z0-9:_.=-]{3,120}$/.test(asset)) return null;
   return `public-markers:${asset}`;
 }
 
