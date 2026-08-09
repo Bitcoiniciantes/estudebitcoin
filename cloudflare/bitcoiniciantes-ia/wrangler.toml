@@ -1,3 +1,7 @@
 name = "bitcoiniciantes-ia"
 main = "src/index.js"
 compatibility_date = "2026-08-01"
+
+[[kv_namespaces]]
+binding = "PUBLIC_MARKERS"
+id = "6049ad3a9eb54f4d8b413e2ab19db712"

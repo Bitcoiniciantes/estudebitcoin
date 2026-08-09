@@ -17,6 +17,44 @@ function json(request, body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders(request) });
 }
 
+function publicMarkerKey(url) {
+  const asset = url.searchParams.get("asset") || "";
+  if (!/^[a-zA-Z0-9:_-]{3,120}$/.test(asset)) return null;
+  return `public-markers:${asset}`;
+}
+
+function cleanPublicMarkers(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((line) => Number.isFinite(line?.price) && line.price > 0 && line.price < 1e15)
+    .slice(0, 30)
+    .map((line) => ({ price: Number(line.price) }));
+}
+
+async function publicMarkers(request, url, env) {
+  const key = publicMarkerKey(url);
+  if (!key) return json(request, { error: "Ativo invalido." }, 400);
+  if (!env.PUBLIC_MARKERS) return json(request, { error: "Marcacoes indisponiveis." }, 503);
+
+  if (request.method === "GET") {
+    const stored = await env.PUBLIC_MARKERS.get(key, "json");
+    return json(request, {
+      markers: cleanPublicMarkers(stored?.markers),
+      updatedAt: Number(stored?.updatedAt) || 0,
+    });
+  }
+
+  if (request.method !== "POST") return json(request, { error: "Metodo nao permitido." }, 405);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json(request, { error: "Envie um JSON valido." }, 400);
+  }
+  const payload = { markers: cleanPublicMarkers(body?.markers), updatedAt: Date.now() };
+  await env.PUBLIC_MARKERS.put(key, JSON.stringify(payload), { expirationTtl: 60 * 60 * 24 * 180 });
+  return json(request, payload);
+}
 function asText(value, maxLength = 1800) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
@@ -831,6 +869,9 @@ export default {
       return assetCandles(request, url.searchParams.get("asset"), url.searchParams.get("period"));
     }
 
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/public-markers") {
+      return publicMarkers(request, url, env);
+    }
     const isTermometro = url.pathname === "/api/ai-analysis";
     const isEstudeBitcoin = url.pathname === "/v1/analyze";
     if (request.method !== "POST" || (!isTermometro && !isEstudeBitcoin)) {

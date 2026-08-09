@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const highEl = document.getElementById('preev-high');
   const lowEl = document.getElementById('preev-low');
   const titleEl = document.querySelector('.preev__title'); // Seleciona o título
+  const PUBLIC_MARKERS_URL = 'https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/public-markers';
 
   let activeTimeframe = '1D';
   let externalAsset = null;       // { kind:'crypto'|'stock', symbol, pair, label }
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let tooltipHideTimer = null;
   let resizeTimeout = null;
   let lastTouchMarkerAt = 0;
+  let lastPublicMarkerUpdate = 0;
 
   // Largura (em px) reservada para o eixo de preços à esquerda do gráfico
   const AXIS_W = 56;
@@ -120,6 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function loadMarkers() {
+    lastPublicMarkerUpdate = 0;
     markerLines = [];
     try {
       const raw = localStorage.getItem(markerStorageKey());
@@ -129,6 +132,43 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (err) { /* localStorage indisponível */ }
     renderBaseChart();
+    void pullPublicMarkers();
+  }
+
+  async function publicMarkersRequest(method, markers) {
+    const url = new URL(PUBLIC_MARKERS_URL);
+    url.searchParams.set('asset', markerStorageKey());
+    const response = await fetch(url, {
+      method,
+      cache: 'no-store',
+      headers: method === 'POST' ? { 'Content-Type': 'application/json' } : undefined,
+      body: method === 'POST' ? JSON.stringify({ markers }) : undefined,
+    });
+    if (!response.ok) throw new Error(`public-markers-${response.status}`);
+    return response.json();
+  }
+
+  async function pushPublicMarkers() {
+    try {
+      const data = await publicMarkersRequest('POST', markerLines);
+      lastPublicMarkerUpdate = Number(data?.updatedAt) || lastPublicMarkerUpdate;
+    } catch (err) {
+      console.warn('Public marker sync error', err);
+    }
+  }
+
+  async function pullPublicMarkers() {
+    try {
+      const data = await publicMarkersRequest('GET');
+      const updatedAt = Number(data?.updatedAt) || 0;
+      if (!updatedAt || updatedAt <= lastPublicMarkerUpdate) return;
+      markerLines = Array.isArray(data.markers) ? data.markers.filter(line => Number.isFinite(line?.price)) : [];
+      lastPublicMarkerUpdate = updatedAt;
+      saveMarkers();
+      renderBaseChart();
+    } catch (err) {
+      console.warn('Public marker sync error', err);
+    }
   }
 
   function isExternalStock() {
@@ -824,6 +864,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     saveMarkers();
     renderBaseChart();
+    void pushPublicMarkers();
   }
 
   function keepTooltipVisible() {
@@ -895,6 +936,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('pointerdown', event => {
     if (chartWrap && !chartWrap.contains(event.target)) hideTooltip();
   });
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void pullPublicMarkers();
+  });
+  setInterval(() => void pullPublicMarkers(), 5000);
   // --- EVENTOS FINAIS ---
   inputLeft.addEventListener('input', () => {
       limitarCasas(inputLeft, selectLeft.value);
@@ -984,6 +1029,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Inicialização
   setInitialDefaults(); // Força Bitcoin para US Dólar no carregamento
+  loadMarkers();
   updateAll();
   setInterval(fetchCurrentTicker, 10000);     // preço ao vivo a cada 10s
   setInterval(fetchHistoricalTrends, 60000);  // gráfico/histórico a cada 60s
