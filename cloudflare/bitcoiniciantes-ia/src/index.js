@@ -994,8 +994,8 @@ export default {
     if (isEstudeBitcoin) {
       const prompt = buildEstudeBitcoinPrompt(data || {});
       const providers = [
-        { name: "groq", model: GROQ_MODEL, run: () => generateWithGroq(env, prompt.messages) },
         { name: "gemini", model: GEMINI_MODEL, run: () => generateWithGemini(env, prompt.messages) },
+        { name: "groq", model: GROQ_MODEL, run: () => generateWithGroq(env, prompt.messages) },
       ];
       for (const provider of providers) {
         try {
