@@ -1053,27 +1053,44 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
   .strategy__purchase-card--horizontal .strategy__purchase-main { justify-content:flex-start; }
   .strategy__footer { flex-direction:column; }
 }
-/* Últimos movimentos — compra e venda em colunas compactas, sem alterar o gráfico. */
+/* Últimos movimentos — compra e venda empilhadas, sem alterar o gráfico. */
 .strategy__purchase-card--horizontal {
-  grid-template-columns:minmax(275px,.9fr) minmax(275px,.9fr) minmax(360px,1.2fr);
-  grid-template-areas:"buy sale guide" "buy sale metrics" "source source source";
+  grid-template-columns:minmax(0,1.45fr) minmax(340px,1.1fr) minmax(150px,.38fr) auto;
+  grid-template-areas:"movements guide metrics source";
 }
-.strategy__movement { min-width:0; display:grid; gap:6px; align-content:center; }
-.strategy__movement--buy { grid-area:buy; }
-.strategy__movement--sale { grid-area:sale; }
-.strategy__purchase-card--horizontal .strategy__movement .strategy__purchase-main { grid-area:auto; margin:0; justify-content:space-between; }
+.strategy__movements { grid-area:movements; display:grid; gap:6px; min-width:0; }
+.strategy__movement {
+  min-width:0;
+  display:grid;
+  grid-template-columns:172px minmax(0,1fr);
+  align-items:center;
+  gap:8px;
+  border:1px solid #292c31;
+  border-radius:8px;
+  padding:6px 8px;
+}
+.strategy__movement--buy, .strategy__movement--sale { grid-area:auto; }
+.strategy__purchase-card--horizontal .strategy__movement .strategy__purchase-main {
+  grid-area:auto;
+  margin:0;
+  justify-content:space-between;
+}
 .strategy__movement .strategy__purchase-intro { grid-area:auto; }
-.strategy__sale-label { color:#ff6b84; }
-.strategy__sale-main { border:1px solid rgba(255,77,109,.28); }
+.strategy__sale-label { color:var(--strategy-orange); }
+.strategy__sale-main { border:0; }
 @media (max-width:1200px) {
   .strategy__purchase-card--horizontal {
-    grid-template-columns:minmax(250px,1fr) minmax(250px,1fr);
-    grid-template-areas:"buy sale" "guide guide" "metrics metrics" "source source";
+    grid-template-columns:minmax(0,1.1fr) minmax(300px,.9fr);
+    grid-template-areas:"movements guide" "metrics source";
   }
 }
 @media (max-width:700px) {
   .strategy__purchase-card--horizontal {
     grid-template-columns:1fr;
-    grid-template-areas:"buy" "sale" "guide" "metrics" "source";
+    grid-template-areas:"movements" "guide" "metrics" "source";
   }
+  .strategy__movement { grid-template-columns:1fr; }
+  .strategy__purchase-card--horizontal .strategy__movement .strategy__purchase-main { flex-wrap:wrap; gap:7px; }
+  .strategy__movement .strategy__purchase-btc { flex-basis:100%; }
+  .strategy__movement .strategy__purchase-detail { flex:1 1 120px; padding-left:7px; }
 }

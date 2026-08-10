@@ -32,6 +32,7 @@ window.BIWidgets.strategyTreasury = async function () {
       </div>
 
       <div class="strategy__purchase-card strategy__purchase-card--horizontal">
+        <div class="strategy__movements">
         <div class="strategy__movement strategy__movement--buy">
           <div class="strategy__purchase-intro">
             <div class="strategy__section-label">ÚLTIMA COMPRA REALIZADA</div>
@@ -53,6 +54,7 @@ window.BIWidgets.strategyTreasury = async function () {
             <div class="strategy__purchase-detail"><span>Valor da venda</span><strong id="strategy-sale-total">—</strong></div>
             <div class="strategy__purchase-detail"><span>Preço médio</span><strong id="strategy-sale-price">—</strong></div>
           </div>
+        </div>
         </div>
         <div class="strategy__purchase-guide">
           <div class="strategy__mnav-guide" aria-label="Como interpretar o mNAV">
