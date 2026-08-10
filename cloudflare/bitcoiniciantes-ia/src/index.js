@@ -93,6 +93,15 @@ const NEWS_QUERIES = {
   POL: "Polygon POL criptomoeda",
   PAXG: "ouro mercado",
   MSTR: "Strategy MSTR Bitcoin",
+  QBTS: "D-Wave Quantum QBTS ações",
+  QUBT: "Quantum Computing QUBT ações",
+  CRCL: "Circle CRCL ações",
+  MP: "MP Materials ações",
+  GLW: "Corning GLW ações",
+  SNDK: "SanDisk SNDK ações",
+  RIO: "Rio Tinto RIO ações",
+  BHP: "BHP Group ações",
+  SPCX: "SPCX ações",
   NVDA: "Nvidia ações",
   AMD: "AMD ações",
   TSLA: "Tesla ações",
@@ -113,6 +122,15 @@ const BING_QUERIES = {
   POL: "Polygon POL price news",
   PAXG: "gold price market news",
   MSTR: "Strategy MSTR MicroStrategy Bitcoin",
+  QBTS: "D-Wave Quantum QBTS stock news",
+  QUBT: "Quantum Computing QUBT stock news",
+  CRCL: "Circle CRCL stock news",
+  MP: "MP Materials stock news",
+  GLW: "Corning GLW stock news",
+  SNDK: "SanDisk SNDK stock news",
+  RIO: "Rio Tinto RIO stock news",
+  BHP: "BHP Group stock news",
+  SPCX: "SPCX stock news",
   NVDA: "Nvidia stock news",
   AMD: "AMD Advanced Micro Devices stock",
   TSLA: "Tesla stock news",
@@ -124,6 +142,14 @@ const BING_QUERIES = {
   URANIO: "uranium price market news",
 };
 
+
+const SEC_TICKERS = new Set([
+  "MSTR", "NVDA", "AMD", "TSLA", "GOOGL", "META", "AAPL", "QBTS", "QUBT",
+  "SNDK", "GLW", "CRCL", "MP", "RIO", "BHP", "SPCX",
+]);
+const SEC_FORMS = new Set(["8-K", "10-Q", "10-K", "20-F", "40-F", "6-K"]);
+const SEC_USER_AGENT = "Bitcoiniciantes/1.0 (contato: joelhamad@yahoo.com.br)";
+const SEC_TICKERS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 function parseRssItems(xml, defaultSource, limit = 60) {
   return xml.split("<item>").slice(1, limit + 1).map((raw) => {
     const item = raw.split("</item>")[0];
@@ -169,6 +195,59 @@ async function fetchRssItems(url, defaultSource, attempts = 1, timeoutMs = NEWS_
   throw lastError || new Error("news-failed");
 }
 
+async function fetchSecTickerMap() {
+  const cacheKey = "https://bitcoiniciantes-ia.workers.dev/_cache/sec/company-tickers";
+  try {
+    const cached = await caches.default.match(cacheKey);
+    const cachedAt = Number(cached?.headers.get("X-Cached-At")) || 0;
+    if (cached && Date.now() - cachedAt < SEC_TICKERS_CACHE_TTL_MS) return cached.json();
+  } catch {}
+  const response = await fetch("https://www.sec.gov/files/company_tickers.json", {
+    headers: { "User-Agent": SEC_USER_AGENT, "Accept-Encoding": "gzip, deflate" },
+  });
+  if (!response.ok) throw new Error(`sec-tickers-${response.status}`);
+  const payload = await response.json();
+  try {
+    await caches.default.put(cacheKey, new Response(JSON.stringify(payload), {
+      headers: { "Content-Type": "application/json", "X-Cached-At": String(Date.now()) },
+    }));
+  } catch {}
+  return payload;
+}
+
+async function fetchSecFilings(symbol) {
+  if (!SEC_TICKERS.has(symbol)) return [];
+  try {
+    const tickers = await fetchSecTickerMap();
+    const ticker = Object.values(tickers).find((item) => String(item?.ticker || "").toUpperCase() === symbol);
+    if (!ticker?.cik_str) return [];
+    const cik = String(ticker.cik_str).padStart(10, "0");
+    const response = await fetch(`https://data.sec.gov/submissions/CIK${cik}.json`, {
+      headers: { "User-Agent": SEC_USER_AGENT, "Accept-Encoding": "gzip, deflate" },
+    });
+    if (!response.ok) throw new Error(`sec-submissions-${response.status}`);
+    const filings = (await response.json())?.filings?.recent || {};
+    const cutoff = Date.now() - NEWS_MAX_AGE_MS;
+    return (filings.form || []).flatMap((form, index) => {
+      if (!SEC_FORMS.has(form)) return [];
+      const date = filings.filingDate?.[index];
+      const publishedAt = date && !Number.isNaN(Date.parse(date)) ? new Date(`${date}T12:00:00Z`).toISOString() : null;
+      if (publishedAt && Date.parse(publishedAt) < cutoff) return [];
+      const accession = String(filings.accessionNumber?.[index] || "").replaceAll("-", "");
+      const document = String(filings.primaryDocument?.[index] || "");
+      if (!accession || !document) return [];
+      return [{
+        title: `${form} protocolado por ${ticker.title || symbol}`,
+        description: "Documento oficial registrado na SEC.",
+        url: `https://www.sec.gov/Archives/edgar/data/${Number(ticker.cik_str)}/${accession}/${document}`,
+        source: "SEC EDGAR",
+        publishedAt,
+      }];
+    });
+  } catch {
+    return [];
+  }
+}
 function newsQuery(asset) {
   const symbol = String(asset || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 20);
   if (!symbol) return "financial markets";
@@ -184,6 +263,15 @@ const NEWS_PATTERNS = {
   POL: /\b(?:polygon|pol)\b/i,
   PAXG: /\b(?:pax gold|paxg|gold|ouro)\b/i,
   MSTR: /\b(?:strategy|microstrategy|mstr)\b/i,
+  QBTS: /\b(?:d-wave|d wave|qbts)\b/i,
+  QUBT: /\b(?:quantum computing|qubt)\b/i,
+  CRCL: /\b(?:circle|crcl)\b/i,
+  MP: /\b(?:mp materials|mp)\b/i,
+  GLW: /\b(?:corning|glw)\b/i,
+  SNDK: /\b(?:sandisk|sndk)\b/i,
+  RIO: /\b(?:rio tinto|\brio\b)\b/i,
+  BHP: /\b(?:bhp)\b/i,
+  SPCX: /\b(?:spcx)\b/i,
   NVDA: /\b(?:nvidia|nvda)\b/i,
   AMD: /\b(?:amd|advanced micro devices)\b/i,
   TSLA: /\b(?:tesla|tsla)\b/i,
@@ -217,24 +305,6 @@ const NICHE_SOURCES = {
     ["https://investingnews.com/feed/", "Investing News Network"],
     ["https://www.mining.com/feed/", "Mining.com"],
   ],
-  NVDA: [
-    ["https://beincrypto.com/feed/", "BeInCrypto"],
-  ],
-  AMD: [
-    ["https://beincrypto.com/feed/", "BeInCrypto"],
-  ],
-  TSLA: [
-    ["https://beincrypto.com/feed/", "BeInCrypto"],
-  ],
-  GOOGL: [
-    ["https://beincrypto.com/feed/", "BeInCrypto"],
-  ],
-  META: [
-    ["https://beincrypto.com/feed/", "BeInCrypto"],
-  ],
-  AAPL: [
-    ["https://beincrypto.com/feed/", "BeInCrypto"],
-  ],
 };
 
 function isRelevantNews(item, symbol) {
@@ -247,6 +317,7 @@ async function fetchAssetNewsItems(asset) {
   const symbol = String(asset || "").toUpperCase();
   const tag = NEWS_TAGS[symbol];
   const cutoff = Date.now() - NEWS_MAX_AGE_MS;
+  const secItemsPromise = fetchSecFilings(symbol);
 
   const clean = (items) => {
     const seen = new Set();
@@ -266,7 +337,8 @@ async function fetchAssetNewsItems(asset) {
   const localRequests = [fetchRssItems("https://www.criptofacil.com/feed/", "CriptoF\u00e1cil")];
   if (tag) localRequests.push(fetchRssItems("https://cointelegraph.com/rss/tag/" + tag, "Cointelegraph"));
   const localItems = clean(fulfilled(await Promise.allSettled(localRequests)));
-  if (localItems.length >= 3) return localItems.slice(0, 3);
+  const secItems = clean(await secItemsPromise);
+  if (localItems.length >= 3) return clean([...secItems, ...localItems]).slice(0, 3);
 
   const generalRequests = [
     fetchRssItems("https://www.theblock.co/rss.xml", "The Block"),
@@ -280,14 +352,14 @@ async function fetchAssetNewsItems(asset) {
   ];
   const generalItems = clean(fulfilled(await Promise.allSettled(generalRequests)));
   const merged = clean([...localItems, ...generalItems]);
-  if (merged.length >= 3) return merged.slice(0, 3);
+  if (merged.length >= 3) return clean([...secItems, ...merged]).slice(0, 3);
 
   const nicheSources = NICHE_SOURCES[symbol] || [];
   const nicheItems = clean(fulfilled(await Promise.allSettled(
     nicheSources.map(([url, source]) => fetchRssItems(url, source)),
   )));
   const mergedNiche = clean([...localItems, ...generalItems, ...nicheItems]);
-  if (mergedNiche.length >= 3) return mergedNiche.slice(0, 3);
+  if (mergedNiche.length >= 3) return clean([...secItems, ...mergedNiche]).slice(0, 3);
 
   const bingUrl = `https://www.bing.com/news/search?format=rss&q=${encodeURIComponent(BING_QUERIES[symbol] || `${symbol} market news`)}`;
   const bingItems = clean(fulfilled(await Promise.allSettled([
@@ -304,6 +376,15 @@ async function fetchAssetNewsItems(asset) {
     POL: "Polygon POL cryptocurrency",
     PAXG: "gold market",
     MSTR: "Strategy MSTR Bitcoin",
+  QBTS: "D-Wave Quantum QBTS ações",
+  QUBT: "Quantum Computing QUBT ações",
+  CRCL: "Circle CRCL ações",
+  MP: "MP Materials ações",
+  GLW: "Corning GLW ações",
+  SNDK: "SanDisk SNDK ações",
+  RIO: "Rio Tinto RIO ações",
+  BHP: "BHP Group ações",
+  SPCX: "SPCX ações",
     NVDA: "Nvidia stock",
     AMD: "AMD stock",
     TSLA: "Tesla stock",
@@ -321,7 +402,7 @@ async function fetchAssetNewsItems(asset) {
     fetchRssItems(globalGoogleUrl, "Google News Internacional", 1, NEWS_FETCH_TIMEOUT_MS),
   ])));
 
-  return clean([...localItems, ...generalItems, ...nicheItems, ...bingItems, ...googleItems]).slice(0, 3);
+  return clean([...secItems, ...localItems, ...generalItems, ...nicheItems, ...bingItems, ...googleItems]).slice(0, 3);
 }
 
 const NEWS_CACHE_TTL_MS = 5 * 60 * 1000;
