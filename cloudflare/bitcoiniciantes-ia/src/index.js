@@ -33,6 +33,13 @@ function cleanPublicMarkers(value) {
       if (!text || !Number.isFinite(x) || x < 0 || x > 1) return [];
       return [{ type: "text", price: Number(marker.price), x, text }];
     }
+    if (marker.type === "ray") {
+      const x = Number(marker.x);
+      const endX = Number(marker.endX);
+      const endPrice = Number(marker.endPrice);
+      if (![x, endX, endPrice].every(Number.isFinite) || x < 0 || x > 1 || endX < 0 || endX > 1 || endPrice <= 0 || endPrice >= 1e15 || Math.abs(endX - x) < 0.01) return [];
+      return [{ type: "ray", price: Number(marker.price), x, endX, endPrice }];
+    }
     return [{ type: "line", price: Number(marker.price) }];
   });
 }

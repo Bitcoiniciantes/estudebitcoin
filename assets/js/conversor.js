@@ -120,10 +120,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function isValidMarker(marker) {
-    if (!Number.isFinite(marker?.price)) return false;
-    if (marker?.type !== 'text') return true;
-    return typeof marker.text === 'string' && marker.text.trim().length > 0
-      && Number.isFinite(marker.x) && marker.x >= 0 && marker.x <= 1;
+    if (!Number.isFinite(marker?.price) || marker.price <= 0) return false;
+    if (marker?.type === 'text') return typeof marker.text === 'string' && marker.text.trim().length > 0 && Number.isFinite(marker.x) && marker.x >= 0 && marker.x <= 1;
+    if (marker?.type === 'ray') return Number.isFinite(marker.x) && Number.isFinite(marker.endX) && Number.isFinite(marker.endPrice) && marker.x >= 0 && marker.x <= 1 && marker.endX >= 0 && marker.endX <= 1 && marker.endPrice > 0 && Math.abs(marker.endX - marker.x) >= 0.01;
+    return !marker?.type || marker.type === 'line';
   }
   function saveMarkers() {
     try {
@@ -644,55 +644,87 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.restore();
   }
 
+  function drawingPoint(evt) {
+    if (!chartState) return null;
+    const rect = canvas.getBoundingClientRect();
+    const touch = evt.touches?.[0] || evt.changedTouches?.[0];
+    const clientX = touch ? touch.clientX : evt.clientX;
+    const clientY = touch ? touch.clientY : evt.clientY;
+    const plotW = Math.max(1, chartState.w - AXIS_W);
+    const x = clientX - rect.left, y = clientY - rect.top;
+    if (x < 0 || x > plotW || y < 0 || y > chartState.h) return null;
+    const top = chartState.mode === 'candles' ? 18 : 15, bottom = 15;
+    const py = Math.max(top, Math.min(chartState.h - bottom, y));
+    const price = chartState.min + ((chartState.h - bottom - py) / (chartState.h - top - bottom)) * chartState.range;
+    return { x, y: py, price, normalX: Math.max(0, Math.min(1, x / plotW)) };
+  }
+
+  function rayGeometry(marker) {
+    if (!chartState) return null;
+    const plotW = chartState.w - AXIS_W, yFn = chartState.priceY || chartState.yOf;
+    const startX = Math.max(0, Math.min(plotW, Number(marker.x) * plotW));
+    const controlX = Math.max(0, Math.min(plotW, Number(marker.endX) * plotW));
+    const startY = yFn(marker.price), controlY = yFn(marker.endPrice);
+    if (![startX, controlX, startY, controlY].every(Number.isFinite) || Math.abs(controlX - startX) < 4) return null;
+    const edgeX = controlX > startX ? plotW : 0;
+    return { startX, startY, controlX, controlY, edgeX, edgeY: startY + ((controlY - startY) * (edgeX - startX)) / (controlX - startX) };
+  }
+
+  function distanceToSegment(x, y, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1, length = dx * dx + dy * dy;
+    if (!length) return Math.hypot(x - x1, y - y1);
+    const t = Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / length));
+    return Math.hypot(x - (x1 + t * dx), y - (y1 + t * dy));
+  }
+
+  function markerHit(point) {
+    if (!chartState || !point) return null;
+    const plotW = chartState.w - AXIS_W, yFn = chartState.priceY || chartState.yOf, ctx = canvas.getContext('2d');
+    for (let index = markerLines.length - 1; index >= 0; index -= 1) {
+      const marker = markerLines[index], y = yFn(marker.price);
+      if (!Number.isFinite(y)) continue;
+      if (marker.type === 'text') {
+        ctx.font = 'bold 11px ui-monospace, SFMono-Regular, Consolas, monospace';
+        const width = Math.min(plotW - 8, ctx.measureText(marker.text.trim().slice(0, 80)).width + 10);
+        const left = Math.max(4, Math.min(plotW - width - 4, Number(marker.x) * plotW));
+        if (point.x >= left - 6 && point.x <= left + width + 6 && Math.abs(point.y - y) <= 16) return { index, handle: 'point' };
+      } else if (marker.type === 'ray') {
+        const ray = rayGeometry(marker); if (!ray) continue;
+        if (Math.hypot(point.x - ray.startX, point.y - ray.startY) <= 15) return { index, handle: 'start' };
+        if (Math.hypot(point.x - ray.controlX, point.y - ray.controlY) <= 15 || distanceToSegment(point.x, point.y, ray.startX, ray.startY, ray.edgeX, ray.edgeY) <= 9) return { index, handle: 'end' };
+      } else if (Math.abs(point.y - y) <= 10) return { index, handle: 'line' };
+    }
+    return null;
+  }
+
+  function saveAndShareMarkers() { saveMarkers(); renderBaseChart(); void pushPublicMarkers(); }
+
   function drawMarkers() {
-    if (!chartState || !markerLines.length) return;
-    const { w, h } = chartState;
-    const plotW = w - AXIS_W;
-    const yFn = chartState.priceY || chartState.yOf;
-    const ctx = canvas.getContext('2d');
-    const ccy = displayCurrency();
-    const prefix = ccy === 'BRL' ? 'R$ ' : ccy === 'BTC' ? '₿ ' : '$ ';
+    if (!chartState || (!markerLines.length && !markerDraft)) return;
+    const { w, h } = chartState, plotW = w - AXIS_W, yFn = chartState.priceY || chartState.yOf, ctx = canvas.getContext('2d');
+    const ccy = displayCurrency(), prefix = ccy === 'BRL' ? 'R$ ' : ccy === 'BTC' ? '₿ ' : '$ ';
     ctx.save();
     markerLines.forEach(marker => {
-      const y = yFn(marker.price);
-      if (!Number.isFinite(y)) return;
+      const y = yFn(marker.price); if (!Number.isFinite(y)) return;
       const yClamped = Math.max(10, Math.min(h - 10, y));
       if (marker.type === 'text') {
-        const text = marker.text.trim().slice(0, 80);
-        const anchorX = Math.max(4, Math.min(plotW - 4, Number(marker.x) * plotW));
-        ctx.setLineDash([]);
-        ctx.font = 'bold 11px ui-monospace, SFMono-Regular, Consolas, monospace';
-        const width = Math.min(plotW - 8, ctx.measureText(text).width + 10);
-        const x = Math.max(4, Math.min(plotW - width - 4, anchorX));
-        ctx.fillStyle = 'rgba(255,255,255,0.96)';
-        ctx.fillRect(x, yClamped - 10, width, 20);
-        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x + .5, yClamped - 9.5, width - 1, 19);
-        ctx.fillStyle = '#111111';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, x + 5, yClamped);
-        return;
+        const text = marker.text.trim().slice(0, 80); ctx.setLineDash([]); ctx.font = 'bold 11px ui-monospace, SFMono-Regular, Consolas, monospace';
+        const width = Math.min(plotW - 8, ctx.measureText(text).width + 10), x = Math.max(4, Math.min(plotW - width - 4, Number(marker.x) * plotW));
+        ctx.fillStyle = 'rgba(255,255,255,0.96)'; ctx.fillRect(x, yClamped - 10, width, 20); ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 1; ctx.strokeRect(x + .5, yClamped - 9.5, width - 1, 19);
+        ctx.fillStyle = '#111111'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(text, x + 5, yClamped); return;
       }
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-      ctx.setLineDash([6, 5]);
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(plotW, y);
-      ctx.stroke();
-      const label = prefix + formatAxisValue(marker.price);
-      ctx.font = 'bold 10px ui-monospace, SFMono-Regular, Consolas, monospace';
-      const tw = ctx.measureText(label).width;
-      ctx.setLineDash([]);
-      ctx.fillStyle = '#222222';
-      ctx.fillRect(w - AXIS_W, yClamped - 9, tw + 8, 18);
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(label, w - AXIS_W + 4, yClamped);
+      if (marker.type === 'ray') {
+        const ray = rayGeometry(marker); if (!ray) return;
+        ctx.save(); ctx.beginPath(); ctx.rect(0, 0, plotW, h); ctx.clip(); ctx.strokeStyle = '#f7931a'; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(ray.startX, ray.startY); ctx.lineTo(ray.edgeX, ray.edgeY); ctx.stroke();
+        const angle = Math.atan2(ray.edgeY - ray.startY, ray.edgeX - ray.startX); ctx.fillStyle = '#f7931a'; ctx.beginPath(); ctx.moveTo(ray.edgeX, ray.edgeY); ctx.lineTo(ray.edgeX - 10 * Math.cos(angle - Math.PI / 6), ray.edgeY - 10 * Math.sin(angle - Math.PI / 6)); ctx.lineTo(ray.edgeX - 10 * Math.cos(angle + Math.PI / 6), ray.edgeY - 10 * Math.sin(angle + Math.PI / 6)); ctx.closePath(); ctx.fill();
+        if (markerMode && drawingTool === 'adjust') { ctx.fillStyle = '#fff'; ctx.strokeStyle = '#f7931a'; ctx.lineWidth = 2; [[ray.startX, ray.startY], [ray.controlX, ray.controlY]].forEach(([x, pointY]) => { ctx.beginPath(); ctx.arc(x, pointY, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }); }
+        ctx.restore(); return;
+      }
+      ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(plotW, y); ctx.stroke();
+      const label = prefix + formatAxisValue(marker.price); ctx.font = 'bold 10px ui-monospace, SFMono-Regular, Consolas, monospace'; const tw = ctx.measureText(label).width;
+      ctx.setLineDash([]); ctx.fillStyle = '#222222'; ctx.fillRect(w - AXIS_W, yClamped - 9, tw + 8, 18); ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(label, w - AXIS_W + 4, yClamped);
     });
+    if (markerDraft?.type === 'ray') { const y = yFn(markerDraft.price); if (Number.isFinite(y)) { ctx.fillStyle = '#f7931a'; ctx.beginPath(); ctx.arc(markerDraft.x * plotW, y, 5, 0, Math.PI * 2); ctx.fill(); } }
     ctx.restore();
   }
   function drawTrendChart(prices, isBullish) {
@@ -869,32 +901,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const now = Date.now();
     if (evt.type === 'mouseup' && now - lastTouchMarkerAt < 750) return;
     if (evt.type === 'touchend') lastTouchMarkerAt = now;
-    const rect = canvas.getBoundingClientRect();
-    const hasTouch = evt.touches && evt.touches.length;
-    const touch = hasTouch ? evt.touches[0] : (evt.changedTouches && evt.changedTouches[0]);
-    const clientX = touch ? touch.clientX : evt.clientX;
-    const clientY = touch ? touch.clientY : evt.clientY;
-    const x = (clientX - rect.left) / chartState.w;
-    const y = (clientY - rect.top) / chartState.h;
-    if (x <= 0 || x >= 1 || y <= 0 || y >= 1) return;
-    const { h, min, range, mode } = chartState;
-    const top = mode === 'candles' ? 18 : 15;
-    const bottom = 15;
-    const py = Math.max(top, Math.min(h - bottom, clientY - rect.top));
-    const price = min + ((h - bottom - py) / (h - top - bottom)) * range;
+    const point = drawingPoint(evt);
+    if (!point) return;
+    if (drawingTool === 'erase') {
+      const hit = markerHit(point);
+      if (hit) { markerLines.splice(hit.index, 1); saveAndShareMarkers(); }
+      return;
+    }
+    if (drawingTool === 'adjust') {
+      if (markerDraft?.type === 'adjust') {
+        const marker = markerLines[markerDraft.index];
+        if (!marker) { markerDraft = null; return; }
+        if (marker.type === 'ray') {
+          if (markerDraft.handle === 'start') { marker.x = point.normalX; marker.price = point.price; }
+          else { marker.endX = point.normalX; marker.endPrice = point.price; }
+        } else if (marker.type === 'text') { marker.x = point.normalX; marker.price = point.price; }
+        else marker.price = point.price;
+        markerDraft = null; saveAndShareMarkers();
+      } else {
+        const hit = markerHit(point);
+        if (hit) { markerDraft = { type: 'adjust', ...hit }; renderBaseChart(); }
+      }
+      return;
+    }
+    if (drawingTool === 'ray') {
+      if (markerDraft?.type === 'ray') {
+        if (Math.abs(point.normalX - markerDraft.x) < 0.01) return;
+        markerLines.push({ type: 'ray', price: markerDraft.price, x: markerDraft.x, endPrice: point.price, endX: point.normalX });
+        markerDraft = null; saveAndShareMarkers();
+      } else { markerDraft = { type: 'ray', price: point.price, x: point.normalX }; renderBaseChart(); }
+      return;
+    }
     if (drawingTool === 'text') {
       const text = window.prompt('Texto para o gráfico:', '');
       if (!text || !text.trim()) return;
-      const plotW = Math.max(1, chartState.w - AXIS_W);
-      markerLines.push({ type: 'text', price, x: Math.max(0, Math.min(1, (clientX - rect.left) / plotW)), text: text.trim().slice(0, 80) });
+      markerLines.push({ type: 'text', price: point.price, x: point.normalX, text: text.trim().slice(0, 80) });
     } else {
-      const existing = markerLines.findIndex(marker => marker.type !== 'text' && Math.abs(marker.price - price) < range * 0.01);
+      const existing = markerLines.findIndex(marker => marker.type === 'line' && Math.abs(marker.price - point.price) < chartState.range * 0.01);
       if (existing >= 0) markerLines.splice(existing, 1);
-      else markerLines.push({ type: 'line', price });
+      else markerLines.push({ type: 'line', price: point.price });
     }
-    saveMarkers();
-    renderBaseChart();
-    void pushPublicMarkers();
+    saveAndShareMarkers();
   }
   function keepTooltipVisible() {
     tooltipEl.classList.add('visible');
@@ -1046,7 +1093,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function setDrawingTool(tool) {
     drawingTool = tool;
+    const labels = { line: 'Linha', ray: 'Raio', text: 'Texto', adjust: 'Ajustar', erase: 'Apagar' };
     drawToolBtns.forEach(button => button.setAttribute('aria-checked', String(button.dataset.drawTool === tool)));
+    if (drawToggleBtn) {
+      drawToggleBtn.textContent = `Desenho · ${labels[tool] || 'Linha'}`;
+      drawToggleBtn.title = labels[tool] === 'Raio' ? 'Raio: clique no início e no ponto de direção' : labels[tool] === 'Ajustar' ? 'Ajustar: clique no desenho e depois no novo ponto' : labels[tool] === 'Apagar' ? 'Apagar: clique no desenho' : 'Desenhos públicos compartilhados';
+    }
   }
 
   if (drawToggleBtn) drawToggleBtn.addEventListener('click', () => {
