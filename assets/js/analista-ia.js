@@ -67,8 +67,8 @@
     try {
       var doc = widgetFrame.contentDocument || widgetFrame.contentWindow.document;
       if (!doc || !doc.documentElement) return;
-      var bodyHeight = doc.body ? doc.body.scrollHeight : 0;
-      var nextHeight = Math.max(bodyHeight, doc.documentElement.scrollHeight, doc.documentElement.offsetHeight);
+      var widgetRoot = doc.querySelector(".widgetEmbed");
+      var nextHeight = widgetRoot ? widgetRoot.getBoundingClientRect().height : (doc.body ? doc.body.scrollHeight : 0);
       if (nextHeight > 0 && Math.abs(widgetFrame.offsetHeight - nextHeight) > 1) {
         widgetFrame.style.height = Math.ceil(nextHeight) + "px";
       }
@@ -89,8 +89,9 @@
       var doc = widgetFrame.contentDocument || widgetFrame.contentWindow.document;
       if (widgetResizeObserver) widgetResizeObserver.disconnect();
       widgetResizeObserver = new ResizeObserver(scheduleWidgetResize);
-      if (doc.documentElement) widgetResizeObserver.observe(doc.documentElement);
-      if (doc.body) widgetResizeObserver.observe(doc.body);
+      var widgetRoot = doc.querySelector(".widgetEmbed");
+      if (widgetRoot) widgetResizeObserver.observe(widgetRoot);
+      else if (doc.body) widgetResizeObserver.observe(doc.body);
       window.setTimeout(syncWidgetHeight, 500);
       window.setTimeout(syncWidgetHeight, 1500);
     } catch (_) {}
