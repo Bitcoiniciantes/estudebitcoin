@@ -25,12 +25,17 @@ function publicMarkerKey(url) {
 
 function cleanPublicMarkers(value) {
   if (!Array.isArray(value)) return [];
-  return value
-    .filter((line) => Number.isFinite(line?.price) && line.price > 0 && line.price < 1e15)
-    .slice(0, 30)
-    .map((line) => ({ price: Number(line.price) }));
+  return value.slice(0, 30).flatMap((marker) => {
+    if (!Number.isFinite(marker?.price) || marker.price <= 0 || marker.price >= 1e15) return [];
+    if (marker.type === "text") {
+      const text = typeof marker.text === "string" ? marker.text.trim().slice(0, 80) : "";
+      const x = Number(marker.x);
+      if (!text || !Number.isFinite(x) || x < 0 || x > 1) return [];
+      return [{ type: "text", price: Number(marker.price), x, text }];
+    }
+    return [{ type: "line", price: Number(marker.price) }];
+  });
 }
-
 async function publicMarkers(request, url, env) {
   const key = publicMarkerKey(url);
   if (!key) return json(request, { error: "Ativo invalido." }, 400);

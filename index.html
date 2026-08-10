@@ -720,7 +720,13 @@
           <div class="preev__chart-type" role="group" aria-label="Tipo de gráfico">
             <button class="preev__chart-type-btn" type="button" data-chart-type="line" aria-pressed="false">Linha</button>
             <button class="preev__chart-type-btn active" type="button" data-chart-type="candles" aria-pressed="true">Candles</button>
-            <button class="preev__chart-type-btn" type="button" data-chart-type="markers" aria-pressed="false" title="Desenhar linhas públicas compartilhadas">Linha /</button>
+          </div>
+          <div class="preev__draw-control">
+            <button id="preev-draw-toggle" class="preev__chart-type-btn" type="button" aria-pressed="false" aria-expanded="false" title="Desenhos públicos compartilhados">Desenho</button>
+            <div id="preev-draw-options" class="preev__draw-options" hidden role="menu" aria-label="Ferramentas de desenho">
+              <button type="button" data-draw-tool="line" role="menuitemradio" aria-checked="true">Linha</button>
+              <button type="button" data-draw-tool="text" role="menuitemradio" aria-checked="false">Texto</button>
+            </div>
           </div>
           <canvas id="preev-canvas"></canvas>
         </div>

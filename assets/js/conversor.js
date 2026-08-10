@@ -11,7 +11,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectRight = document.getElementById('preev-right-select');
   const canvas = document.getElementById('preev-canvas');
   const tfBtns = document.querySelectorAll('.preev__tf-btn');
-  const chartTypeBtns = document.querySelectorAll('.preev__chart-type-btn');
+  const chartTypeBtns = document.querySelectorAll('[data-chart-type]');
+  const drawToggleBtn = document.getElementById('preev-draw-toggle');
+  const drawOptionsEl = document.getElementById('preev-draw-options');
+  const drawToolBtns = document.querySelectorAll('[data-draw-tool]');
   const changeEl = document.getElementById('preev-change');
   const highEl = document.getElementById('preev-high');
   const lowEl = document.getElementById('preev-low');
@@ -22,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let externalAsset = null;       // { kind:'crypto'|'stock', symbol, pair, label }
   let stockPollTimer = null;
   let markerMode = false;
+  let drawingTool = 'line';
   let markerLines = [];      // [{ y }] linhas horizontais (fração da altura do canvas)
   let markerDraft = null;    // reservado
   let exchangeRate = 0; 
@@ -115,6 +119,12 @@ document.addEventListener('DOMContentLoaded', () => {
     return `estudebitcoin:markers:${key}`;
   }
 
+  function isValidMarker(marker) {
+    if (!Number.isFinite(marker?.price)) return false;
+    if (marker?.type !== 'text') return true;
+    return typeof marker.text === 'string' && marker.text.trim().length > 0
+      && Number.isFinite(marker.x) && marker.x >= 0 && marker.x <= 1;
+  }
   function saveMarkers() {
     try {
       localStorage.setItem(markerStorageKey(), JSON.stringify(markerLines));
@@ -128,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const raw = localStorage.getItem(markerStorageKey());
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) markerLines = parsed.filter(l => typeof l.price === 'number');
+        if (Array.isArray(parsed)) markerLines = parsed.filter(isValidMarker);
       }
     } catch (err) { /* localStorage indisponível */ }
     renderBaseChart();
@@ -162,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await publicMarkersRequest('GET');
       const updatedAt = Number(data?.updatedAt) || 0;
       if (!updatedAt || updatedAt <= lastPublicMarkerUpdate) return;
-      markerLines = Array.isArray(data.markers) ? data.markers.filter(line => Number.isFinite(line?.price)) : [];
+      markerLines = Array.isArray(data.markers) ? data.markers.filter(isValidMarker) : [];
       lastPublicMarkerUpdate = updatedAt;
       saveMarkers();
       renderBaseChart();
@@ -635,28 +645,46 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function drawMarkers() {
-    if (!chartState || !markerLines.length) { return; }
-    const { w, h, mode } = chartState;
+    if (!chartState || !markerLines.length) return;
+    const { w, h } = chartState;
     const plotW = w - AXIS_W;
     const yFn = chartState.priceY || chartState.yOf;
     const ctx = canvas.getContext('2d');
-    ctx.save();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-    ctx.setLineDash([6, 5]);
     const ccy = displayCurrency();
     const prefix = ccy === 'BRL' ? 'R$ ' : ccy === 'BTC' ? '₿ ' : '$ ';
-    ctx.font = 'bold 10px ui-monospace, SFMono-Regular, Consolas, monospace';
-    markerLines.forEach(line => {
-      const y = yFn(line.price);
+    ctx.save();
+    markerLines.forEach(marker => {
+      const y = yFn(marker.price);
+      if (!Number.isFinite(y)) return;
+      const yClamped = Math.max(10, Math.min(h - 10, y));
+      if (marker.type === 'text') {
+        const text = marker.text.trim().slice(0, 80);
+        const anchorX = Math.max(4, Math.min(plotW - 4, Number(marker.x) * plotW));
+        ctx.setLineDash([]);
+        ctx.font = 'bold 11px ui-monospace, SFMono-Regular, Consolas, monospace';
+        const width = Math.min(plotW - 8, ctx.measureText(text).width + 10);
+        const x = Math.max(4, Math.min(plotW - width - 4, anchorX));
+        ctx.fillStyle = 'rgba(255,255,255,0.96)';
+        ctx.fillRect(x, yClamped - 10, width, 20);
+        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + .5, yClamped - 9.5, width - 1, 19);
+        ctx.fillStyle = '#111111';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x + 5, yClamped);
+        return;
+      }
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
       ctx.setLineDash([6, 5]);
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(plotW, y);
       ctx.stroke();
-      const label = prefix + formatAxisValue(line.price);
+      const label = prefix + formatAxisValue(marker.price);
+      ctx.font = 'bold 10px ui-monospace, SFMono-Regular, Consolas, monospace';
       const tw = ctx.measureText(label).width;
-      const yClamped = Math.max(9, Math.min(h - 9, y));
       ctx.setLineDash([]);
       ctx.fillStyle = '#222222';
       ctx.fillRect(w - AXIS_W, yClamped - 9, tw + 8, 18);
@@ -667,7 +695,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     ctx.restore();
   }
-
   function drawTrendChart(prices, isBullish) {
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
@@ -850,23 +877,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const x = (clientX - rect.left) / chartState.w;
     const y = (clientY - rect.top) / chartState.h;
     if (x <= 0 || x >= 1 || y <= 0 || y >= 1) return;
-    // Converte o Y do clique em preço usando a escala inversa
     const { h, min, range, mode } = chartState;
     const top = mode === 'candles' ? 18 : 15;
     const bottom = 15;
     const py = Math.max(top, Math.min(h - bottom, clientY - rect.top));
     const price = min + ((h - bottom - py) / (h - top - bottom)) * range;
-    const existing = markerLines.findIndex(l => Math.abs(l.price - price) < range * 0.01);
-    if (existing >= 0) {
-      markerLines.splice(existing, 1);
+    if (drawingTool === 'text') {
+      const text = window.prompt('Texto para o gráfico:', '');
+      if (!text || !text.trim()) return;
+      const plotW = Math.max(1, chartState.w - AXIS_W);
+      markerLines.push({ type: 'text', price, x: Math.max(0, Math.min(1, (clientX - rect.left) / plotW)), text: text.trim().slice(0, 80) });
     } else {
-      markerLines.push({ price });
+      const existing = markerLines.findIndex(marker => marker.type !== 'text' && Math.abs(marker.price - price) < range * 0.01);
+      if (existing >= 0) markerLines.splice(existing, 1);
+      else markerLines.push({ type: 'line', price });
     }
     saveMarkers();
     renderBaseChart();
     void pushPublicMarkers();
   }
-
   function keepTooltipVisible() {
     tooltipEl.classList.add('visible');
     clearTimeout(tooltipHideTimer);
@@ -1000,14 +1029,6 @@ document.addEventListener('DOMContentLoaded', () => {
   
   chartTypeBtns.forEach(button => button.addEventListener('click', () => {
     hideTooltip();
-    if (button.dataset.chartType === 'markers') {
-      markerMode = !markerMode;
-      if (!markerMode) markerDraft = null;
-      button.classList.toggle('active', markerMode);
-      button.setAttribute('aria-pressed', String(markerMode));
-      renderBaseChart();
-      return;
-    }
     chartMode = button.dataset.chartType;
     chartTypeBtns.forEach(item => {
       const active = item === button;
@@ -1017,6 +1038,40 @@ document.addEventListener('DOMContentLoaded', () => {
     drawActiveChart();
   }));
 
+  function setDrawMenu(open) {
+    if (!drawOptionsEl || !drawToggleBtn) return;
+    drawOptionsEl.hidden = !open;
+    drawToggleBtn.setAttribute('aria-expanded', String(open));
+  }
+
+  function setDrawingTool(tool) {
+    drawingTool = tool;
+    drawToolBtns.forEach(button => button.setAttribute('aria-checked', String(button.dataset.drawTool === tool)));
+  }
+
+  if (drawToggleBtn) drawToggleBtn.addEventListener('click', () => {
+    hideTooltip();
+    if (markerMode) {
+      markerMode = false;
+      markerDraft = null;
+      drawToggleBtn.classList.remove('active');
+      drawToggleBtn.setAttribute('aria-pressed', 'false');
+      setDrawMenu(false);
+      renderBaseChart();
+      return;
+    }
+    setDrawMenu(drawOptionsEl?.hidden);
+  });
+
+  drawToolBtns.forEach(button => button.addEventListener('click', () => {
+    setDrawingTool(button.dataset.drawTool || 'line');
+    markerMode = true;
+    markerDraft = null;
+    drawToggleBtn?.classList.add('active');
+    drawToggleBtn?.setAttribute('aria-pressed', 'true');
+    setDrawMenu(false);
+    renderBaseChart();
+  }));
   window.addEventListener('beforeunload', () => {
     clearTimeout(klineReconnectTimer);
     clearTimeout(stockPollTimer);
