@@ -800,7 +800,10 @@ function formatSignals(signals) {
 
 function formatNews(items) {
   if (!items?.length) return "Nenhuma notícia relevante encontrada nas últimas horas.";
-  return items.map((n) => `- ${asText(n.title, 140)} (${asText(n.source, 40)})`).join("\n");
+  return items.map((n) => {
+    const summary = asText(n.description, 260);
+    return `- ${asText(n.title, 140)} (${asText(n.source, 40)})${summary ? `: ${summary}` : ""}`;
+  }).join("\n");
 }
 
 function formatTermometroContext(data, news) {
