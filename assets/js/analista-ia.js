@@ -58,6 +58,50 @@
   var QUOTE_VIA_WORKER = { PRATA: true, COBRE: true, URANIO: true };
 
   var widgetFrame = typeof document !== "undefined" ? document.querySelector(".termometro-widget") : null;
+  var analystPanel = typeof document !== "undefined" ? document.getElementById("analista-ia") : null;
+  var widgetResizeObserver = null;
+  var widgetResizeTimer = null;
+
+  function syncWidgetHeight() {
+    if (!widgetFrame || !widgetFrame.contentWindow) return;
+    try {
+      var doc = widgetFrame.contentDocument || widgetFrame.contentWindow.document;
+      if (!doc || !doc.documentElement) return;
+      var bodyHeight = doc.body ? doc.body.scrollHeight : 0;
+      var nextHeight = Math.max(bodyHeight, doc.documentElement.scrollHeight, doc.documentElement.offsetHeight);
+      if (nextHeight > 0 && Math.abs(widgetFrame.offsetHeight - nextHeight) > 1) {
+        widgetFrame.style.height = Math.ceil(nextHeight + 2) + "px";
+      }
+    } catch (_) {
+      // O widget compartilha a origem no GitHub Pages; a altura fixa permanece como fallback.
+    }
+  }
+
+  function scheduleWidgetResize() {
+    window.clearTimeout(widgetResizeTimer);
+    window.requestAnimationFrame(syncWidgetHeight);
+    widgetResizeTimer = window.setTimeout(syncWidgetHeight, 180);
+  }
+
+  function watchWidgetHeight() {
+    syncWidgetHeight();
+    try {
+      var doc = widgetFrame.contentDocument || widgetFrame.contentWindow.document;
+      if (widgetResizeObserver) widgetResizeObserver.disconnect();
+      widgetResizeObserver = new ResizeObserver(scheduleWidgetResize);
+      if (doc.documentElement) widgetResizeObserver.observe(doc.documentElement);
+      if (doc.body) widgetResizeObserver.observe(doc.body);
+      window.setTimeout(syncWidgetHeight, 500);
+      window.setTimeout(syncWidgetHeight, 1500);
+    } catch (_) {}
+  }
+
+  if (widgetFrame) {
+    widgetFrame.setAttribute("scrolling", "no");
+    widgetFrame.addEventListener("load", watchWidgetHeight);
+    window.addEventListener("resize", scheduleWidgetResize, { passive: true });
+    if (widgetFrame.contentDocument && widgetFrame.contentDocument.readyState === "complete") watchWidgetHeight();
+  }
 
   function requestContextFromWidget() {
     return new Promise(function (resolve) {
@@ -272,7 +316,10 @@
     currentAsset = asset;
     currentPeriod = period;
     currentMarketData = typeof event.data.marketData === "string" ? event.data.marketData : "";
-    document.getElementById("analista-ia")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.setTimeout(function () { runAnalysis({ asset: asset, period: period, marketData: event.data.marketData, question: question }); }, 450);
+    if (analystPanel) analystPanel.classList.add("is-open");
+    window.setTimeout(function () {
+      if (analystPanel) analystPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+    window.setTimeout(function () { runAnalysis({ asset: asset, period: period, marketData: event.data.marketData, question: question }); }, 260);
   });
 })();
