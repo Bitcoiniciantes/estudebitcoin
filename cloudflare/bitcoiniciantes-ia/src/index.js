@@ -1,5 +1,6 @@
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
+const AI_PROVIDER_TIMEOUT_MS = 10000;
 const SCENARIOS = new Set(["ALTA", "BAIXA", "NEUTRO", "RISCO ELEVADO"]);
 
 function corsHeaders(request) {
@@ -896,9 +897,18 @@ function contradictsScenario(value, scenario) {
 
 // ---------- Provedores ----------
 
+async function fetchAiProvider(url, options) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_PROVIDER_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 async function generateWithGemini(env, messages, { jsonMode = false } = {}) {
   if (!env.GEMINI_API_KEY) return null;
-  const response = await fetch(
+  const response = await fetchAiProvider(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
     {
       method: "POST",
@@ -926,7 +936,7 @@ async function generateWithGemini(env, messages, { jsonMode = false } = {}) {
 
 async function generateWithGroq(env, messages, { jsonMode = false } = {}) {
   if (!env.GROQ_API_KEY) return null;
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const response = await fetchAiProvider("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.GROQ_API_KEY}` },
     body: JSON.stringify({
@@ -984,8 +994,8 @@ export default {
     if (isEstudeBitcoin) {
       const prompt = buildEstudeBitcoinPrompt(data || {});
       const providers = [
-        { name: "gemini", model: GEMINI_MODEL, run: () => generateWithGemini(env, prompt.messages) },
         { name: "groq", model: GROQ_MODEL, run: () => generateWithGroq(env, prompt.messages) },
+        { name: "gemini", model: GEMINI_MODEL, run: () => generateWithGemini(env, prompt.messages) },
       ];
       for (const provider of providers) {
         try {

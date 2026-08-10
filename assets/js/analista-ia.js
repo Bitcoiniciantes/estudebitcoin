@@ -70,7 +70,7 @@
       var bodyHeight = doc.body ? doc.body.scrollHeight : 0;
       var nextHeight = Math.max(bodyHeight, doc.documentElement.scrollHeight, doc.documentElement.offsetHeight);
       if (nextHeight > 0 && Math.abs(widgetFrame.offsetHeight - nextHeight) > 1) {
-        widgetFrame.style.height = Math.ceil(nextHeight + 2) + "px";
+        widgetFrame.style.height = Math.ceil(nextHeight) + "px";
       }
     } catch (_) {
       // O widget compartilha a origem no GitHub Pages; a altura fixa permanece como fallback.
@@ -256,7 +256,18 @@
       return marketSnapshot(asset);
     });
 
-    Promise.all([marketDataPromise, newsSnapshot(asset)])
+    var newsPromise = newsSnapshot(asset);
+    newsPromise.then(function (news) {
+      if (currentRequest !== requestId) return;
+      factsSnapshot = news.items;
+      renderRelevantFacts(factsSnapshot);
+    });
+    var timelyNewsPromise = Promise.race([
+      newsPromise,
+      new Promise(function (resolve) { window.setTimeout(function () { resolve({ prompt: "", items: [] }); }, 4500); }),
+    ]);
+
+    Promise.all([marketDataPromise, timelyNewsPromise])
       .then(function (parts) {
         factsSnapshot = parts[1].items;
         var marketData = [parts[0], parts[1].prompt].filter(Boolean).join("\n\n");
