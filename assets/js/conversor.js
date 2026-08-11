@@ -635,9 +635,9 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.font = 'bold 10px ui-monospace, SFMono-Regular, Consolas, monospace';
     const tw = ctx.measureText(label).width;
     const yClamped = Math.max(9, Math.min(h - 9, y));
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.58)';
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.30)';
     ctx.fillRect(w - AXIS_W, yClamped - 9, tw + 8, 18);
-    ctx.fillStyle = '#e0f7ff';
+    ctx.fillStyle = '#e4ffef';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, w - AXIS_W + 4, yClamped);

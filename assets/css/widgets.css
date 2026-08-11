@@ -1070,9 +1070,13 @@ input[type="date"].dca__input::-webkit-date-and-time-value {
   padding:6px 8px;
 }
 .strategy__movement--buy, .strategy__movement--sale { grid-area:auto; }
+.strategy__movement--buy {
+  border-color:rgba(74,222,128,.42);
+  background:linear-gradient(105deg, rgba(74,222,128,.15) 0%, rgba(74,222,128,.06) 48%, #16181b 100%);
+}
 .strategy__movement--sale {
-  border-color:rgba(255,77,109,.42);
-  background:linear-gradient(105deg, rgba(255,77,109,.15) 0%, rgba(255,77,109,.06) 48%, #16181b 100%);
+  border-color:rgba(255,77,109,.52);
+  background:linear-gradient(105deg, rgba(255,77,109,.20) 0%, rgba(255,77,109,.08) 48%, #16181b 100%);
 }
 .strategy__purchase-card--horizontal .strategy__movement .strategy__purchase-main {
   grid-area:auto;
