@@ -637,7 +637,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const yClamped = Math.max(9, Math.min(h - 9, y));
     ctx.fillStyle = 'rgba(74, 222, 128, 0.30)';
     ctx.fillRect(w - AXIS_W, yClamped - 9, tw + 8, 18);
-    ctx.fillStyle = '#e4ffef';
+    ctx.fillStyle = '#0B2D5C';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, w - AXIS_W + 4, yClamped);
