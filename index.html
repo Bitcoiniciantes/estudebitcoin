@@ -684,8 +684,8 @@
     /* Estudo de Entropia integrado como card do site. */
     .entropy-embed-section { padding-top:0; padding-bottom:20px; }
     .entropy-embed { overflow:hidden; isolation:isolate; border:1px solid #26312d; border-radius:22px; background:#0d1117; box-shadow:0 18px 42px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.035); }
-    .entropy-frame { display:block; width:100%; height:1150px; border:0; background:#0d1117; }
-    @media(max-width:600px){.entropy-embed{border-radius:16px}.entropy-frame{height:1300px}}</style>
+    .entropy-frame { display:block; width:100%; height:720px; border:0; background:#0d1117; }
+    @media(max-width:600px){.entropy-embed{border-radius:16px}.entropy-frame{height:800px}}</style>
 <section class="ticker-widget" id="cotacoes">
   <div class="ticker-head">
     <div class="ticker-window" role="group" aria-label="Período das variações">
@@ -1135,16 +1135,37 @@
 
 <section class="container entropy-embed-section">
   <div class="entropy-embed">
-    <iframe class="entropy-frame"
+    <iframe id="entropyFrame" class="entropy-frame"
       src="jogo-dados.html"
       title="Jogo de Dados e Entropia" allow="clipboard-write"
       loading="lazy"
       width="100%"
-      height="1150px"
+      height="720px"
       style="display:block; border:none; background:#0d1117;"
     ></iframe>
   </div>
 </section>
+
+<script>
+(function () {
+  var frame = document.getElementById("entropyFrame");
+  if (!frame) return;
+  function setFrameHeight(value) {
+    var height = Number(value);
+    if (!Number.isFinite(height) || height < 300 || height > 20000) return;
+    frame.style.height = Math.ceil(height) + "px";
+  }
+  frame.addEventListener("load", function () {
+    var section = frame.contentDocument && frame.contentDocument.querySelector(".entropy-section");
+    if (section) setFrameHeight(section.getBoundingClientRect().height + 2);
+  });
+  window.addEventListener("message", function (event) {
+    if (event.origin !== window.location.origin || event.source !== frame.contentWindow) return;
+    var data = event.data || {};
+    if (data.type === "entropy-widget-height") setFrameHeight(data.height);
+  });
+})();
+</script>
 
 <!-- FOOTER -->
 <footer class="container" style="margin-top:0;margin-bottom:24px;">
