@@ -34,7 +34,7 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
   .entropy-btn:disabled, .entropy-field select:disabled { cursor:not-allowed; opacity:.45; }
   .entropy-btn.copied { background:rgba(22,199,132,.14); color:var(--green); border-color:rgba(22,199,132,.45); }
   .entropy-dice-viewport { overflow:auto; padding:5px 2px 12px; }
-  .entropy-dice-grid { display:grid; grid-template-columns:repeat(10, minmax(21px, 1fr)); gap:4px; width:100%; }
+  .entropy-dice-grid { display:grid; grid-template-columns:repeat(var(--entropy-dice-columns, 20), minmax(0, 1fr)); gap:4px; width:100%; }
   .entropy-die { position:relative; width:100%; aspect-ratio:1; background:#fff; border:2px solid #d9dce1; border-radius:10px; box-shadow:0 3px 0 rgba(0,0,0,.45); transform-origin:50% 70%; }
   .entropy-pip { position:absolute; width:16%; aspect-ratio:1; border-radius:50%; background:#111; opacity:0; transition:opacity .08s ease; }
   .entropy-pip:nth-child(1) {top:14%;left:14%} .entropy-pip:nth-child(2) {top:14%;left:42%} .entropy-pip:nth-child(3) {top:14%;right:14%}
@@ -87,9 +87,9 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
         <label for="entropyDiceCount">Quantidade de dados</label>
         <select id="entropyDiceCount">
           <option value="5">5 dados</option>
-          <option value="10" selected>10 dados</option>
+          <option value="10">10 dados</option>
           <option value="15">15 dados</option>
-          <option value="20">20 dados</option>
+          <option value="20" selected>20 dados</option>
           <option value="30">30 dados</option>
           <option value="40">40 dados</option>
           <option value="50">50 dados</option>
@@ -260,6 +260,11 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
     function resetForCount() {
       if (rolling) return;
       diceCount = Number.parseInt(countSelect.value, 10);
+      let columnCount = Math.min(diceCount, 20);
+      for (let candidate = columnCount; candidate > 1; candidate -= 1) {
+        if (diceCount % candidate === 0) { columnCount = candidate; break; }
+      }
+      grid.style.setProperty("--entropy-dice-columns", String(columnCount));
       eraseEntropy();
       createDice();
       result.textContent = maskedResult();
