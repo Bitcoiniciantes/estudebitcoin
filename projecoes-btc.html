@@ -82,7 +82,7 @@
   }
   .entropy-section h2 { font-size: clamp(24px, 3vw, 30px); margin-bottom: 8px; }
   .entropy-section > p { color: var(--muted); font-size: 16px; margin-bottom: 20px; }
-  .entropy-controls { display:flex; flex-wrap:wrap; align-items:end; justify-content:center; gap:10px; margin:0 0 18px; }
+  .entropy-controls { position:sticky; top:0; z-index:10; display:flex; flex-wrap:wrap; align-items:end; justify-content:center; gap:10px; margin:0 0 18px; padding:10px 0; background:var(--card); border-bottom:1px solid var(--line); }
   .entropy-field { display:grid; gap:5px; text-align:left; }
   .entropy-field label { color:var(--muted); font-size:14px; }
   .entropy-field select, .entropy-btn {
@@ -180,8 +180,6 @@
           <option value="100">100 dados</option>
           <option value="200">200 dados</option>
           <option value="300">300 dados</option>
-          <option value="400">400 dados</option>
-          <option value="500">500 dados</option>
         </select>
       </div>
       <button class="entropy-btn primary" id="entropyRoll" type="button">Jogar Dados</button>
