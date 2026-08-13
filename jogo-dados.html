@@ -70,8 +70,7 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
   .entropy-strength-metric span { display:block; margin-bottom:5px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
   .entropy-strength-metric strong { display:block; overflow-wrap:anywhere; color:var(--orange); font:700 18px/1.4 ui-monospace,Consolas,monospace; }
   .entropy-strength-note { margin:14px 0 0; color:var(--muted); font-size:13px; line-height:1.55; }
-  @media (max-width:600px) { .entropy-strength-grid { grid-template-columns:1fr; } }
-  @media (max-width:600px) { .entropy-section { padding:16px; } .entropy-controls { align-items:stretch; } .entropy-field, .entropy-btn { flex:1 1 145px; } }
+  @media (max-width:600px) { .entropy-strength-grid { grid-template-columns:1fr; } .entropy-section { padding:16px; } .entropy-controls { align-items:stretch; } .entropy-field, .entropy-btn { flex:1 1 145px; } }
   @media (prefers-reduced-motion:reduce) { .entropy-dice-grid.is-rolling .entropy-die { animation:none; } }
 
 .entropy-section { margin:0; }
@@ -161,6 +160,7 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
     let rolling = false;
     let rollTimer = null;
     let animationTimer = null;
+    let shuffleTimer = null;
     let copyFeedbackTimer = null;
 
     function secureDieRoll() {
@@ -206,7 +206,6 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
 
     function eraseEntropy() {
       if (hiddenEntropy instanceof Uint8Array) {
-        crypto.getRandomValues(hiddenEntropy);
         hiddenEntropy.fill(0);
       }
       hiddenEntropy = null;
@@ -331,7 +330,8 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
       status.textContent = "Embaralhando a entropia oculta...";
       startAnimation();
       grid.classList.add("is-rolling");
-      setTimeout(() => {
+      clearTimeout(shuffleTimer);
+      shuffleTimer = setTimeout(() => {
         stopAnimation();
         setFaces(false);
         grid.classList.remove("is-rolling");
@@ -375,7 +375,7 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
     shuffleButton.addEventListener("click", shuffle);
     revealButton.addEventListener("click", reveal);
     copyButton.addEventListener("click", copy);
-    window.addEventListener("pagehide", () => { clearTimeout(rollTimer); stopAnimation(); clearTimeout(copyFeedbackTimer); eraseEntropy(); });
+    window.addEventListener("pagehide", () => { clearTimeout(rollTimer); clearTimeout(shuffleTimer); stopAnimation(); clearTimeout(copyFeedbackTimer); eraseEntropy(); });
     resetForCount();
     requestAnimationFrame(reportWidgetHeight);
   })();

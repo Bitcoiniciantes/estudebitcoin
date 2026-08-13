@@ -36,35 +36,54 @@
 
   var tagClass = { cons: "proj-tag-cons", mid: "proj-tag-mid", moon: "proj-tag-moon" };
   var tagTxt = { cons: "Conservador", mid: "Base", moon: "Moonshot" };
-  var maxLog = Math.log10(1200000);
 
   function fmt(n) {
     return "US$ " + n.toLocaleString("pt-BR");
   }
 
+  function addTextElement(parent, className, text) {
+    var element = document.createElement("div");
+    element.className = className;
+    element.textContent = text;
+    parent.appendChild(element);
+    return element;
+  }
+
   function render(base) {
     base = Math.max(1, base);
-    var grid = document.getElementById("proj-grid");
-    if (!grid) return;
+    var projectionGrid = document.getElementById("proj-grid");
+    if (!projectionGrid) return;
     var minLog = Math.log10(base);
-    grid.innerHTML = "";
+    var maxLog = Math.max(Math.log10(base * 1.05), Math.max.apply(null, DATA.map(function (item) { return Math.log10(item.target); })));
+    projectionGrid.replaceChildren();
 
     DATA.slice().sort(function (a, b) { return a.target - b.target; }).forEach(function (d) {
       var ret = ((d.target - base) / base) * 100;
       var up = ret >= 0;
       var pct = Math.min(100, Math.max(2, ((Math.log10(d.target) - minLog) / (maxLog - minLog)) * 100));
-      var el = document.createElement("div");
-      el.className = "proj-card";
-      el.innerHTML =
-        '<div class="proj-inst">' + d.inst +
-        '  <span class="proj-tag ' + tagClass[d.tier] + '">' + tagTxt[d.tier] + '</span>' +
-        '</div>' +
-        '<div class="proj-horizon">' + d.horizon + '</div>' +
-        '<div class="proj-target">' + fmt(d.target) + '</div>' +
-        '<div class="proj-ret ' + (up ? 'up' : 'down') + '">' + (up ? '▲ +' : '▼ ') + ret.toFixed(1) + '% de ' + (up ? 'upside' : 'downside') + '</div>' +
-        '<div class="proj-bar"><div class="proj-bar-fill" style="width:' + pct + '%"></div></div>' +
-        '<div class="proj-note">' + d.note + '</div>';
-      grid.appendChild(el);
+      var tier = Object.prototype.hasOwnProperty.call(tagClass, d.tier) ? d.tier : "mid";
+      var card = document.createElement("div");
+      card.className = "proj-card";
+      var institution = document.createElement("div");
+      institution.className = "proj-inst";
+      institution.appendChild(document.createTextNode(d.inst + " "));
+      var tag = document.createElement("span");
+      tag.className = "proj-tag " + tagClass[tier];
+      tag.textContent = tagTxt[tier];
+      institution.appendChild(tag);
+      card.appendChild(institution);
+      addTextElement(card, "proj-horizon", d.horizon);
+      addTextElement(card, "proj-target", fmt(d.target));
+      addTextElement(card, "proj-ret " + (up ? "up" : "down"), (up ? "▲ +" : "▼ ") + ret.toFixed(1) + "% de " + (up ? "upside" : "downside"));
+      var bar = document.createElement("div");
+      bar.className = "proj-bar";
+      var fill = document.createElement("div");
+      fill.className = "proj-bar-fill";
+      fill.style.width = pct + "%";
+      bar.appendChild(fill);
+      card.appendChild(bar);
+      addTextElement(card, "proj-note", d.note);
+      projectionGrid.appendChild(card);
     });
   }
 
