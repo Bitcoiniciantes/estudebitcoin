@@ -9,10 +9,9 @@
 * { box-sizing:border-box; }
 html, body { margin:0; background:var(--bg); color:var(--txt); }
 body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.5; }
-.entropy-section { margin:0; border-radius:0; }
 /* ----- Jogo de Dados / Entropia ----- */
   .entropy-section {
-    margin-top: 32px;
+    margin: 0;
     padding: 22px;
     background: var(--card);
     border: 1px solid var(--line);
@@ -73,7 +72,6 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
   @media (max-width:600px) { .entropy-strength-grid { grid-template-columns:1fr; } .entropy-section { padding:16px; } .entropy-controls { align-items:stretch; } .entropy-field, .entropy-btn { flex:1 1 145px; } }
   @media (prefers-reduced-motion:reduce) { .entropy-dice-grid.is-rolling .entropy-die { animation:none; } }
 
-.entropy-section { margin:0; }
 </style>
 </head>
 <body>
@@ -258,7 +256,7 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
 
     function reportWidgetHeight() {
       if (window.parent === window) return;
-      const sectionHeight = Math.ceil(document.querySelector(".entropy-section").getBoundingClientRect().height) + 2;
+      const sectionHeight = Math.ceil(document.querySelector(".entropy-section").getBoundingClientRect().height);
       window.parent.postMessage({ type: "entropy-widget-height", height: sectionHeight }, window.location.origin);
     }
 
