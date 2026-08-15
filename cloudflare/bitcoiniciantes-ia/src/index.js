@@ -68,6 +68,38 @@ async function publicMarkers(request, url, env) {
   await env.PUBLIC_MARKERS.put(key, JSON.stringify(payload), { expirationTtl: 60 * 60 * 24 * 180 });
   return json(request, payload);
 }
+function publicPositionsKey(url) {
+  const account = url.searchParams.get("account") || "";
+  if (!/^[a-zA-Z0-9:_.=-]{3,120}$/.test(account)) return null;
+  return "preditivo-positions:" + account;
+}
+function cleanPublicPositions(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 100).flatMap((position) => {
+    const id = typeof position?.id === "string" ? position.id.slice(0, 120) : "";
+    const asset = typeof position?.asset === "string" ? position.asset.trim().toUpperCase().slice(0, 32) : "";
+    const side = position?.side === "LONG" || position?.side === "SHORT" ? position.side : "";
+    const averagePrice = Number(position?.averagePrice);
+    const quantity = Number(position?.quantity);
+    if (!id || !/^[A-Za-z0-9._-]+$/.test(id) || !asset || !/^[A-Z0-9.-]+$/.test(asset) || !side || !Number.isFinite(averagePrice) || averagePrice <= 0 || averagePrice >= 1e15 || !Number.isFinite(quantity) || quantity <= 0 || quantity >= 1e15) return [];
+    return [{ id, asset, side, averagePrice, quantity }];
+  });
+}
+async function publicPositions(request, url, env) {
+  const key = publicPositionsKey(url);
+  if (!key) return json(request, { error: "Conta invalida." }, 400);
+  if (!env.PUBLIC_MARKERS) return json(request, { error: "Posicoes indisponiveis." }, 503);
+  if (request.method === "GET") {
+    const stored = await env.PUBLIC_MARKERS.get(key, "json");
+    return json(request, { positions: cleanPublicPositions(stored?.positions), updatedAt: Number(stored?.updatedAt) || 0 });
+  }
+  if (request.method !== "POST") return json(request, { error: "Metodo nao permitido." }, 405);
+  let body;
+  try { body = await request.json(); } catch { return json(request, { error: "Envie um JSON valido." }, 400); }
+  const payload = { positions: cleanPublicPositions(body?.positions), updatedAt: Date.now() };
+  await env.PUBLIC_MARKERS.put(key, JSON.stringify(payload), { expirationTtl: 60 * 60 * 24 * 365 });
+  return json(request, payload);
+}
 function asText(value, maxLength = 1800) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
@@ -978,7 +1010,9 @@ export default {
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/public-markers") {
       return publicMarkers(request, url, env);
     }
-    const isTermometro = url.pathname === "/api/ai-analysis";
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/public-positions") {
+      return publicPositions(request, url, env);
+    }    const isTermometro = url.pathname === "/api/ai-analysis";
     const isEstudeBitcoin = url.pathname === "/v1/analyze";
     if (request.method !== "POST" || (!isTermometro && !isEstudeBitcoin)) {
       return json(request, { error: "Rota nao encontrada." }, 404);
