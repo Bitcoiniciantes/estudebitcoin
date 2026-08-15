@@ -369,17 +369,13 @@ async function fetchAssetNewsItems(asset) {
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
-      });
+      })
+      .sort((a, b) => (Date.parse(b.publishedAt || "") || 0) - (Date.parse(a.publishedAt || "") || 0));
   };
 
   const fulfilled = (results) => results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
-
-  const localRequests = [fetchRssItems("https://www.criptofacil.com/feed/", "CriptoF\u00e1cil")];
+  const localRequests = [fetchRssItems("https://www.criptofacil.com/feed/", "CriptoFácil")];
   if (tag) localRequests.push(fetchRssItems("https://cointelegraph.com/rss/tag/" + tag, "Cointelegraph"));
-  const localItems = clean(fulfilled(await Promise.allSettled(localRequests)));
-  const secItems = clean(await secItemsPromise);
-  if (localItems.length >= 3) return clean([...secItems, ...localItems]).slice(0, 3);
-
   const generalRequests = [
     fetchRssItems("https://www.theblock.co/rss.xml", "The Block"),
     fetchRssItems("https://decrypt.co/feed", "Decrypt"),
@@ -390,66 +386,42 @@ async function fetchAssetNewsItems(asset) {
     fetchRssItems("https://beincrypto.com/feed/", "BeInCrypto"),
     fetchRssItems("https://ambcrypto.com/feed/", "AMBCrypto"),
   ];
-  const generalItems = clean(fulfilled(await Promise.allSettled(generalRequests)));
-  const merged = clean([...localItems, ...generalItems]);
-  if (merged.length >= 3) return clean([...secItems, ...merged]).slice(0, 3);
-
   const nicheSources = NICHE_SOURCES[symbol] || [];
-  const nicheItems = clean(fulfilled(await Promise.allSettled(
-    nicheSources.map(([url, source]) => fetchRssItems(url, source)),
-  )));
-  const mergedNiche = clean([...localItems, ...generalItems, ...nicheItems]);
-  if (mergedNiche.length >= 3) return clean([...secItems, ...mergedNiche]).slice(0, 3);
-
   const bingUrl = `https://www.bing.com/news/search?format=rss&q=${encodeURIComponent(BING_QUERIES[symbol] || `${symbol} market news`)}`;
-  const bingItems = clean(fulfilled(await Promise.allSettled([
-    fetchRssItems(bingUrl, "Bing Notícias", 1, NEWS_FETCH_TIMEOUT_MS),
-  ])));
-
   const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(`${newsQuery(symbol)} when:7d`)}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
   const fallbackQueries = {
-    BTC: "Bitcoin cryptocurrency",
-    ETH: "Ethereum cryptocurrency",
-    SOL: "Solana cryptocurrency",
-    LINK: "Chainlink cryptocurrency",
-    AVAX: "Avalanche AVAX cryptocurrency",
-    POL: "Polygon POL cryptocurrency",
-    PAXG: "gold market",
-    MSTR: "Strategy MSTR Bitcoin",
-  QBTS: "D-Wave Quantum QBTS ações",
-  QUBT: "Quantum Computing QUBT ações",
-  CRCL: "Circle CRCL ações",
-  MP: "MP Materials ações",
-  GLW: "Corning GLW ações",
-  SNDK: "SanDisk SNDK ações",
-  RIO: "Rio Tinto RIO ações",
-  BHP: "BHP Group ações",
-  SPCX: "SPCX ações",
-    NVDA: "Nvidia stock",
-    AMD: "AMD stock",
-    TSLA: "Tesla stock",
-    GOOGL: "Google Alphabet stock",
-    META: "Meta stock",
-    AAPL: "Apple stock",
-    PRATA: "silver market price",
-    COBRE: "copper market price",
-    URANIO: "uranium market price",
+    BTC: "Bitcoin cryptocurrency", ETH: "Ethereum cryptocurrency", SOL: "Solana cryptocurrency", LINK: "Chainlink cryptocurrency", AVAX: "Avalanche AVAX cryptocurrency", POL: "Polygon POL cryptocurrency", PAXG: "gold market", MSTR: "Strategy MSTR Bitcoin",
+    QBTS: "D-Wave Quantum QBTS ações", QUBT: "Quantum Computing QUBT ações", CRCL: "Circle CRCL ações", MP: "MP Materials ações", GLW: "Corning GLW ações", SNDK: "SanDisk SNDK ações", RIO: "Rio Tinto RIO ações", BHP: "BHP Group ações", SPCX: "SPCX ações",
+    NVDA: "Nvidia stock", AMD: "AMD stock", TSLA: "Tesla stock", GOOGL: "Google Alphabet stock", META: "Meta stock", AAPL: "Apple stock", PRATA: "silver market price", COBRE: "copper market price", URANIO: "uranium market price",
   };
-  const fallbackQuery = `${fallbackQueries[symbol] || symbol} when:7d`;
-  const globalGoogleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(fallbackQuery)}&hl=en-US&gl=US&ceid=US:en`;
-  const googleItems = clean(fulfilled(await Promise.allSettled([
-    fetchRssItems(googleUrl, "Google News Brasil", 1, NEWS_FETCH_TIMEOUT_MS),
-    fetchRssItems(globalGoogleUrl, "Google News Internacional", 1, NEWS_FETCH_TIMEOUT_MS),
-  ])));
+  const globalGoogleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(`${fallbackQueries[symbol] || symbol} when:7d`)}&hl=en-US&gl=US&ceid=US:en`;
+  const [localResults, generalResults, nicheResults, bingResults, googleResults, secItems] = await Promise.all([
+    Promise.allSettled(localRequests),
+    Promise.allSettled(generalRequests),
+    Promise.allSettled(nicheSources.map(([url, source]) => fetchRssItems(url, source))),
+    Promise.allSettled([fetchRssItems(bingUrl, "Bing Notícias", 1, NEWS_FETCH_TIMEOUT_MS)]),
+    Promise.allSettled([
+      fetchRssItems(googleUrl, "Google News Brasil", 1, NEWS_FETCH_TIMEOUT_MS),
+      fetchRssItems(globalGoogleUrl, "Google News Internacional", 1, NEWS_FETCH_TIMEOUT_MS),
+    ]),
+    secItemsPromise,
+  ]);
 
-  return clean([...secItems, ...localItems, ...generalItems, ...nicheItems, ...bingItems, ...googleItems]).slice(0, 3);
+  return clean([
+    ...secItems,
+    ...fulfilled(localResults),
+    ...fulfilled(generalResults),
+    ...fulfilled(nicheResults),
+    ...fulfilled(bingResults),
+    ...fulfilled(googleResults),
+  ]).slice(0, 3);
 }
 
 const NEWS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 async function cachedNewsBody(symbol) {
   try {
-    const key = `https://bitcoiniciantes-ia.workers.dev/_cache/news/${symbol}`;
+    const key = `https://bitcoiniciantes-ia.workers.dev/_cache/news/v2/${symbol}`;
     const cached = await caches.default.match(key);
     if (!cached) return null;
     const stale = Date.now() - (Number(cached.headers.get("X-Cached-At")) || 0) > NEWS_CACHE_TTL_MS;
@@ -462,7 +434,7 @@ async function cachedNewsBody(symbol) {
 
 async function storeNewsBody(symbol, body) {
   try {
-    const key = `https://bitcoiniciantes-ia.workers.dev/_cache/news/${symbol}`;
+    const key = `https://bitcoiniciantes-ia.workers.dev/_cache/news/v2/${symbol}`;
     const response = new Response(JSON.stringify(body), {
       headers: { "Content-Type": "application/json", "X-Cached-At": String(Date.now()) },
     });
