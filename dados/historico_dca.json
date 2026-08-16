@@ -26090,13 +26090,19 @@
   {
     "data": "2026-08-13",
     "precoBtcUsd": 63402.17,
-    "cotacaoUsdBrl": 5.1954,
-    "precoBtcBrl": 329399.66
+    "cotacaoUsdBrl": 5.1998,
+    "precoBtcBrl": 329678.61
   },
   {
-    "data": "2026-08-15",
-    "precoBtcUsd": 63000,
-    "cotacaoUsdBrl": 5.2132,
-    "precoBtcBrl": 328431.61
+    "data": "2026-08-14",
+    "precoBtcUsd": 62975.59,
+    "cotacaoUsdBrl": 5.1998,
+    "precoBtcBrl": 327460.49
+  },
+  {
+    "data": "2026-08-16",
+    "precoBtcUsd": 63058.25,
+    "cotacaoUsdBrl": 5.1998,
+    "precoBtcBrl": 327890.29
   }
 ]
