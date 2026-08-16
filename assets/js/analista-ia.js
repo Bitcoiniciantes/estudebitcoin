@@ -115,13 +115,13 @@
         resolve(value);
       }
       function onReply(event) {
-        if ((event.origin !== "https://termometroalerta.pages.dev" && event.origin !== "https://termometroalerta.pages.dev")) return;
+        if ((event.origin !== "https://termometros.pages.dev" && event.origin !== "https://termometros.pages.dev")) return;
         if (event.data && event.data.type === "termometro:ai-context-reply") {
           finish({ asset: event.data.asset, period: event.data.period, marketData: event.data.marketData });
         }
       }
       window.addEventListener("message", onReply);
-      widgetFrame.contentWindow.postMessage({ type: "estudebitcoin:request-context" }, "https://termometroalerta.pages.dev");
+      widgetFrame.contentWindow.postMessage({ type: "estudebitcoin:request-context" }, "https://termometros.pages.dev");
       window.setTimeout(function () { finish(null); }, 1500);
     });
   }
@@ -300,7 +300,7 @@
   });
   if (button) button.addEventListener("click", function () { runAnalysis({ asset: currentAsset, period: currentPeriod, marketData: currentMarketData }); });
   window.addEventListener("message", function (event) {
-    if ((event.origin !== "https://termometroalerta.pages.dev" && event.origin !== "https://termometroalerta.pages.dev")) return;
+    if ((event.origin !== "https://termometros.pages.dev" && event.origin !== "https://termometros.pages.dev")) return;
     if (event.data?.type === "termometro:ai-context-changed") {
       requestId += 1;
       var changedAsset = contextValue(event.data.asset, "BTC");
@@ -335,3 +335,4 @@
     window.setTimeout(function () { runAnalysis({ asset: asset, period: period, marketData: event.data.marketData, question: question }); }, 260);
   });
 })();
+
