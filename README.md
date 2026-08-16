@@ -1,5 +1,23 @@
-# Bitcoiniciantes IA
+# EstudeBitcoin
 
+Site estático do EstudeBitcoin. A pasta raiz contém os arquivos publicados do site; o subdiretório `cloudflare/bitcoiniciantes-ia` contém o Worker da API de análise.
+
+## Publicação no Cloudflare Pages
+
+Conecte este repositório ao Cloudflare Pages usando:
+
+- Branch de produção: `main`
+- Framework preset: `None`
+- Build command: deixe vazio
+- Build output directory: `/`
+
+Como o site é estático, o Cloudflare Pages publica diretamente `index.html` e os diretórios `assets` e `dados`. Cada novo push em `main` gera uma nova publicação automaticamente.
+
+O arquivo `CLOUDFLARE_PAGES.md` contém o passo a passo visual da configuração.
+
+## Worker da API
+
+O subdiretório `cloudflare/bitcoiniciantes-ia` é um Worker da Cloudflare que oferece a API do Analista IA do EstudeBitcoin.
 Worker da Cloudflare que oferece a primeira API do Analista IA do EstudeBitcoin.
 
 ## Rotas
@@ -46,3 +64,5 @@ npx wrangler deploy
 Atencao (Windows): o `wrangler deploy` pode publicar um bundle antigo se a pasta ja tiver sido usada antes (cache residual). Sempre copie `src/index.js` e `wrangler.toml` para uma pasta nova (ex.: `%TEMP%\opencode\bitcoiniciantes-ia-final`), remova o `.wrangler` local se houver, e rode o deploy de la. Confirme a "Current Version ID" depois.
 
 No painel da Cloudflare, configure os segredos `GEMINI_API_KEY` e `GROQ_API_KEY`; eles nunca devem ser colocados no Git ou no codigo do site.
+
+
