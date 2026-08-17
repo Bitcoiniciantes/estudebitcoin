@@ -1178,7 +1178,7 @@
     <span style="color:#F7931A;">&#9654;</span> <a href="https://www.youtube.com/@bitcoiniciante/videos" target="_blank" rel="noopener" style="color:#F7931A;text-decoration:none;">youtube.com/@bitcoiniciante</a><br>
     <span style="color:#54b85a;">&#9679;</span> <a href="https://termometros.pages.dev/" target="_blank" rel="noopener" style="color:#54b85a;text-decoration:none;">Termômetro Bitcoin</a>
   </p>
-  <p style="color:#999;font-size:0.82rem;margin-top:14px;">© 2026 BITCOIN INICIANTES — Todos os direitos reservados. <span id="vc-num" style="opacity:0.55;font-size:0.85em;">···</span></p>
+  <p style="color:#999;font-size:0.82rem;margin-top:14px;">© 2026 BITCOIN INICIANTES — Todos os direitos reservados. <span style="opacity:0.55;font-size:0.85em;">· visitas: <span id="vc-num">···</span></span></p>
   <p style="font-size:0.7rem;color:#666;margin-top:10px;">Não somos uma corretora de valores. Não custodiamos ativos de terceiros. Não realizamos aconselhamento financeiro de investimento.</p>
   </div>
 </footer>
@@ -1188,9 +1188,7 @@
 <script>
 (function() {
   function loadCount() {
-    var path = (window.goatcounter && window.goatcounter.get_data) ? window.goatcounter.get_data()['p'] : location.pathname;
-    path = path.replace(/index\.html$/, '');
-    var r = new XMLHttpRequest();
+        var r = new XMLHttpRequest();
     r.addEventListener('load', function() {
       try {
         var data = JSON.parse(this.responseText);
@@ -1198,7 +1196,7 @@
         if (el) el.innerText = data.count;
       } catch(e) {}
     });
-    r.open('GET', 'https://bitcoiniciante.goatcounter.com/counter/' + encodeURIComponent(path) + '.json');
+    r.open('GET', 'https://bitcoiniciante.goatcounter.com/counter/TOTAL.json');
     r.send();
   }
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
@@ -1269,6 +1267,7 @@
 
 </body>
 </html>
+
 
 
 
