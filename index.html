@@ -1187,13 +1187,14 @@
 <script>
 (function() {
   var WORKER_URL = 'https://floral-truth-af64.bitcoiniciantes.workers.dev';
+  var SITE_NAME = 'estudebitcoin';
   var el = document.getElementById('vc-num');
   var today = new Date().toISOString().slice(0, 10);
-  var lastVisit = localStorage.getItem('btc_last_visit');
+  var lastVisit = localStorage.getItem('btc_last_visit_' + SITE_NAME);
   
   if (lastVisit === today) {
     // Já visitou hoje — só lê o total
-    fetch(WORKER_URL + '/total')
+    fetch(WORKER_URL + '/total?site=' + SITE_NAME)
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (el && data.count !== undefined) el.innerText = data.count.toLocaleString('pt-BR');
@@ -1201,14 +1202,14 @@
       .catch(function() {});
   } else {
     // Primeira visita do dia — incrementa
-    localStorage.setItem('btc_last_visit', today);
-    fetch(WORKER_URL + '/count')
+    localStorage.setItem('btc_last_visit_' + SITE_NAME, today);
+    fetch(WORKER_URL + '/count?site=' + SITE_NAME)
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (el && data.count !== undefined) el.innerText = data.count.toLocaleString('pt-BR');
       })
       .catch(function() {
-        fetch(WORKER_URL + '/total')
+        fetch(WORKER_URL + '/total?site=' + SITE_NAME)
           .then(function(r) { return r.json(); })
           .then(function(data) {
             if (el && data.count !== undefined) el.innerText = data.count.toLocaleString('pt-BR');
