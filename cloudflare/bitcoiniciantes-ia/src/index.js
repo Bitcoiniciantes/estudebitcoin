@@ -956,6 +956,16 @@ async function generateWithGroq(env, messages, { jsonMode = false } = {}) {
   return asText(payload?.choices?.[0]?.message?.content, 6000);
 }
 
+function buildFinAiPrompt(data) {
+  const question = asText(data?.question, 1000)
+  const context = asText(JSON.stringify(data?.context || {}), 9000)
+  return {
+    messages: [
+      { role: "system", content: "Voce e o assistente financeiro do FinAI. Responda em portugues do Brasil, com clareza, sem inventar dados e sem prometer resultados. Use somente o contexto fornecido. Inclua um aviso breve quando a resposta envolver decisao financeira." },
+      { role: "user", content: `Contexto financeiro: ${context}\n\nPergunta: ${question}` },
+    ],
+  }
+}
 // ---------- Handler ----------
 
 export default {
@@ -986,7 +996,8 @@ export default {
       return publicPositions(request, url, env);
     }    const isTermometro = url.pathname === "/api/ai-analysis";
     const isEstudeBitcoin = url.pathname === "/v1/analyze";
-    if (request.method !== "POST" || (!isTermometro && !isEstudeBitcoin)) {
+    const isFinAi = url.pathname === "/v1/finai-assistant";
+    if (request.method !== "POST" || (!isTermometro && !isEstudeBitcoin && !isFinAi)) {
       return json(request, { error: "Rota nao encontrada." }, 404);
     }
 
@@ -997,6 +1008,20 @@ export default {
       return json(request, { error: "Envie um JSON valido." }, 400);
     }
 
+    if (isFinAi) {
+      const prompt = buildFinAiPrompt(data || {})
+      const providers = [
+        { name: "gemini", model: GEMINI_MODEL, run: () => generateWithGemini(env, prompt.messages) },
+        { name: "groq", model: GROQ_MODEL, run: () => generateWithGroq(env, prompt.messages) },
+      ]
+      for (const provider of providers) {
+        try {
+          const answer = await provider.run()
+          if (answer) return json(request, { provider: provider.name, model: provider.model, answer })
+        } catch (error) { console.error(`${provider.name}-finai-error`, error) }
+      }
+      return json(request, { error: "Nenhum provedor de IA esta disponivel agora." }, 503)
+    }
     if (isEstudeBitcoin) {
       const prompt = buildEstudeBitcoinPrompt(data || {});
       const providers = [
