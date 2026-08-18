@@ -1183,27 +1183,28 @@
   </div>
 </footer>
 
-<!-- GoatCounter -->
-<script data-goatcounter="https://bitcoiniciante.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<!-- Cloudflare Worker Counter -->
 <script>
 (function() {
-  function loadCount() {
-        var r = new XMLHttpRequest();
-    r.addEventListener('load', function() {
-      try {
-        var data = JSON.parse(this.responseText);
-        var el = document.getElementById('vc-num');
-        if (el) el.innerText = data.count;
-      } catch(e) {}
+  var WORKER_URL = 'https://floral-truth-af64.bitcoiniciantes.workers.dev';
+  
+  // Incrementa e retorna o total
+  fetch(WORKER_URL + '/count')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var el = document.getElementById('vc-num');
+      if (el && data.count !== undefined) el.innerText = data.count.toLocaleString('pt-BR');
+    })
+    .catch(function() {
+      // Fallback: tenta ler sem incrementar
+      fetch(WORKER_URL + '/total')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var el = document.getElementById('vc-num');
+          if (el && data.count !== undefined) el.innerText = data.count.toLocaleString('pt-BR');
+        })
+        .catch(function() {});
     });
-    r.open('GET', 'https://bitcoiniciante.goatcounter.com/counter/TOTAL.json');
-    r.send();
-  }
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    setTimeout(loadCount, 300);
-  } else {
-    document.addEventListener('DOMContentLoaded', function() { setTimeout(loadCount, 300); });
-  }
 })();
 </script>
 
