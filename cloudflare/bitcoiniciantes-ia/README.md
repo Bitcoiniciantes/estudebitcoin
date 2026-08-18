@@ -37,7 +37,9 @@ Sem chave de API de noticias (CryptoPanic/NewsAPI/Bing exigem token; Messari 404
 
 - `GEMINI_MODEL` — modelo Gemini usado (atual: `gemini-3.5-flash-lite`).
 - `GROQ_MODEL` — modelo Groq reserva (`llama-3.3-70b-versatile`).
-- Segredos obrigatorios no painel da Cloudflare: `GEMINI_API_KEY` e `GROQ_API_KEY`.
+- Segredos obrigatorios no painel da Cloudflare: `GEMINI_API_KEY`, `GROQ_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `FIREBASE_PROJECT_ID`.
+- A rota `POST /v1/finai-invoice` recebe uma nota fiscal em `multipart/form-data`, valida o token do Firebase e grava o arquivo no bucket privado `notas-fiscais` do Supabase.
+- `SUPABASE_SERVICE_ROLE_KEY` nunca deve ser colocado no site, no GitHub ou no navegador; ele fica somente como secret do Worker.
 
 ## Publicacao
 

@@ -1,3 +1,4 @@
+import { createRemoteJWKSet, jwtVerify } from "jose";
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const AI_PROVIDER_TIMEOUT_MS = 10000;
@@ -8,7 +9,7 @@ function corsHeaders(request) {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Vary": "Origin",
   };
   return headers;
@@ -966,6 +967,59 @@ function buildFinAiPrompt(data) {
     ],
   }
 }
+const FIREBASE_JWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
+
+async function verifyFirebaseUser(request, env) {
+  const authorization = request.headers.get("Authorization") || "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!token || !env.FIREBASE_PROJECT_ID) return null;
+  try {
+    const { payload } = await jwtVerify(token, FIREBASE_JWKS, {
+      issuer: `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`,
+      audience: env.FIREBASE_PROJECT_ID,
+    });
+    return typeof payload.sub === "string" && payload.sub ? payload.sub : null;
+  } catch (error) {
+    console.error("firebase-token-error", error);
+    return null;
+  }
+}
+
+async function uploadInvoice(request, env) {
+  const userId = await verifyFirebaseUser(request, env);
+  if (!userId) return json(request, { error: "Autenticacao Firebase invalida." }, 401);
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return json(request, { error: "Supabase nao configurado no Worker." }, 503);
+
+  const form = await request.formData();
+  const file = form.get("file");
+  const transactionId = String(form.get("transactionId") || "");
+  if (!(file instanceof File) || !transactionId) return json(request, { error: "Envie o arquivo e o ID da transacao." }, 400);
+  const allowedTypes = new Set(["image/jpeg", "image/png", "application/pdf"]);
+  if (!allowedTypes.has(file.type)) return json(request, { error: "Tipo de nota fiscal nao permitido." }, 415);
+  if (file.size > 5 * 1024 * 1024) return json(request, { error: "A nota fiscal deve ter no maximo 5 MB." }, 413);
+  if (!/^[A-Za-z0-9_-]{8,120}$/.test(transactionId)) return json(request, { error: "ID de transacao invalido." }, 400);
+
+  const originalName = String(form.get("fileName") || file.name || "nota-fiscal");
+  const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
+  const path = `usuarios/${userId}/notas-fiscais/${transactionId}-${safeName}`;
+  const endpoint = `${env.SUPABASE_URL.replace(/\/$/, "")}/storage/v1/object/notas-fiscais/${path.split("/").map(encodeURIComponent).join("/")}`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": file.type,
+      "x-upsert": "false",
+    },
+    body: await file.arrayBuffer(),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    console.error("supabase-upload-error", response.status, detail);
+    return json(request, { error: "Nao foi possivel armazenar a nota fiscal." }, 502);
+  }
+  return json(request, { ok: true, path, name: originalName });
+}
 // ---------- Handler ----------
 
 export default {
@@ -996,6 +1050,7 @@ export default {
       return publicPositions(request, url, env);
     }    const isTermometro = url.pathname === "/api/ai-analysis";
     const isEstudeBitcoin = url.pathname === "/v1/analyze";
+    if (request.method === "POST" && url.pathname === "/v1/finai-invoice") return uploadInvoice(request, env);
     const isFinAi = url.pathname === "/v1/finai-assistant";
     if (request.method !== "POST" || (!isTermometro && !isEstudeBitcoin && !isFinAi)) {
       return json(request, { error: "Rota nao encontrada." }, 404);
