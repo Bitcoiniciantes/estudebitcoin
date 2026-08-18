@@ -1187,24 +1187,35 @@
 <script>
 (function() {
   var WORKER_URL = 'https://floral-truth-af64.bitcoiniciantes.workers.dev';
+  var el = document.getElementById('vc-num');
+  var today = new Date().toISOString().slice(0, 10);
+  var lastVisit = localStorage.getItem('btc_last_visit');
   
-  // Incrementa e retorna o total
-  fetch(WORKER_URL + '/count')
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      var el = document.getElementById('vc-num');
-      if (el && data.count !== undefined) el.innerText = data.count.toLocaleString('pt-BR');
-    })
-    .catch(function() {
-      // Fallback: tenta ler sem incrementar
-      fetch(WORKER_URL + '/total')
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          var el = document.getElementById('vc-num');
-          if (el && data.count !== undefined) el.innerText = data.count.toLocaleString('pt-BR');
-        })
-        .catch(function() {});
-    });
+  if (lastVisit === today) {
+    // Já visitou hoje — só lê o total
+    fetch(WORKER_URL + '/total')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (el && data.count !== undefined) el.innerText = data.count.toLocaleString('pt-BR');
+      })
+      .catch(function() {});
+  } else {
+    // Primeira visita do dia — incrementa
+    localStorage.setItem('btc_last_visit', today);
+    fetch(WORKER_URL + '/count')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (el && data.count !== undefined) el.innerText = data.count.toLocaleString('pt-BR');
+      })
+      .catch(function() {
+        fetch(WORKER_URL + '/total')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (el && data.count !== undefined) el.innerText = data.count.toLocaleString('pt-BR');
+          })
+          .catch(function() {});
+      });
+  }
 })();
 </script>
 
