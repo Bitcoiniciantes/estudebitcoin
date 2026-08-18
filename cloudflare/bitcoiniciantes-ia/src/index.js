@@ -1002,7 +1002,8 @@ async function uploadInvoice(request, env) {
   const originalName = String(form.get("fileName") || file.name || "nota-fiscal");
   const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
   const path = `usuarios/${userId}/notas-fiscais/${transactionId}-${safeName}`;
-  const endpoint = `${env.SUPABASE_URL.replace(/\/$/, "")}/storage/v1/object/notas-fiscais/${path.split("/").map(encodeURIComponent).join("/")}`;
+  const supabaseBaseUrl = env.SUPABASE_URL.replace(/\/$/, "").replace(/\/rest\/v1$/, "");
+  const endpoint = `${supabaseBaseUrl}/storage/v1/object/notas-fiscais/${path.split("/").map(encodeURIComponent).join("/")}`;
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
