@@ -967,6 +967,76 @@ function buildFinAiPrompt(data) {
     ],
   }
 }
+function bytesToBase64(bytes) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function normalizeInvoiceDate(value) {
+  const text = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const match = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : "";
+}
+
+function normalizeInvoiceCategory(value) {
+  const text = String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (/aliment|restaurante|mercado|supermercado|lanch|delivery/.test(text)) return "Alimentação";
+  if (/moradia|aluguel|condominio|energia|luz|agua|internet|telefone/.test(text)) return "Moradia";
+  if (/transporte|combustivel|gasolina|uber|taxi|onibus|metro/.test(text)) return "Transporte";
+  if (/saude|farmacia|medic|consulta|hospital/.test(text)) return "Saúde";
+  if (/educa|curso|escola|livro/.test(text)) return "Educação";
+  return "Outros";
+}
+
+function parseInvoiceExtraction(value) {
+  try {
+    const parsed = JSON.parse(String(value || "").replace(/^```json\s*|\s*```$/g, ""));
+    const amount = Number(String(parsed.amount ?? "").replace(/[^0-9,.-]/g, "").replace(/\.(?=.*\.)/g, "").replace(",", "."));
+    return {
+      merchant: asText(parsed.merchant, 120),
+      amount: Number.isFinite(amount) && amount > 0 ? amount : null,
+      date: normalizeInvoiceDate(parsed.date),
+      category: normalizeInvoiceCategory(parsed.category),
+      confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0)),
+    };
+  } catch (error) {
+    console.error("invoice-extraction-parse-error", error);
+    return null;
+  }
+}
+
+async function extractInvoiceWithGemini(env, file, bytes) {
+  if (!env.GEMINI_API_KEY) return null;
+  const response = await fetchAiProvider(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          role: "user",
+          parts: [
+            { text: "Analise esta nota fiscal brasileira. Retorne SOMENTE JSON valido com merchant (texto), amount (numero decimal), date (YYYY-MM-DD), category (Alimentação, Moradia, Transporte, Saúde, Educação ou Outros) e confidence (numero de 0 a 1). Use apenas dados legiveis no documento. Quando um campo nao estiver claro, use string vazia, null ou 0." },
+            { inlineData: { mimeType: file.type, data: bytesToBase64(new Uint8Array(bytes)) } },
+          ],
+        }],
+        generationConfig: { temperature: 0, maxOutputTokens: 350, responseMimeType: "application/json" },
+      }),
+    },
+  );
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`gemini-invoice-${response.status}: ${detail}`);
+  }
+  const payload = await response.json();
+  const text = payload?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("");
+  return parseInvoiceExtraction(text);
+}
 const FIREBASE_JWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
 
 async function verifyFirebaseUser(request, env) {
@@ -988,7 +1058,14 @@ async function verifyFirebaseUser(request, env) {
 async function uploadInvoice(request, env) {
   const userId = await verifyFirebaseUser(request, env);
   if (!userId) return json(request, { error: "Autenticacao Firebase invalida." }, 401);
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return json(request, { error: "Supabase nao configurado no Worker." }, 503);
+  const missingConfig = [
+    !env.SUPABASE_URL && "SUPABASE_URL",
+    !env.SUPABASE_SERVICE_ROLE_KEY && "SUPABASE_SERVICE_ROLE_KEY",
+  ].filter(Boolean);
+  if (missingConfig.length) {
+    console.error("supabase-missing-config", missingConfig);
+    return json(request, { error: `Supabase nao configurado no Worker: ${missingConfig.join(", ")}.`, missingConfig }, 503);
+  }
 
   const form = await request.formData();
   const file = form.get("file");
@@ -1004,6 +1081,7 @@ async function uploadInvoice(request, env) {
   const path = `usuarios/${userId}/notas-fiscais/${transactionId}-${safeName}`;
   const supabaseBaseUrl = env.SUPABASE_URL.replace(/\/$/, "").replace(/\/rest\/v1$/, "");
   const endpoint = `${supabaseBaseUrl}/storage/v1/object/notas-fiscais/${path.split("/").map(encodeURIComponent).join("/")}`;
+  const fileBytes = await file.arrayBuffer();
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
@@ -1012,14 +1090,20 @@ async function uploadInvoice(request, env) {
       "Content-Type": file.type,
       "x-upsert": "false",
     },
-    body: await file.arrayBuffer(),
+    body: fileBytes,
   });
   if (!response.ok) {
     const detail = await response.text();
     console.error("supabase-upload-error", response.status, detail);
     return json(request, { error: "Nao foi possivel armazenar a nota fiscal." }, 502);
   }
-  return json(request, { ok: true, path, name: originalName });
+  let extraction = null;
+  try {
+    extraction = await extractInvoiceWithGemini(env, file, fileBytes);
+  } catch (error) {
+    console.error("gemini-invoice-error", error);
+  }
+  return json(request, { ok: true, path, name: originalName, extraction, provider: extraction ? "gemini" : null });
 }
 // ---------- Handler ----------
 
