@@ -46,7 +46,7 @@
   }
 
   function inferAsset(question, fallback) {
-    var aliases = { BITCOIN: "BTC", BTC: "BTC", ETHEREUM: "ETH", ETH: "ETH", CHAINLINK: "LINK", LINK: "LINK", AVALANCHE: "AVAX", AVAX: "AVAX", PAXG: "PAXG", PRATA: "PRATA", SILVER: "PRATA", COBRE: "COBRE", COPPER: "COBRE", URANIO: "URANIO", URANIUM: "URANIO", MSTR: "MSTR", POL: "POL", POLYGON: "POL" };
+    var aliases = { BITCOIN: "BTC", BTC: "BTC", ETHEREUM: "ETH", ETH: "ETH", CHAINLINK: "LINK", LINK: "LINK", AVALANCHE: "AVAX", AVAX: "AVAX", PAXG: "PAXG", PRATA: "PRATA", SILVER: "PRATA", COBRE: "COBRE", COPPER: "COBRE", URANIO: "URANIO", URANIUM: "URANIO", MSTR: "MSTR", POL: "RENDER", POLYGON: "RENDER", RENDER: "RENDER" };
     var words = String(question || "").toUpperCase().match(/[A-Z0-9]{2,12}/g) || [];
     for (var i = 0; i < words.length; i += 1) {
       if (aliases[words[i]]) return aliases[words[i]];

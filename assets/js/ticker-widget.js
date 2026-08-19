@@ -6,7 +6,7 @@
     ["SOL", "SOLUSDT", "USD"],
     ["LINK", "LINKUSDT", "USD"],
     ["AVAX", "AVAXUSDT", "USD"],
-    ["POL", "POLUSDT", "USD"],
+    ["RENDER", "RENDERUSDT", "USD"],
     ["PAXG", "PAXGUSDT", "USD"],
     ["USDT-BRL", "USDTBRL", "BRL"],
   ];
@@ -17,7 +17,7 @@
     SOL: "Solana",
     LINK: "Chainlink",
     AVAX: "Avalanche",
-    POL: "Polygon",
+    RENDER: "Render",
     PAXG: "Pax Gold",
     "USDT-BRL": "Dólar em Reais (USDT-BRL)",
   };
