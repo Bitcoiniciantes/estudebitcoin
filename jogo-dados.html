@@ -32,9 +32,9 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
   .entropy-btn.primary { background:var(--orange); border-color:var(--orange); color:#0b0e11; }
   .entropy-btn:disabled, .entropy-field select:disabled { cursor:not-allowed; opacity:.45; }
   .entropy-btn.copied { background:rgba(22,199,132,.14); color:var(--green); border-color:rgba(22,199,132,.45); }
-  .entropy-dice-viewport { overflow:auto; padding:5px 2px 12px; }
-  .entropy-dice-grid { display:grid; grid-template-columns:repeat(var(--entropy-dice-columns, 20), minmax(0, 1fr)); gap:4px; width:100%; }
-  .entropy-die { position:relative; width:100%; aspect-ratio:1; background:#fff; border:2px solid #d9dce1; border-radius:10px; box-shadow:0 3px 0 rgba(0,0,0,.45); transform-origin:50% 70%; }
+  .entropy-dice-viewport { overflow:hidden; padding:8px 4px 14px; }
+  .entropy-dice-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(28px, 1fr)); gap:6px; width:100%; justify-content:center; justify-items:center; }
+  .entropy-die { position:relative; width:100%; max-width:48px; aspect-ratio:1; background:#fff; border:2px solid #d9dce1; border-radius:10px; box-shadow:0 3px 0 rgba(0,0,0,.45); transform-origin:50% 70%; }
   .entropy-pip { position:absolute; width:16%; aspect-ratio:1; border-radius:50%; background:#111; opacity:0; transition:opacity .08s ease; }
   .entropy-pip:nth-child(1) {top:14%;left:14%} .entropy-pip:nth-child(2) {top:14%;left:42%} .entropy-pip:nth-child(3) {top:14%;right:14%}
   .entropy-pip:nth-child(4) {top:42%;left:14%} .entropy-pip:nth-child(5) {top:42%;left:42%} .entropy-pip:nth-child(6) {top:42%;right:14%}
@@ -48,8 +48,8 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
   .entropy-dice-grid.is-rolling .entropy-die { animation:entropy-tumble .22s linear infinite, entropy-bounce .4s ease-in-out infinite alternate; }
   .entropy-dice-grid.is-rolling .entropy-die:nth-child(2n) { animation-duration:.17s,.35s; animation-direction:reverse,alternate; }
   .entropy-dice-grid.is-rolling .entropy-die:nth-child(3n) { animation-duration:.25s,.46s; }
-  @keyframes entropy-tumble { from { transform:rotate(0deg) scale(1) } 50% { transform:rotate(180deg) scale(.9,1.08) } to { transform:rotate(360deg) scale(1) } }
-  @keyframes entropy-bounce { from { translate:0 5px } to { translate:0 -6px } }
+  @keyframes entropy-tumble { from { transform:rotate(0deg) scale(1) } 50% { transform:rotate(180deg) scale(.95,1.04) } to { transform:rotate(360deg) scale(1) } }
+  @keyframes entropy-bounce { from { translate:0 3px } to { translate:0 -4px } }
   .entropy-result { margin:6px 0 16px; padding:12px; min-height:50px; overflow-wrap:anywhere; text-align:center; color:var(--orange); background:#10141a; border:1px solid var(--line); border-radius:10px; font:700 15px/1.6 ui-monospace,Consolas,monospace; user-select:none; }
   .entropy-status { min-height:1.5em; margin:14px 0 0; color:var(--muted); font-size:15px; text-align:center; }
   .entropy-disclaimer { margin:18px 0 0; padding:14px 16px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; line-height:1.55; }
@@ -69,7 +69,7 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
   .entropy-strength-metric span { display:block; margin-bottom:5px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
   .entropy-strength-metric strong { display:block; overflow-wrap:anywhere; color:var(--orange); font:700 18px/1.4 ui-monospace,Consolas,monospace; }
   .entropy-strength-note { margin:14px 0 0; color:var(--muted); font-size:13px; line-height:1.55; }
-  @media (max-width:600px) { .entropy-strength-grid { grid-template-columns:1fr; } .entropy-section { padding:16px; } .entropy-controls { align-items:stretch; } .entropy-field, .entropy-btn { flex:1 1 145px; } }
+  @media (max-width:600px) { .entropy-strength-grid { grid-template-columns:1fr; } .entropy-section { padding:16px; } .entropy-controls { align-items:stretch; } .entropy-field, .entropy-btn { flex:1 1 145px; } .entropy-dice-grid { gap:5px; } .entropy-die { max-width:none; border-radius:8px; } }
   @media (prefers-reduced-motion:reduce) { .entropy-dice-grid.is-rolling .entropy-die { animation:none; } }
 
 </style>
@@ -116,8 +116,8 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
       <div class="entropy-strength-control">
         <label for="entropyAttackRate">Taxa hipotética de tentativas</label>
         <select id="entropyAttackRate">
-          <option value="1000000">10⁶ por segundo</option>
-          <option value="1000000000" selected>10⁹ por segundo</option>
+          <option value="1000000" selected>10⁶ por segundo</option>
+          <option value="1000000000">10⁹ por segundo</option>
           <option value="1000000000000">10¹² por segundo</option>
         </select>
       </div>
