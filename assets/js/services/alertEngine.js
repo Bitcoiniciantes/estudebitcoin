@@ -95,7 +95,6 @@ window.AlertEngine = (function () {
     // Proteção contra disparo imediato (Seção 9)
     if (alert.lastPrice === null) {
       alert.lastPrice = currentPrice;
-      this.updateArmingState(alert, currentPrice);
       return;
     }
 
