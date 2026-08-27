@@ -657,7 +657,7 @@
   .ticker-tabs button { border-radius:8px; }
   .ticker-status { margin-left:auto; color:#8fa396; font-size:.66rem; font-weight:800; letter-spacing:.08em; }
   .ticker-grid { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:8px; }
-  .tq { border:1px solid rgba(255,255,255,.06); border-radius:10px; padding:14px 8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-height:88px; text-align:center; cursor:pointer; color:#fff; }
+  .tq { border:1px solid rgba(255,255,255,.06); border-radius:10px; padding:14px 8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-height:88px; text-align:center; cursor:pointer; color:#fff; position:relative; }
   .tq.up3 { background:#0f5e2d; }
   .tq.up1 { background:#1f9d4c; }
   .tq.down { background:#d5342b; }
@@ -676,6 +676,65 @@
   .ticker-foot { color:#6b7f72; font-size:.66rem; margin-top:8px; }
   @media(max-width:720px){ .ticker-grid { grid-template-columns:repeat(auto-fill,minmax(84px,1fr)) !important; } .tq { padding:10px 4px; } .tqPrice { font-size:.66rem; } .tqPct { font-size:.9rem; } .tqPrice.tq-sm { font-size:.56rem; } }
   @media(max-width:560px){ .ticker-status { display:none; } }
+
+  /* ── S/R Dinâmico — Alertas visuais nos cards ── */
+  .tq-bell {
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    background: none;
+    border: none;
+    cursor: default;
+    font-size: .75rem;
+    line-height: 1;
+    padding: 2px;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .tq:hover .tq-bell {
+    opacity: 1;
+  }
+  .tq.alert-triggered .tq-bell {
+    opacity: 1;
+    text-decoration: line-through;
+    text-decoration-color: #ff4343;
+    text-decoration-thickness: 2px;
+  }
+  .tq-bell.alert-bell-active {
+    animation: bellShake 0.45s infinite;
+  }
+  .tq-sr-label {
+    font-size: .65rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    padding: 1px 5px;
+    border-radius: 4px;
+    line-height: 1.2;
+  }
+  .tq-sr-label.sr-res {
+    background: rgba(255, 67, 67, 0.25);
+    color: #ff6b6b;
+  }
+  .tq-sr-label.sr-sup {
+    background: rgba(76, 175, 80, 0.25);
+    color: #66bb6a;
+  }
+  @keyframes alertFlash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+  .tq.alert-triggered {
+    animation: alertFlash 0.8s infinite;
+    border-color: rgba(255,193,7,0.6);
+    box-shadow: 0 0 12px rgba(255,193,7,0.25);
+  }
+  @keyframes bellShake {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-12deg); }
+    75% { transform: rotate(12deg); }
+  }
 
     /* IA integrada ao widget: abre no mesmo bloco sem rolagem interna. */
     .termometro-widget-wrap { border-radius:10px; }
@@ -742,13 +801,14 @@
               <button type="button" data-draw-tool="erase" role="menuitemradio" aria-checked="false">Apagar</button>
             </div>
           </div>
+          <button id="preev-sr-toggle" class="preev__chart-type-btn" type="button" aria-pressed="false" title="S/R Dinâmico — Suporte e Resistência da última vela fechada">S/R</button>
           <canvas id="preev-canvas"></canvas>
         </div>
         <div class="preev__footer" style="flex-direction:column;align-items:center;gap:4px;margin-top:auto;">
           <div class="preev__tf-group">
             <button class="preev__tf-btn" data-tf="15M">15M</button>
-            <button class="preev__tf-btn" data-tf="1H">1H</button>
-            <button class="preev__tf-btn active" data-tf="1D">1D</button>
+            <button class="preev__tf-btn active" data-tf="1H">1H</button>
+            <button class="preev__tf-btn" data-tf="1D">1D</button>
             <button class="preev__tf-btn" data-tf="1W">1S</button>
             <button class="preev__tf-btn" data-tf="1M">1M</button>
             <button class="preev__tf-btn" data-tf="1Y">1A</button>
@@ -1276,11 +1336,13 @@
 <!-- Scripts -->
 <script src="assets/js/config.js"></script>
 <script src="assets/js/utils.js"></script>
+<script src="assets/js/services/alertEngine.js"></script>
+<script src="assets/js/chart/dynamicSR.js"></script>
 <script defer src="assets/js/main.js?v=20260729-2"></script>
 <script defer src="assets/js/projections.js"></script>
-<script defer src="assets/js/conversor.js?v=16"></script>
+<script defer src="assets/js/conversor.js?v=17"></script>
 <script defer src="assets/js/analista-ia.js?v=13"></script>
-<script defer src="assets/js/ticker-widget.js?v=17"></script>
+<script defer src="assets/js/ticker-widget.js?v=18"></script>
 
 </body>
 </html>

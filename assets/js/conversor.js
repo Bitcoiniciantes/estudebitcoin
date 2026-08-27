@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const titleEl = document.querySelector('.preev__title'); // Seleciona o título
   const PUBLIC_MARKERS_URL = 'https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/public-markers';
 
-  let activeTimeframe = '1D';
+  let activeTimeframe = '1H';
   let externalAsset = null;       // { kind:'crypto'|'stock', symbol, pair, label }
   let stockPollTimer = null;
   let markerMode = false;
@@ -43,6 +43,11 @@ document.addEventListener('DOMContentLoaded', () => {
   let resizeTimeout = null;
   let lastTouchMarkerAt = 0;
   let lastPublicMarkerUpdate = 0;
+
+  // --- Escala Y manual (drag no eixo de preços) ---
+  let yScaleManual = null; // { min, max } ou null (auto)
+  let yScaleDrag = null;   // { startY, startMin, startMax } durante drag
+  let srAutoActivate = true; // ativa S/R automaticamente no primeiro load
 
   // Largura (em px) reservada para o eixo de preços à esquerda do gráfico
   const AXIS_W = 56;
@@ -92,6 +97,13 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function setExternalAsset(asset) {
     externalAsset = asset || null;
+    yScaleManual = null;
+    yScaleDrag = null;
+    // Desativar S/R ao trocar para stock (S/R só existe para criptos)
+    if (externalAsset && externalAsset.kind === 'stock' && window.DynamicSR && window.DynamicSR.isActive()) {
+      window.DynamicSR.deactivate();
+      if (srToggleBtn) srToggleBtn.setAttribute('aria-pressed', 'false');
+    }
     clearTimeout(stockPollTimer);
     stockPollTimer = null;
     if (externalAsset && externalAsset.kind === 'stock') setLiveStatus(false);
@@ -401,6 +413,10 @@ document.addEventListener('DOMContentLoaded', () => {
         candlesHistory = tf.aggregate === 'year' ? aggregateAnnualCandles(normalizedCandles) : normalizedCandles;
         updateChartFromCandles();
         connectKlineStream();
+        if (window.DynamicSR && window.DynamicSR.isActive()) {
+          window.DynamicSR.recalculate(config.symbol, candlesHistory, activeTimeframe);
+          drawActiveChart();
+        }
       }
     } catch (err) {
       if (err.name === 'AbortError') return;
@@ -489,6 +505,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const lastClose = candlesHistory[candlesHistory.length - 1].close;
     renderStats(Math.max(...highs), Math.min(...lows), ((lastClose - openPriceReference) / openPriceReference) * 100);
     drawActiveChart();
+    // Auto-ativar S/R no primeiro load
+    if (srAutoActivate && window.DynamicSR && window.AlertEngine && candlesHistory.length >= 2) {
+      srAutoActivate = false;
+      const symbol = getSRSymbol();
+      if (symbol) {
+        window.DynamicSR.activate(symbol, candlesHistory, activeTimeframe);
+        if (srToggleBtn) {
+          srToggleBtn.setAttribute('aria-pressed', 'true');
+          srToggleBtn.title = 'Desligar S/R Dinâmico';
+        }
+        drawActiveChart();
+      }
+    }
+    // Recalcular S/R ao trocar timeframe/ativo (mantém ativo)
+    else if (window.DynamicSR && window.DynamicSR.isActive() && window.AlertEngine && candlesHistory.length >= 2) {
+      var sym = getSRSymbol();
+      if (sym) {
+        window.DynamicSR.recalculate(sym, candlesHistory, activeTimeframe);
+        drawActiveChart();
+      } else {
+        window.DynamicSR.deactivate();
+        if (srToggleBtn) srToggleBtn.setAttribute('aria-pressed', 'false');
+      }
+    }
   }
 
   function drawActiveChart() {
@@ -761,13 +801,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const w = rect.width, h = rect.height;
     const top = 18, bottom = 15;
     const plotW = w - AXIS_W;
-    const min = Math.min(...candles.map(candle => candle.low));
-    const range = Math.max(...candles.map(candle => candle.high)) - min || 1;
+    const rawMin = Math.min(...candles.map(c => c.low));
+    const rawMax = Math.max(...candles.map(c => c.high));
+    const rawRange = rawMax - rawMin || 1;
+    const pad = rawRange * 0.07;
+    let min, max, range;
+    if (yScaleManual) {
+      min = yScaleManual.min;
+      max = yScaleManual.max;
+      range = max - min || 1;
+    } else {
+      min = rawMin - pad;
+      max = rawMax + pad;
+      range = max - min;
+    }
     const spacing = plotW / candles.length;
     const candleWidth = Math.max(2, Math.min(10, spacing * 0.62));
     const priceY = price => h - bottom - ((price - min) / range) * (h - top - bottom);
     const coords = candles.map((candle, index) => ({ x: index * spacing + spacing / 2, y: priceY(candle.close) }));
-    chartState = { mode: 'candles', candles, coords, min, range, w, h, spacing, candleWidth, priceY };
+    chartState = { mode: 'candles', candles, coords, min, range, w, h, spacing, candleWidth, priceY, rawMin, rawMax };
     renderBaseChart();
   }
   function renderBaseChart() {
@@ -798,6 +850,7 @@ document.addEventListener('DOMContentLoaded', () => {
     drawMarkers();
     drawChartLabel();
     drawLivePrice();
+    if (window.DynamicSR) window.DynamicSR.draw(ctx, chartState, displayCurrency());
   }
 
   /**
@@ -829,6 +882,7 @@ document.addEventListener('DOMContentLoaded', () => {
     drawMarkers();
     drawChartLabel();
     drawLivePrice();
+    if (window.DynamicSR) window.DynamicSR.draw(ctx, chartState, displayCurrency());
   }
   function handleChartHover(evt) {
     if (!chartState || !chartState.coords.length) return;
@@ -1028,6 +1082,8 @@ document.addEventListener('DOMContentLoaded', () => {
   
   [selectLeft, selectRight].forEach(s => s.addEventListener('change', () => { 
     hideTooltip();
+    yScaleManual = null;
+    yScaleDrag = null;
     setExternalAsset(null); // voltar ao modo normal BTC/fiat ao mexer nos selects
     updateTitle(); // Atualiza o título ao mudar o ativo
     updateAll(); 
@@ -1055,6 +1111,91 @@ document.addEventListener('DOMContentLoaded', () => {
   canvas.addEventListener('touchend', handleChartLeave);
   canvas.addEventListener('touchend', handleChartClick);
 
+  // --- ESCALA Y MANUAL: drag no eixo de preços + reset duplo clique ---
+  function isOnYAxis(evt) {
+    if (!chartState) return false;
+    const rect = canvas.getBoundingClientRect();
+    const x = (evt.touches ? evt.touches[0].clientX : evt.clientX) - rect.left;
+    return x > chartState.w - AXIS_W;
+  }
+
+  canvas.addEventListener('mousedown', function (evt) {
+    if (!isOnYAxis(evt) || !chartState || chartState.mode !== 'candles') return;
+    evt.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const startY = (evt.clientY || evt.clientY) - rect.top;
+    yScaleDrag = { startY: startY, startMin: chartState.min, startMax: chartState.min + chartState.range };
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  canvas.addEventListener('touchstart', function (evt) {
+    if (!isOnYAxis(evt) || !chartState || chartState.mode !== 'candles') return;
+    const rect = canvas.getBoundingClientRect();
+    const startY = evt.touches[0].clientY - rect.top;
+    yScaleDrag = { startY: startY, startMin: chartState.min, startMax: chartState.min + chartState.range };
+  }, { passive: true });
+
+  document.addEventListener('mousemove', function (evt) {
+    if (!yScaleDrag || !chartState) return;
+    const rect = canvas.getBoundingClientRect();
+    const currentY = evt.clientY - rect.top;
+    const deltaY = currentY - yScaleDrag.startY;
+    const h = chartState.h;
+    const top = 18, bottom = 15;
+    const plotH = h - top - bottom;
+    if (plotH <= 0) return;
+    const startRange = yScaleDrag.startMax - yScaleDrag.startMin;
+    const factor = 1 + (deltaY / plotH) * 1.5;
+    const center = (yScaleDrag.startMin + yScaleDrag.startMax) / 2;
+    const newRange = Math.max(startRange * 0.15, Math.min(startRange * 5, startRange * factor));
+    yScaleManual = {
+      min: center - newRange / 2,
+      max: center + newRange / 2
+    };
+    drawCandlestickChart(chartState.candles);
+  });
+
+  document.addEventListener('mouseup', function () {
+    if (yScaleDrag) {
+      yScaleDrag = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
+
+  document.addEventListener('touchmove', function (evt) {
+    if (!yScaleDrag || !chartState) return;
+    const rect = canvas.getBoundingClientRect();
+    const currentY = evt.touches[0].clientY - rect.top;
+    const deltaY = currentY - yScaleDrag.startY;
+    const h = chartState.h;
+    const top = 18, bottom = 15;
+    const plotH = h - top - bottom;
+    if (plotH <= 0) return;
+    const startRange = yScaleDrag.startMax - yScaleDrag.startMin;
+    const factor = 1 + (deltaY / plotH) * 1.5;
+    const center = (yScaleDrag.startMin + yScaleDrag.startMax) / 2;
+    const newRange = Math.max(startRange * 0.15, Math.min(startRange * 5, startRange * factor));
+    yScaleManual = {
+      min: center - newRange / 2,
+      max: center + newRange / 2
+    };
+    drawCandlestickChart(chartState.candles);
+  }, { passive: true });
+
+  document.addEventListener('touchend', function () {
+    if (yScaleDrag) {
+      yScaleDrag = null;
+    }
+  });
+
+  canvas.addEventListener('dblclick', function (evt) {
+    if (!isOnYAxis(evt) || !chartState) return;
+    yScaleManual = null;
+    drawCandlestickChart(chartState.candles);
+  });
+
   // Redesenha o gráfico (com o mesmo histórico) quando a janela é redimensionada,
   // evitando que fique desalinhado até a próxima atualização de dados
   window.addEventListener('resize', () => {
@@ -1070,6 +1211,8 @@ document.addEventListener('DOMContentLoaded', () => {
       tfBtns.forEach(btn => btn.classList.remove('active'));
       e.target.classList.add('active');
       activeTimeframe = e.target.dataset.tf;
+      yScaleManual = null;
+      yScaleDrag = null;
       hideTooltip();
       fetchHistoricalTrends();
   }));
@@ -1124,6 +1267,25 @@ document.addEventListener('DOMContentLoaded', () => {
     setDrawMenu(false);
     renderBaseChart();
   }));
+
+  /* ── S/R Dinâmico ── */
+  const srToggleBtn = document.getElementById('preev-sr-toggle');
+  function getSRSymbol() {
+    if (externalAsset && externalAsset.kind === 'crypto') return externalAsset.symbol;
+    if (externalAsset && externalAsset.kind === 'stock') return null;
+    return selectLeft.value;
+  }
+  if (srToggleBtn) srToggleBtn.addEventListener('click', () => {
+    hideTooltip();
+    const symbol = getSRSymbol();
+    if (!symbol) { alert('Alarme Suporte e Resistência somente para cripto.'); return; }
+    if (!candlesHistory || candlesHistory.length < 2) { alert('Aguardando dados do gráfico...'); return; }
+    const levels = window.DynamicSR.toggle(symbol, candlesHistory, activeTimeframe);
+    const isActive = window.DynamicSR.isActive();
+    srToggleBtn.setAttribute('aria-pressed', String(isActive));
+    srToggleBtn.title = isActive ? 'Desligar S/R Dinâmico' : 'S/R Dinâmico — Suporte e Resistência da última vela fechada';
+    drawActiveChart();
+  });
   window.addEventListener('beforeunload', () => {
     clearTimeout(klineReconnectTimer);
     clearTimeout(stockPollTimer);
