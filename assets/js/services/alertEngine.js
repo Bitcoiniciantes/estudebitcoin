@@ -108,11 +108,17 @@ window.AlertEngine = (function () {
 
     var previousPrice = alert.lastPrice;
 
-    // Rearme (Seção 8 & 10)
+    // Rearme (Seção 8 & 10) + desligar alerta visual quando preço se afasta
     if (currentPrice < alert.resistance) {
+      if (!alert.armedResistance && alert.visualAlert) {
+        this.dismissVisualAlert(symbol);
+      }
       alert.armedResistance = true;
     }
     if (currentPrice > alert.support) {
+      if (!alert.armedSupport && alert.visualAlert) {
+        this.dismissVisualAlert(symbol);
+      }
       alert.armedSupport = true;
     }
 
