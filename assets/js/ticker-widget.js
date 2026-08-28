@@ -143,6 +143,17 @@
             volume: typeof liveVolume[symbol] === "number" ? liveVolume[symbol] : volume,
             volumeLabel: "Volume 24h",
           };
+          // Calcular S/R dinâmico para todos os cryptos (suporte = menor low, resistência = maior high)
+          if (window.DynamicSR && window.AlertEngine && klines.length >= 3) {
+            var candles = klines.map(function (row) {
+              return { high: Number(row[2]), low: Number(row[3]) };
+            });
+            var srResult = window.DynamicSR.calculateSR(candles);
+            if (srResult) {
+              window.AlertEngine.unlockAudio();
+              window.AlertEngine.setAlertLevels(symbol, srResult.support, srResult.resistance);
+            }
+          }
           return { symbol: symbol, currency: currency, price: last, changePct: base ? ((last - base) / base) * 100 : 0 };
         })
         .catch(function () { return null; });

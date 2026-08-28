@@ -69,6 +69,14 @@ window.AlertEngine = (function () {
   AlertEngine.prototype.setAlertLevels = function (symbol, support, resistance) {
     if (!Number.isFinite(support) || !Number.isFinite(resistance)) return;
 
+    // Se já existe alerta com mesmos níveis, não resetar estado
+    var existing = this.alerts.get(symbol);
+    if (existing && existing.active) {
+      var sameSupport = Math.abs(existing.support - support) < support * 0.001;
+      var sameResistance = Math.abs(existing.resistance - resistance) < resistance * 0.001;
+      if (sameSupport && sameResistance) return;
+    }
+
     this.alerts.set(symbol, {
       support: support,
       resistance: resistance,
@@ -77,7 +85,7 @@ window.AlertEngine = (function () {
       resistanceTriggered: false,
       armedSupport: true,
       armedResistance: true,
-      lastPrice: null,
+      lastPrice: existing ? existing.lastPrice : null,
       visualAlert: false
     });
 
@@ -142,14 +150,13 @@ window.AlertEngine = (function () {
 
     alert.visualAlert = true;
 
-    // Cooldown de 5s por símbolo/direção (Seção 14)
-    // Acesso seguro: cria entrada se não existir
+    // Cooldown de 2min por símbolo/direção
     var now = Date.now();
     if (!this.lastSoundAt[symbol]) {
       this.lastSoundAt[symbol] = {};
     }
     var last = this.lastSoundAt[symbol][direction] || 0;
-    if (now - last >= 5000) {
+    if (now - last >= 120000) {
       playBeep(this);
       this.lastSoundAt[symbol][direction] = now;
     }

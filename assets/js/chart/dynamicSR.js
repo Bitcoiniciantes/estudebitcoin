@@ -107,12 +107,10 @@ window.DynamicSR = (function () {
   }
 
   /**
-   * Desativa S/R Dinâmico e limpa estado.
+   * Desativa S/R Dinâmico e limpa estado do gráfico.
+   * NÃO desativa alertas do AlertEngine — o ticker gerencia seus próprios alertas.
    */
   function deactivate() {
-    if (currentSymbol) {
-      window.AlertEngine.disable(currentSymbol);
-    }
     active = false;
     currentSymbol = null;
     srLevels = null;
@@ -227,9 +225,6 @@ window.DynamicSR = (function () {
     if (!result) {
       deactivate();
       return null;
-    }
-    if (currentSymbol) {
-      window.AlertEngine.disable(currentSymbol);
     }
     currentSymbol = symbol;
     srLevels = {
