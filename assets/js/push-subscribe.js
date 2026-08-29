@@ -153,9 +153,12 @@
     if (!btn) return;
     if (!isPushSupported()) return;
     btn.style.display = '';
-    updateButton('default');
 
-    // [TEMP TESTE] — Verificar subscription existente e reenviar ao Worker
+    // [TEMP TESTE] — Sempre mostrar botão para forçar re-subscription
+    btn.style.display = '';
+    btn.textContent = 'Ativar alertas (teste)';
+    btn.onclick = subscribe;
+
     getExistingSubscription().then(function (subscription) {
       if (subscription) {
         updateButton('subscribed');
@@ -166,6 +169,7 @@
           body: JSON.stringify(subscription)
         }).then(function(res) { return res.json(); }).then(function(data) {
           console.log('[Push] Subscription reenviada ao Worker:', data);
+          alert('Subscription enviada ao Worker! ID: ' + (data.id || 'erro'));
         }).catch(function(e) { console.error('[Push] Erro ao reenviar:', e); });
       }
     });
