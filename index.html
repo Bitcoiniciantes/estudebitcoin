@@ -12,6 +12,7 @@
   <meta property="og:image" content="https://bitcoiniciantes.com.br/assets/img/og-image.png" />
   <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg" />
   <meta name="theme-color" content="#ffffff" />
+  <link rel="manifest" href="manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://api.binance.com" />
@@ -674,6 +675,10 @@
   .tq-tip-vol { color:#555; font-weight:700; }
   .tqEmpty { color:#8fa396; font-size:.8rem; padding:22px; text-align:center; }
   .ticker-foot { color:#6b7f72; font-size:.66rem; margin-top:8px; }
+  .push-btn { background:#111c17; border:1px solid #2b4734; border-radius:8px; color:#b7d5bc; cursor:pointer; font:800 .7rem var(--font-body); letter-spacing:.06em; padding:7px 12px; margin-left:auto; transition:background .2s, border-color .2s; }
+  .push-btn:hover { background:#1a2e24; border-color:#3a6b4a; }
+  .push-btn.push-active { background:#1a3a20; border-color:#4caf50; color:#81c784; }
+  .push-btn:disabled { opacity:.5; cursor:default; }
   @media(max-width:720px){ .ticker-grid { grid-template-columns:repeat(auto-fill,minmax(84px,1fr)) !important; } .tq { padding:10px 4px; } .tqPrice { font-size:.66rem; } .tqPct { font-size:.9rem; } .tqPrice.tq-sm { font-size:.56rem; } }
   @media(max-width:560px){ .ticker-status { display:none; } }
 
@@ -768,6 +773,7 @@
       <button type="button" data-tab="stocks">STOCKS</button>
     </div>
     <span class="ticker-status" id="ticker-status"></span>
+    <button type="button" id="push-activate-btn" class="push-btn" style="display:none">Ativar alertas</button>
   </div>
   <div class="ticker-grid" id="ticker-grid"><div class="tqEmpty">Carregando cotações…</div></div>
   <p class="ticker-foot">Cotações Binance (cripto) &amp; Yahoo Finance (ações/índices) a cada 10s.</p>
@@ -1352,6 +1358,15 @@
 <script defer src="assets/js/conversor.js?v=17"></script>
 <script defer src="assets/js/analista-ia.js?v=13"></script>
 <script defer src="assets/js/ticker-widget.js?v=18"></script>
+
+<!-- Push Notifications -->
+<script src="assets/js/push-config.js"></script>
+<script src="assets/js/push-subscribe.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  }
+</script>
 
 </body>
 </html>

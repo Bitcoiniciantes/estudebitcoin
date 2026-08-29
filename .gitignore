@@ -1,3 +1,5 @@
 .wrangler/
 *.zip
 node_modules/
+.env*
+!.env.example

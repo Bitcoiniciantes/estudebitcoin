@@ -1,0 +1,24 @@
+{
+  "name": "Bitcoin Iniciantes",
+  "short_name": "BTC Iniciantes",
+  "description": "Dashboard Bitcoin Iniciantes — cotação em tempo real, alertas S/R, sentiment e projeções.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "id": "/",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
