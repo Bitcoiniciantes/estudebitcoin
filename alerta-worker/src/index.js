@@ -115,11 +115,26 @@ async function sendWebPush(subscription, payload, env) {
 // ─── Preço (Binance REST) ─────────────────────────────────────────
 
 async function fetchPrice(symbol) {
-  const url = 'https://api.binance.com/api/v3/ticker/price?symbol=' + encodeURIComponent(symbol);
-  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return Number(data.price);
+  // mempool.space funciona de Workers Cloudflare
+  try {
+    const res = await fetch('https://mempool.space/api/v1/prices');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.USD) return Number(data.USD);
+    }
+  } catch (e) {}
+
+  // Fallback: CoinGecko
+  try {
+    const coinId = symbol.replace('USDT', '').replace('BRL', '').toLowerCase();
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=' + coinId + '&vs_currencies=usd');
+    if (res.ok) {
+      const data = await res.json();
+      if (data[coinId] && data[coinId].usd) return Number(data[coinId].usd);
+    }
+  } catch (e) {}
+
+  return null;
 }
 
 // ─── Evaluação de Crossover (semelhante ao alertEngine.js) ────────
@@ -203,7 +218,7 @@ async function scheduledHandler(event, env) {
             try {
               await sendWebPush(sub, payload, env);
             } catch (e) {
-              if (e.message && e.message.includes('410')) {
+              if (e.message && (e.message.includes('410') || e.message.includes('400'))) {
                 await env.ALERTAS_KV.delete(subKey(sub.id));
               }
             }
