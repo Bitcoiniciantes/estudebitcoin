@@ -143,6 +143,14 @@ node_modules/
 - Client = alertas imediatos (usuario vendo o site)
 - Server = alertas em background (PWA fechado/Cron)
 
+### Problema de notificacao duplicada (PENDENTE — Fase 6)
+- Com o PWA aberto, o `alertEngine.js` dispara som/vibracao imediatamente ao detectar crossover
+- O Cron do Worker detecta o mesmo crossover (ate 5 min depois) e envia push
+- Resultado: usuario recebe **duas** notificacoes para o mesmo evento
+- **Decisao de design:** NAO usar "esta online?" como criterio (online nao significa que o alerta ja disparou — client pode ter tick atrasado/falho)
+- **Solucao planejada:** client envia `POST /alerts/ack` com `alertId` no momento exato em que o `alertEngine.js` dispara, marcando `state:{id}.acked = true` no KV. O Cron verifica esse campo antes de decidir enviar push — se `acked` for `true` para aquele ciclo, pula o push e reseta o flag
+- **Por que:** ack explícito (evento ja tratado) e mais preciso que inferencia generica (usuario "online")
+
 ### Cron
 - Roda a cada 5 minutos (`*/5 * * * *`)
 - Busca preco de `mempool.space` (fallback CoinGecko)
@@ -156,8 +164,13 @@ node_modules/
 - Notificacoes chegam mesmo com PWA em background
 
 ### Proximos passos (Fase 6+)
-- Testes em Android/Desktop
+
+**Seguranca (urgente):**
+- Restringir CORS: trocar `Access-Control-Allow-Origin: *` por `https://estudebitcoin.pages.dev`
+- Rate limiting nos endpoints (`/subscribe`, `/unsubscribe`, `/alerts/sync`) — mesmo simples, tipo limite de 10 subscriptions por IP/dia
+- Resolver notificacao duplicada client+Cron (ver "Problema de notificacao duplicada")
+
+**Funcionalidade:**
 - UI de gestao de alertas (criar/editar/excluir)
 - Tipos de alerta alem de S/R (ex: % variacao, noticia)
-- Rate limiting nos endpoints do Worker
-- CORS mais restrito (limitar a dominio do site)
+- Testes em Android/Desktop
