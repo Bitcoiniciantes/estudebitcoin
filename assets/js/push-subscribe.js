@@ -15,7 +15,11 @@
     if (!('serviceWorker' in navigator)) return false;
     if (!('PushManager' in window)) return false;
     if (!('Notification' in window)) return false;
-    // iPhone: só suporta Web Push em PWA instalado (standalone)
+    // Só suporta em mobile (iPhone ou Android)
+    var isMobile = /Android|iPhone|iPod|iPad/.test(navigator.userAgent) ||
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (!isMobile) return false;
+    // iPhone: só funciona em PWA instalado (standalone)
     var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (isIOS) {
