@@ -1,0 +1,15 @@
+{
+  "name": "alerta-worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "@block65/webcrypto-web-push": "^1.0.2"
+  }
+}
