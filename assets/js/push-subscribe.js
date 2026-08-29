@@ -155,9 +155,18 @@
     btn.style.display = '';
     updateButton('default');
 
+    // [TEMP TESTE] — Verificar subscription existente e reenviar ao Worker
     getExistingSubscription().then(function (subscription) {
       if (subscription) {
         updateButton('subscribed');
+        // Reenviar subscription ao Worker
+        fetch('https://alerta-worker.bitcoiniciantes.workers.dev/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(subscription)
+        }).then(function(res) { return res.json(); }).then(function(data) {
+          console.log('[Push] Subscription reenviada ao Worker:', data);
+        }).catch(function(e) { console.error('[Push] Erro ao reenviar:', e); });
       }
     });
   }
