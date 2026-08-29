@@ -67,19 +67,25 @@
   }
 
   function subscribe() {
+    alert('[DEBUG] subscribe() chamado');
+    console.log('[Push] subscribe() chamado');
     if (!VAPID_PUBLIC_KEY) {
       console.error('[Push] VAPID_PUBLIC_KEY não configurada.');
       return;
     }
+    console.log('[Push] Pedindo permissão...');
 
     Notification.requestPermission().then(function (permission) {
+      console.log('[Push] Permissão:', permission);
       if (permission !== 'granted') {
         console.log('[Push] Permissão negada.');
         updateButton('denied');
         return;
       }
 
+      console.log('[Push] Aguardando serviceWorker.ready...');
       navigator.serviceWorker.ready.then(function (registration) {
+        console.log('[Push] SW ready. Inscrevendo no pushManager...');
         return registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
@@ -88,6 +94,9 @@
         console.log('[Push] Subscription criada:', subscription);
         saveSubscriptionLocally(subscription);
         updateButton('subscribed');
+
+        // [TEMP TESTE iPhone] — REMOVER APÓS TESTE
+        alert('SUBSCRIPTION OK\n\n' + subscription.endpoint);
 
         // Tentar enviar ao Worker (Fase 4) — por enquanto, apenas log
         return sendToWorker(subscription);
@@ -136,17 +145,17 @@
   }
 
   function init() {
+    alert('[DEBUG 1] init rodou');
     var btn = document.getElementById('push-activate-btn');
+    alert('[DEBUG 2] btn: ' + (btn ? 'ENCONTRADO' : 'NULO'));
     if (!btn) return;
-    if (!isPushSupported()) return;
+    var supported = isPushSupported();
+    alert('[DEBUG 3] isPushSupported: ' + supported);
+    if (!supported) return;
     btn.style.display = '';
-
-    // Se já existe inscrição, atualizar botão
-    getExistingSubscription().then(function (subscription) {
-      if (subscription) {
-        updateButton('subscribed');
-      }
-    });
+    alert('[DEBUG 4] botão visível, chamando updateButton');
+    updateButton('default');
+    alert('[DEBUG 5] updateButton chamado, onclick: ' + (typeof btn.onclick));
   }
 
   // Expor para uso externo se necessário

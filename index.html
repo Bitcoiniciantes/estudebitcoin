@@ -773,7 +773,7 @@
       <button type="button" data-tab="stocks">STOCKS</button>
     </div>
     <span class="ticker-status" id="ticker-status"></span>
-    <button type="button" id="push-activate-btn" class="push-btn" style="display:none">Ativar alertas</button>
+    <button type="button" id="push-activate-btn" class="push-btn" style="display:none" onclick="alert('onclick HTML funcionou'); window.PushSubscribe && window.PushSubscribe.subscribe();">Ativar alertas</button>
   </div>
   <div class="ticker-grid" id="ticker-grid"><div class="tqEmpty">Carregando cotações…</div></div>
   <p class="ticker-foot">Cotações Binance (cripto) &amp; Yahoo Finance (ações/índices) a cada 10s.</p>
@@ -1360,6 +1360,8 @@
 <script defer src="assets/js/ticker-widget.js?v=18"></script>
 
 <!-- Push Notifications -->
+<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+<script>var vConsole = new window.VConsole();</script>
 <script src="assets/js/push-config.js"></script>
 <script src="assets/js/push-subscribe.js"></script>
 <script>
