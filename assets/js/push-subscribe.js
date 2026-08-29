@@ -3,7 +3,7 @@
    - Botão "Ativar alertas" (só aparece quando suportado)
    - Permissão SOMENTE em clique do usuário
    - iPhone: só mostra se estiver em modo standalone (PWA instalado)
-   - Worker /subscribe ainda não existe (Fase 4) — salva em localStorage
+   - Worker /subscribe salva subscription no KV
    ===================================================================== */
 (function () {
   'use strict';
@@ -94,14 +94,6 @@
         saveSubscriptionLocally(subscription);
         updateButton('subscribed');
 
-        // [TEMP TESTE] — Enviar subscription ao Worker para teste
-        fetch('https://alerta-worker.bitcoiniciantes.workers.dev/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(subscription)
-        }).catch(function() {});
-
-        // Enviar ao Worker
         return sendToWorker(subscription);
       }).catch(function (err) {
         console.error('[Push] Erro na inscrição:', err);
@@ -153,24 +145,11 @@
     if (!btn) return;
     if (!isPushSupported()) return;
     btn.style.display = '';
-
-    // [TEMP TESTE] — Sempre mostrar botão para forçar re-subscription
-    btn.style.display = '';
-    btn.textContent = 'Ativar alertas (teste)';
-    btn.onclick = subscribe;
+    updateButton('default');
 
     getExistingSubscription().then(function (subscription) {
       if (subscription) {
         updateButton('subscribed');
-        // Reenviar subscription ao Worker
-        fetch('https://alerta-worker.bitcoiniciantes.workers.dev/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(subscription)
-        }).then(function(res) { return res.json(); }).then(function(data) {
-          console.log('[Push] Subscription reenviada ao Worker:', data);
-          alert('Subscription enviada ao Worker! ID: ' + (data.id || 'erro'));
-        }).catch(function(e) { console.error('[Push] Erro ao reenviar:', e); });
       }
     });
   }
