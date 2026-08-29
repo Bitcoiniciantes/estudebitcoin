@@ -67,7 +67,6 @@
   }
 
   function subscribe() {
-    alert('[DEBUG] subscribe() chamado');
     console.log('[Push] subscribe() chamado');
     if (!VAPID_PUBLIC_KEY) {
       console.error('[Push] VAPID_PUBLIC_KEY não configurada.');
@@ -94,9 +93,6 @@
         console.log('[Push] Subscription criada:', subscription);
         saveSubscriptionLocally(subscription);
         updateButton('subscribed');
-
-        // [TEMP TESTE iPhone] — REMOVER APÓS TESTE
-        alert('SUBSCRIPTION OK\n\n' + subscription.endpoint);
 
         // Tentar enviar ao Worker (Fase 4) — por enquanto, apenas log
         return sendToWorker(subscription);
@@ -145,17 +141,18 @@
   }
 
   function init() {
-    alert('[DEBUG 1] init rodou');
     var btn = document.getElementById('push-activate-btn');
-    alert('[DEBUG 2] btn: ' + (btn ? 'ENCONTRADO' : 'NULO'));
+    console.log('[Push] init() — btn:', !!btn, 'isPushSupported:', isPushSupported());
     if (!btn) return;
-    var supported = isPushSupported();
-    alert('[DEBUG 3] isPushSupported: ' + supported);
-    if (!supported) return;
+    if (!isPushSupported()) return;
     btn.style.display = '';
-    alert('[DEBUG 4] botão visível, chamando updateButton');
     updateButton('default');
-    alert('[DEBUG 5] updateButton chamado, onclick: ' + (typeof btn.onclick));
+
+    getExistingSubscription().then(function (subscription) {
+      if (subscription) {
+        updateButton('subscribed');
+      }
+    });
   }
 
   // Expor para uso externo se necessário
