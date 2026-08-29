@@ -730,6 +730,15 @@
     border-color: rgba(255,193,7,0.6);
     box-shadow: 0 0 12px rgba(255,193,7,0.25);
   }
+
+  /* Mobile: sininho sempre visível em dispositivos sem hover */
+  @media (hover: none) {
+    .tq .tq-bell {
+      opacity: 0.5;
+      pointer-events: auto;
+    }
+  }
+
   @keyframes bellShake {
     0%, 100% { transform: rotate(0deg); }
     25% { transform: rotate(-12deg); }

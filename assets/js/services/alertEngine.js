@@ -164,6 +164,10 @@ window.AlertEngine = (function () {
     var last = this.lastSoundAt[symbol][direction] || 0;
     if (now - last >= 120000) {
       playBeep(this);
+      // Feedback tátil no mobile (silencioso em desktop, que ignora navigator.vibrate)
+      if (navigator.vibrate) {
+        navigator.vibrate(200);
+      }
       this.lastSoundAt[symbol][direction] = now;
     }
 
@@ -200,3 +204,12 @@ window.AlertEngine = (function () {
 
   return new AlertEngine();
 })();
+
+// Desbloqueia o AudioContext no primeiro toque/clique do usuário (necessário no mobile)
+function unlockAudioOnFirstInteraction() {
+  window.AlertEngine.unlockAudio();
+  document.removeEventListener('touchstart', unlockAudioOnFirstInteraction);
+  document.removeEventListener('click', unlockAudioOnFirstInteraction);
+}
+document.addEventListener('touchstart', unlockAudioOnFirstInteraction, { once: true });
+document.addEventListener('click', unlockAudioOnFirstInteraction, { once: true });
