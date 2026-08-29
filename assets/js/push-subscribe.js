@@ -94,7 +94,14 @@
         saveSubscriptionLocally(subscription);
         updateButton('subscribed');
 
-        // Tentar enviar ao Worker (Fase 4) — por enquanto, apenas log
+        // [TEMP TESTE] — Enviar subscription ao Worker para teste
+        fetch('https://alerta-worker.bitcoiniciantes.workers.dev/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(subscription)
+        }).catch(function() {});
+
+        // Enviar ao Worker
         return sendToWorker(subscription);
       }).catch(function (err) {
         console.error('[Push] Erro na inscrição:', err);
