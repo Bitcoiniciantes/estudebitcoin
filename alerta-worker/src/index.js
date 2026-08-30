@@ -126,24 +126,38 @@ async function sendWebPush(subscription, payload, env) {
 // ─── Preço (Binance REST) ─────────────────────────────────────────
 
 async function fetchPrice(symbol) {
-  // mempool.space funciona de Workers Cloudflare
-  try {
-    const res = await fetch('https://mempool.space/api/v1/prices');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.USD) return Number(data.USD);
-    }
-  } catch (e) {}
+  const coinId = symbol.replace('USDT', '').replace('BRL', '').toLowerCase();
 
-  // Fallback: CoinGecko
+  // BTC: mempool.space (funciona de Workers)
+  if (coinId === 'btc') {
+    try {
+      const res = await fetch('https://mempool.space/api/v1/prices');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.USD) return Number(data.USD);
+      }
+    } catch (e) {}
+  }
+
+  // Todos os cryptos: CoinGecko
   try {
-    const coinId = symbol.replace('USDT', '').replace('BRL', '').toLowerCase();
     const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=' + coinId + '&vs_currencies=usd');
     if (res.ok) {
       const data = await res.json();
       if (data[coinId] && data[coinId].usd) return Number(data[coinId].usd);
     }
   } catch (e) {}
+
+  // Fallback: mempool.space (só BTC)
+  if (coinId === 'btc') {
+    try {
+      const res = await fetch('https://mempool.space/api/v1/prices');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.USD) return Number(data.USD);
+      }
+    } catch (e) {}
+  }
 
   return null;
 }
