@@ -131,6 +131,10 @@ const SYMBOL_TO_COINGECKO = {
   'USDT-BRL': 'tether'
 };
 
+const SYMBOL_CURRENCY = {
+  'USDT-BRL': 'brl'
+};
+
 async function fetchPrices(symbols) {
   const prices = new Map();
 
@@ -145,7 +149,7 @@ async function fetchPrices(symbols) {
     } catch (e) {}
   }
 
-  // Demais via CoinGecko (batch: uma única chamada)
+  // Demais via CoinGecko (batch: uma única chamada, inclui usd+brl)
   const coingeckoIds = [];
   const symbolByCoinId = {};
   for (const sym of symbols) {
@@ -159,12 +163,13 @@ async function fetchPrices(symbols) {
 
   if (coingeckoIds.length > 0) {
     try {
-      const url = 'https://api.coingecko.com/api/v3/simple/price?ids=' + coingeckoIds.join(',') + '&vs_currencies=usd';
-      const res = await fetch(url);
+      const url = 'https://api.coingecko.com/api/v3/simple/price?ids=' + coingeckoIds.join(',') + '&vs_currencies=usd,brl';
+      const res = await fetch(url, { headers: { 'User-Agent': 'EstudeBitcoin-AlertWorker/1.0' } });
       if (res.ok) {
         const data = await res.json();
         for (const [coinId, sym] of Object.entries(symbolByCoinId)) {
-          if (data[coinId] && data[coinId].usd) prices.set(sym, Number(data[coinId].usd));
+          const cur = SYMBOL_CURRENCY[sym] || 'usd';
+          if (data[coinId] && data[coinId][cur]) prices.set(sym, Number(data[coinId][cur]));
         }
       }
     } catch (e) {}
@@ -245,9 +250,11 @@ async function scheduledHandler(event, env) {
 
           const symbolName = symbol.replace('USDT', '').replace('BRL', '');
           const dirLabel = crossover.type === 'RESISTANCE' ? 'Resistência' : 'Suporte';
+          const isBRL = symbol.includes('BRL');
+          const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: isBRL ? 'BRL' : 'USD' });
           const payload = {
             title: symbolName + ' — ' + dirLabel + ' rompida',
-            body: symbolName + ' cruzou ' + dirLabel + ' em ' + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(crossover.level) + ' (preço atual: ' + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(currentPrice) + ')',
+            body: symbolName + ' cruzou ' + dirLabel + ' em ' + fmt.format(crossover.level) + ' (preço atual: ' + fmt.format(currentPrice) + ')',
             url: '/',
             symbol: symbol,
             level: crossover.level,
@@ -302,8 +309,6 @@ export default {
       if (path === '/' && request.method === 'GET') {
         return json({ service: 'alerta-worker', status: 'ok', version: '1.0.0' });
       }
-
-      return json({ error: 'Not found' }, 404);
     } catch (err) {
       return json({ error: err.message }, 500);
     }
