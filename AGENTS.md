@@ -15,7 +15,7 @@
 | `assets/js/ticker-widget.js` | Alimenta AlertEngine com precos ao vivo (a cada 10s). Busca candles, calcula S/R via `window.DynamicSR`, renderiza sino e flash visual |
 | `assets/js/chart/dynamicSR.js` | Calcula suporte/resistencia dinamicamente a partir de candles |
 | `assets/js/push-config.js` | Exporta `window.PushConfig` com `VAPID_PUBLIC_KEY` e `WORKER_URL` |
-| `assets/js/push-subscribe.js` | Botao "Ativar alertas". `Notification.requestPermission()` so em clique. `pushManager.subscribe()` com VAPID. Envia subscription ao Worker via `POST /subscribe`. Exporta `window.PushSubscribe` |
+| `assets/js/push-subscribe.js` | Botao "Ativar alertas". `Notification.requestPermission()` so em clique. `pushManager.subscribe()` com VAPID. Envia subscription ao Worker via `POST /subscribe`. **`syncToWorker()`** sincroniza niveis S/R com o Worker (throttle: dedup 0.1% + intervalo 5min por symbol). Exporta `window.PushSubscribe` |
 | `sw.js` | Service Worker: recebe push, mostra notificacao, `notificationclick` foca ou abre janela |
 | `manifest.json` | PWA manifest: `display: "standalone"` (obrigatorio para iOS push) |
 | `index.html` | Registra SW, inclui scripts na ordem correta |
@@ -55,8 +55,8 @@
 | Prefixo | Conteudo |
 |---|---|
 | `sub:{uuid}` | Subscription (endpoint + keys) |
-| `alert:{id}` | Config do alerta (symbol, support, resistance, direction, enabled) |
-| `state:{id}` | Estado do alerta (lastPrice, triggered) — usado pelo Cron |
+| `alert:{symbol}` | Config do alerta — **ID = symbol** (ex: `alert:BTC`, `alert:ETH`), nao UUID |
+| `state:{symbol}` | Estado do alerta (lastPrice, triggered) — preservado entre syncs porque o ID e estavel |
 
 ---
 
@@ -94,8 +94,19 @@
 
 ### Fase 4.5 — Preco
 - Binance bloqueia IPs de Cloudflare Workers (HTTP 403)
-- Migrado para `mempool.space/api/v1/prices` (primario) + CoinGecko (fallback)
-- **Por que:** `api.binance.com` retorna 403 de datacenters; `mempool.space` funciona
+- Migrado para `mempool.space/api/v1/prices` (primario para BTC) + CoinGecko (batch para todos os symbols)
+- **Bug:** CoinGecko retorna 403 sem `User-Agent` — Workers nao enviam User-Agent por padrao. Corrigido com `headers: { 'User-Agent': 'EstudeBitcoin-AlertWorker/1.0' }`
+- **BRL vs USD:** `USDT-BRL` usa `vs_currencies=brl`, demais usam `vs_currencies=usd`. Batch unico com `vs_currencies=usd,brl` e selecao por `SYMBOL_CURRENCY` map
+- **Por que:** `api.binance.com` retorna 403 de datacenters; `mempool.space` funciona para BTC; CoinGecko funciona para todos com User-Agent
+
+### Fase 5 — Sincronizacao Client→Worker
+- `syncToWorker()` em `push-subscribe.js`: chama `POST /alerts/sync` quando niveis S/R mudam
+- Chamado de `ticker-widget.js` apos `AlertEngine.setAlertLevels()`
+- **Throttle:** dedup (so sync se support/resistance mudou > 0.1%) + intervalo minimo 5min por symbol
+- **Payload:** `{ symbol, support, resistance, direction, lastPrice }`
+- **ID do alerta:** `{symbol}` (ex: `alert:BTC`) — estavel entre syncs, preserva `state:{id}`
+- **Seed de state:** Worker cria `state:{id}` com `lastPrice` do client **apenas na primeira vez** (state nao existe). State existente e intocado — so o Cron atualiza
+- **Por que:** ID estavel permite que o Cron preserva lastPrice/triggered entre atualizacoes de nivel
 
 ### Fase 5 — Teste real
 - Push manual via `/test-push` (temporario, ja removido)
@@ -153,7 +164,7 @@ node_modules/
 
 ### Cron
 - Roda a cada 5 minutos (`*/5 * * * *`)
-- Busca preco de `mempool.space` (fallback CoinGecko)
+- Busca preco de `mempool.space` (BTC) + CoinGecko batch (demais symbols) — uma unica chamada para todos
 - Detecta crossover e envia push para todas as subscriptions ativas
 - Auto-limpa subscriptions mortas (HTTP 410 ou 400)
 
