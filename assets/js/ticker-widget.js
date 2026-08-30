@@ -152,6 +152,9 @@
             if (srResult) {
               window.AlertEngine.unlockAudio();
               window.AlertEngine.setAlertLevels(symbol, srResult.support, srResult.resistance);
+              if (window.PushSubscribe && window.PushSubscribe.syncToWorker) {
+                window.PushSubscribe.syncToWorker(symbol, srResult.support, srResult.resistance, last);
+              }
             }
           }
           return { symbol: symbol, currency: currency, price: last, changePct: base ? ((last - base) / base) * 100 : 0 };

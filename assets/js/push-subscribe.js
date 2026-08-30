@@ -70,6 +70,37 @@
     });
   }
 
+  var lastSyncedLevels = {};
+
+  function syncToWorker(symbol, support, resistance, lastPrice) {
+    if (!WORKER_URL) return;
+    if (!symbol || !Number.isFinite(support) || !Number.isFinite(resistance)) return;
+
+    var now = Date.now();
+    var prev = lastSyncedLevels[symbol];
+
+    if (prev) {
+      var supportChanged = Math.abs(prev.support - support) > support * 0.001;
+      var resistanceChanged = Math.abs(prev.resistance - resistance) > resistance * 0.001;
+      if (!supportChanged && !resistanceChanged) return;
+      if (now - prev.timestamp < 5 * 60 * 1000) return;
+    }
+
+    lastSyncedLevels[symbol] = { support: support, resistance: resistance, timestamp: now };
+
+    fetch(WORKER_URL + '/alerts/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        symbol: symbol,
+        support: support,
+        resistance: resistance,
+        direction: 'BOTH',
+        lastPrice: lastPrice
+      })
+    }).catch(function () {});
+  }
+
   function subscribe() {
     console.log('[Push] subscribe() chamado');
     if (!VAPID_PUBLIC_KEY) {
@@ -159,7 +190,7 @@
   }
 
   // Expor para uso externo se necessário
-  window.PushSubscribe = { init: init, subscribe: subscribe, unsubscribe: unsubscribe };
+  window.PushSubscribe = { init: init, subscribe: subscribe, unsubscribe: unsubscribe, syncToWorker: syncToWorker };
 
   // Inicializar quando DOM estiver pronto
   if (document.readyState === 'loading') {
