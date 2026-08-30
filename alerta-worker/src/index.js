@@ -123,43 +123,54 @@ async function sendWebPush(subscription, payload, env) {
   return { status: res.status, ok: res.ok };
 }
 
-// ─── Preço (Binance REST) ─────────────────────────────────────────
+// ─── Preço (batch via CoinGecko + mempool.space) ─────────────────
 
-async function fetchPrice(symbol) {
-  const coinId = symbol.replace('USDT', '').replace('BRL', '').toLowerCase();
+const SYMBOL_TO_COINGECKO = {
+  'BTC': 'bitcoin', 'ETH': 'ethereum', 'SOL': 'solana', 'LINK': 'chainlink',
+  'AVAX': 'avalanche-2', 'RENDER': 'render-token', 'PAXG': 'pax-gold',
+  'USDT-BRL': 'tether'
+};
 
-  // BTC: mempool.space (funciona de Workers)
-  if (coinId === 'btc') {
+async function fetchPrices(symbols) {
+  const prices = new Map();
+
+  // BTC via mempool.space (funciona de Workers, sem rate limit)
+  if (symbols.includes('BTC')) {
     try {
       const res = await fetch('https://mempool.space/api/v1/prices');
       if (res.ok) {
         const data = await res.json();
-        if (data.USD) return Number(data.USD);
+        if (data.USD) prices.set('BTC', Number(data.USD));
       }
     } catch (e) {}
   }
 
-  // Todos os cryptos: CoinGecko
-  try {
-    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=' + coinId + '&vs_currencies=usd');
-    if (res.ok) {
-      const data = await res.json();
-      if (data[coinId] && data[coinId].usd) return Number(data[coinId].usd);
+  // Demais via CoinGecko (batch: uma única chamada)
+  const coingeckoIds = [];
+  const symbolByCoinId = {};
+  for (const sym of symbols) {
+    if (sym === 'BTC' && prices.has('BTC')) continue;
+    const coinId = SYMBOL_TO_COINGECKO[sym];
+    if (coinId) {
+      coingeckoIds.push(coinId);
+      symbolByCoinId[coinId] = sym;
     }
-  } catch (e) {}
+  }
 
-  // Fallback: mempool.space (só BTC)
-  if (coinId === 'btc') {
+  if (coingeckoIds.length > 0) {
     try {
-      const res = await fetch('https://mempool.space/api/v1/prices');
+      const url = 'https://api.coingecko.com/api/v3/simple/price?ids=' + coingeckoIds.join(',') + '&vs_currencies=usd';
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        if (data.USD) return Number(data.USD);
+        for (const [coinId, sym] of Object.entries(symbolByCoinId)) {
+          if (data[coinId] && data[coinId].usd) prices.set(sym, Number(data[coinId].usd));
+        }
       }
     } catch (e) {}
   }
 
-  return null;
+  return prices;
 }
 
 // ─── Evaluação de Crossover (semelhante ao alertEngine.js) ────────
@@ -207,9 +218,13 @@ async function scheduledHandler(event, env) {
     symbolAlerts.get(alert.symbol).push(alert);
   }
 
+  // Buscar preços de todos os symbols de uma vez (batch)
+  const allSymbols = [...symbolAlerts.keys()];
+  const prices = await fetchPrices(allSymbols);
+
   for (const [symbol, alerts] of symbolAlerts) {
-    const currentPrice = await fetchPrice(symbol);
-    if (currentPrice === null) continue;
+    const currentPrice = prices.get(symbol);
+    if (currentPrice === null || currentPrice === undefined) continue;
 
     for (const alert of alerts) {
       const stateRaw = await env.ALERTAS_KV.get(alertStateKey(alert.id));
