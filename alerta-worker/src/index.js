@@ -70,12 +70,13 @@ async function handleUnsubscribe(request, env) {
 
 async function handleAlertsSync(request, env) {
   const body = await request.json();
-  if (!body || !body.id || !body.symbol) {
+  if (!body || !body.symbol) {
     return json({ error: 'Invalid alert config' }, 400);
   }
 
+  const id = body.symbol;
   const alert = {
-    id: body.id,
+    id: id,
     symbol: body.symbol,
     support: Number(body.support),
     resistance: Number(body.resistance),
@@ -88,8 +89,18 @@ async function handleAlertsSync(request, env) {
     return json({ error: 'Invalid support/resistance' }, 400);
   }
 
-  await env.ALERTAS_KV.put(alertKey(alert.id), JSON.stringify(alert));
-  return json({ ok: true });
+  await env.ALERTAS_KV.put(alertKey(id), JSON.stringify(alert));
+
+  // Seed state apenas na criação (state não existe ainda)
+  const existingState = await env.ALERTAS_KV.get(alertStateKey(id));
+  if (!existingState && Number.isFinite(body.lastPrice)) {
+    await env.ALERTAS_KV.put(alertStateKey(id), JSON.stringify({
+      lastPrice: body.lastPrice,
+      triggered: false
+    }));
+  }
+
+  return json({ ok: true, id: id });
 }
 
 // ─── Web Push via @block65/webcrypto-web-push ──────────────────────
