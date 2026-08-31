@@ -239,6 +239,39 @@ async function fetchPrices(symbols) {
   return prices;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Busca preços múltiplas vezes dentro da MESMA execução do Cron, com um
+ * pequeno intervalo entre as leituras. Isso ajuda a capturar agulhadas
+ * (spikes que sobem/descem e revertem rápido) que uma única amostra por
+ * ciclo não pegaria — sem precisar de uma nova fonte de dados OHLC.
+ *
+ * Retorna um Map<symbol, { min, max, last }>.
+ */
+async function fetchPricesMultiSample(symbols, samples = 3, intervalMs = 15000) {
+  const acc = new Map();
+
+  for (let i = 0; i < samples; i++) {
+    const prices = await fetchPrices(symbols);
+    for (const [sym, price] of prices) {
+      if (!acc.has(sym)) {
+        acc.set(sym, { min: price, max: price, last: price });
+      } else {
+        const entry = acc.get(sym);
+        entry.min = Math.min(entry.min, price);
+        entry.max = Math.max(entry.max, price);
+        entry.last = price;
+      }
+    }
+    if (i < samples - 1) await sleep(intervalMs);
+  }
+
+  return acc;
+}
+
 // ─── Evaluação de Crossover (semelhante ao alertEngine.js) ────────
 
 /**
@@ -294,16 +327,24 @@ async function scheduledHandler(event, env) {
     symbolAlerts.get(alert.symbol).push(alert);
   }
 
-  // Buscar preços de todos os symbols de uma vez (batch)
+  // Buscar preços de todos os symbols várias vezes dentro deste ciclo
+  // (3 amostras, ~15s de intervalo) para capturar agulhadas rápidas que
+  // uma única leitura por ciclo perderia.
   const allSymbols = [...symbolAlerts.keys()];
-  const prices = await fetchPrices(allSymbols);
+  const sampledPrices = await fetchPricesMultiSample(allSymbols);
 
   for (const [symbol, alerts] of symbolAlerts) {
-    const currentPrice = prices.get(symbol);
-    if (currentPrice === null || currentPrice === undefined) {
+    const sample = sampledPrices.get(symbol);
+    if (!sample) {
       console.error('[Cron] Sem preço para ' + symbol + ' neste ciclo — pulando avaliação.');
       continue;
     }
+    // currentPrice = última leitura (usado no payload da notificação e
+    // como lastPrice para o próximo ciclo). min/max desta rodada de
+    // amostras entram na avaliação de crossover abaixo.
+    const currentPrice = sample.last;
+    const cycleMin = sample.min;
+    const cycleMax = sample.max;
 
     for (const alert of alerts) {
       const stateRaw = await env.ALERTAS_KV.get(alertStateKey(alert.id));
@@ -321,10 +362,12 @@ async function scheduledHandler(event, env) {
       }
 
       // Acumula extremos desde a última vez que o alerta NÃO estava
-      // "triggered" — reduz (mas não elimina) a janela cega entre
-      // amostras do Cron.
-      const minPrice = Math.min(state.minPrice ?? currentPrice, currentPrice);
-      const maxPrice = Math.max(state.maxPrice ?? currentPrice, currentPrice);
+      // "triggered", combinando com o min/max das amostras deste ciclo
+      // (cycleMin/cycleMax). Reduz bastante — mas não elimina 100% — a
+      // janela cega, já que agora há leituras a cada ~15s dentro de um
+      // cron de 1min, em vez de 1 leitura a cada 5min.
+      const minPrice = Math.min(state.minPrice ?? cycleMin, cycleMin);
+      const maxPrice = Math.max(state.maxPrice ?? cycleMax, cycleMax);
 
       const crossover = evaluateCrossover(minPrice, maxPrice, alert.support, alert.resistance, alert.direction);
 

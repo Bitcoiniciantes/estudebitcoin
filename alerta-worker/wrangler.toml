@@ -11,4 +11,4 @@ id = "67cf3ab49dfe488497014d368ff4ca36"
 VAPID_PUBLIC_KEY = "BNAvnll1QfkX1s0bDcYtd3R3-IWMMsH_8BUwhj6ph5JhGD2rBBJ7UzDJQE1WB2SjGE7xpmtCKBDslgU1NWUWjCE"
 
 [triggers]
-crons = ["*/5 * * * *"]
+crons = ["* * * * *"]
