@@ -128,6 +128,13 @@
 - **Error handling:** `sendWebPush` lança erro em HTTP nao-ok; logs em cada etapa (fetch preco, push individual)
 - **Por que:** v2 tinha bug critico — se push falhasse na hora do crossover, evento era perdido pra sempre. Multi-sample + retry + triggered direcional resolve os falsos negativos mais comuns
 
+### Fase 5.7 — Worker v4 (oraculo unico MEXC)
+- **Migracao de oracle:** removido mempool.space (BTC), CoinGecko (resto) e AwesomeAPI (BRL)
+- **MEXC Spot API:** oraculo unico para crypto e BRL — 8 pares via `Promise.all()` paralelo
+- **PAXG:** mapeado como `GOLD(PAXG)USDT` (renomeado na MEXC em Feb/2026)
+- **BRL:** par `USDCBRL` na propria MEXC (elimina dependencia de API externa)
+- **Por que:** CoinGecko tem cache de 1-5 min (stale para multi-sample); AwesomeAPI retorna 429 de IPs de datacenter; MEXC nao bloqueia Workers, API publica sem chave, preco em tempo real
+
 ---
 
 ## 3. Regras de seguranca (inviolaveis)
