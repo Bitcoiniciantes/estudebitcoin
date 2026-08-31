@@ -100,16 +100,26 @@
 
   function sendToWorker(subscription) {
     if (!WORKER_URL) {
-      console.log('[Push] Worker URL não configurada. Subscription salva em localStorage.');
-      return Promise.resolve({ id: null });
+      console.warn('[Push][sendToWorker] Worker URL não configurada. Abortando.');
+      return Promise.reject(new Error('WORKER_URL não configurada'));
     }
+    console.log('[Push][sendToWorker] POST', WORKER_URL + '/subscribe');
     return fetch(WORKER_URL + '/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(subscription)
     }).then(function (res) {
-      if (!res.ok) throw new Error('Worker responded ' + res.status);
+      console.log('[Push][sendToWorker] HTTP status:', res.status, res.statusText);
+      if (!res.ok) {
+        return res.text().then(function (body) {
+          console.error('[Push][sendToWorker] Response body:', body);
+          throw new Error('Worker HTTP ' + res.status + ': ' + body);
+        });
+      }
       return res.json();
+    }).catch(function (err) {
+      console.error('[Push][sendToWorker] fetch error:', err.name, err.message);
+      throw err;
     });
   }
 
@@ -161,47 +171,57 @@
   // ─── Subscribe (SINO ON) ───────────────────────────────────────────
 
   function subscribe() {
-    console.log('[Push] subscribe() chamado');
-    if (!VAPID_PUBLIC_KEY) {
-      console.error('[Push] VAPID_PUBLIC_KEY não configurada.');
-      return;
-    }
-    console.log('[Push] Pedindo permissão...');
+    console.log('[Push][1] subscribe() chamado');
+    console.log('[Push][2] VAPID_PUBLIC_KEY:', VAPID_PUBLIC_KEY ? VAPID_PUBLIC_KEY.substring(0, 20) + '...' : 'AUSENTE');
+    console.log('[Push][2] WORKER_URL:', WORKER_URL || 'AUSENTE');
+    console.log('[Push][3] Notification.permission (antes):', Notification.permission);
 
     Notification.requestPermission().then(function (permission) {
-      console.log('[Push] Permissão:', permission);
+      console.log('[Push][4] Permissão resultado:', permission);
       if (permission !== 'granted') {
-        console.log('[Push] Permissão negada.');
+        console.log('[Push] Permissão negada — abortando.');
         updateButton('denied');
         return;
       }
 
-      console.log('[Push] Aguardando serviceWorker.ready...');
+      console.log('[Push][5] serviceWorker.ready...');
       navigator.serviceWorker.ready.then(function (registration) {
-        console.log('[Push] SW ready. Inscrevendo no pushManager...');
+        console.log('[Push][6] SW scope:', registration.scope);
+        console.log('[Push][7] pushManager.subscribe() iniciado...');
         return registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         });
       }).then(function (subscription) {
-        console.log('[Push] Subscription criada:', subscription);
+        var endpoint = subscription ? subscription.endpoint : 'AUSENTE';
+        console.log('[Push][8] PushSubscription criada');
+        console.log('[Push][9] endpoint:', endpoint.substring(0, 60) + '...');
         saveSubscriptionLocally(subscription);
+        console.log('[Push][10] POST /subscribe iniciado');
         return sendToWorker(subscription);
       }).then(function (result) {
-        // Persistir ID retornado pelo Worker
-        if (result && result.id) {
-          workerSubscriptionId = result.id;
+        console.log('[Push][11] Worker response:', JSON.stringify(result));
+        var receivedId = result && result.id ? result.id : null;
+        console.log('[Push][12] workerSubscriptionId recebido:', receivedId);
+        if (receivedId) {
+          workerSubscriptionId = receivedId;
         }
         pushEnabled = true;
+        console.log('[Push][13] pushEnabled=true');
         persistState();
         activateAlertEngine();
         updateButton('subscribed');
-        console.log('[Push] Alertas ativados. pushEnabled=true');
+        console.log('[Push][14] AlertEngine ativado');
+        console.log('[Push][15] ✅ SUCESSO TOTAL');
       }).catch(function (err) {
-        console.error('[Push] Erro na inscrição:', err);
+        console.error('[Push][ERRO] err.name:', err && err.name);
+        console.error('[Push][ERRO] err.message:', err && err.message);
+        console.error('[Push][ERRO] err.stack:', err && err.stack);
+        console.error('[Push][ERRO] err completo:', err);
         pushEnabled = false;
         persistState();
         updateButton('error');
+        console.error('[Push][ERRO] Estado forçado OFF. Botão = "Erro ao ativar"');
       });
     });
   }
@@ -209,32 +229,36 @@
   // ─── Unsubscribe (SINO OFF) ────────────────────────────────────────
 
   function unsubscribe() {
+    console.log('[Push][unsubscribe] Chamado. workerSubscriptionId:', workerSubscriptionId);
     navigator.serviceWorker.ready.then(function (registration) {
       return registration.pushManager.getSubscription();
     }).then(function (subscription) {
+      console.log('[Push][unsubscribe] Browser subscription:', !!subscription);
       // Remover do Worker PRIMEIRO (antes de destruir a subscription local)
       return removeFromWorker(workerSubscriptionId).then(function () {
         if (subscription) {
+          console.log('[Push][unsubscribe] Desinscrevendo do pushManager...');
           return subscription.unsubscribe();
         }
       });
     }).then(function () {
-      console.log('[Push] Desinscrito.');
+      console.log('[Push][unsubscribe] ✅ Desinscrito com sucesso');
       pushEnabled = false;
       workerSubscriptionId = null;
       persistState();
       localStorage.removeItem('push_subscription');
       deactivateAlertEngine();
       updateButton('default');
-      console.log('[Push] Alertas desativados. pushEnabled=false');
+      console.log('[Push][unsubscribe] pushEnabled=false | Estado: OFF');
     }).catch(function (err) {
-      console.error('[Push] Erro ao desativar:', err);
+      console.error('[Push][unsubscribe] Erro:', err.name, err.message);
       // Forçar estado OFF mesmo se Worker falhar
       pushEnabled = false;
       workerSubscriptionId = null;
       persistState();
       deactivateAlertEngine();
       updateButton('default');
+      console.warn('[Push][unsubscribe] Estado forçado OFF apesar do erro');
     });
   }
 
@@ -280,41 +304,55 @@
 
   function init() {
     var btn = document.getElementById('push-activate-btn');
-    console.log('[Push] init() — btn:', !!btn, 'isPushSupported:', isPushSupported());
+    console.log('[Push][init] btn:', !!btn, '| isPushSupported:', isPushSupported());
     if (!btn) return;
     if (!isPushSupported()) return;
     btn.style.display = '';
 
     // Restaurar estado persistido
     restoreState();
+    console.log('[Push][init] pushEnabled (restaurado):', pushEnabled, '| workerSubscriptionId:', workerSubscriptionId);
 
     if (pushEnabled) {
       // Estado ON: verificar se subscription browser ainda existe
+      console.log('[Push][init] Estado ON — validando subscription browser...');
       getExistingSubscription().then(function (subscription) {
-        if (subscription && workerSubscriptionId) {
+        var hasSubscription = !!subscription;
+        var hasWorkerId = !!workerSubscriptionId;
+        console.log('[Push][init] browser subscription:', hasSubscription, '| workerSubscriptionId:', hasWorkerId);
+        if (hasSubscription && hasWorkerId) {
           // Tudo OK: subscription browser + Worker ID existem
           activateAlertEngine();
           updateButton('subscribed');
-          console.log('[Push] Estado restaurado: ON (subscription válida)');
+          console.log('[Push][init] ✅ Estado restaurado: ON');
         } else {
           // Subscription browser ou Worker ID sumiu: forçar OFF
-          console.log('[Push] Subscription ou Worker ID ausente — forçando OFF');
+          console.warn('[Push][init] Subscription ou Worker ID ausente — forçando OFF');
           pushEnabled = false;
           workerSubscriptionId = null;
           persistState();
           deactivateAlertEngine();
           updateButton('default');
+          console.log('[Push][init] Estado alterado para OFF');
         }
+      }).catch(function (err) {
+        console.error('[Push][init] Erro ao validar subscription:', err);
+        pushEnabled = false;
+        workerSubscriptionId = null;
+        persistState();
+        deactivateAlertEngine();
+        updateButton('default');
       });
     } else {
       // Estado OFF: garantir que AlertEngine está desativado
       deactivateAlertEngine();
       updateButton('default');
+      console.log('[Push][init] Estado OFF — botão em "Ativar alertas"');
 
       // Verificar se há subscription browser órfã (limpar)
       getExistingSubscription().then(function (subscription) {
         if (subscription) {
-          console.log('[Push] Subscription órfã encontrada — removendo');
+          console.warn('[Push][init] Subscription órfã encontrada — removendo');
           subscription.unsubscribe().catch(function () {});
         }
       });
