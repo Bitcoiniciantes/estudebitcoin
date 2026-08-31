@@ -149,7 +149,7 @@
               return { high: Number(row[2]), low: Number(row[3]) };
             });
             var srResult = window.DynamicSR.calculateSR(candles);
-            if (srResult) {
+            if (srResult && window.PushSubscribe && window.PushSubscribe.isEnabled()) {
               window.AlertEngine.unlockAudio();
               window.AlertEngine.setAlertLevels(symbol, srResult.support, srResult.resistance);
               if (window.PushSubscribe && window.PushSubscribe.syncToWorker) {
@@ -218,7 +218,7 @@
       if (quoteData[symbol]) quoteData[symbol].volume = volume;
     }
     // Fase C: alimentar motor de alertas S/R Dinâmico (apenas criptos)
-    if (isCrypto(symbol) && window.AlertEngine) {
+    if (isCrypto(symbol) && window.AlertEngine && window.PushSubscribe && window.PushSubscribe.isEnabled()) {
       window.AlertEngine.onPriceUpdate(symbol, price);
     }
     if (activeTab !== "crypto") return;

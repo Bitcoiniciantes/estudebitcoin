@@ -95,6 +95,7 @@ window.AlertEngine = (function () {
   };
 
   AlertEngine.prototype.onPriceUpdate = function (symbol, currentPrice) {
+    if (!this.isPushEnabled()) return;
     var alert = this.alerts.get(symbol);
 
     if (!alert || !alert.active) return;
@@ -151,6 +152,7 @@ window.AlertEngine = (function () {
   };
 
   AlertEngine.prototype.trigger = function (symbol, direction, price, level) {
+    if (!this.isPushEnabled()) return;
     var alert = this.alerts.get(symbol);
     if (!alert) return;
 
@@ -200,6 +202,15 @@ window.AlertEngine = (function () {
   AlertEngine.prototype.isEnabled = function (symbol) {
     var alert = this.alerts.get(symbol);
     return !!(alert && alert.active);
+  };
+
+  AlertEngine.prototype.isPushEnabled = function () {
+    return !!(window.PushSubscribe && window.PushSubscribe.isEnabled());
+  };
+
+  AlertEngine.prototype.disableAll = function () {
+    this.alerts.clear();
+    this.lastSoundAt = {};
   };
 
   return new AlertEngine();

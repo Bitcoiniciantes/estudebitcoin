@@ -15,7 +15,7 @@
 | `assets/js/ticker-widget.js` | Alimenta AlertEngine com precos ao vivo (a cada 10s). Busca candles, calcula S/R via `window.DynamicSR`, renderiza sino e flash visual |
 | `assets/js/chart/dynamicSR.js` | Calcula suporte/resistencia dinamicamente a partir de candles |
 | `assets/js/push-config.js` | Exporta `window.PushConfig` com `VAPID_PUBLIC_KEY` e `WORKER_URL` |
-| `assets/js/push-subscribe.js` | Botao "Ativar alertas". `Notification.requestPermission()` so em clique. `pushManager.subscribe()` com VAPID. Envia subscription ao Worker via `POST /subscribe`. **`syncToWorker()`** sincroniza niveis S/R com o Worker (throttle: dedup 0.1% + intervalo 5min por symbol). Exporta `window.PushSubscribe` |
+| `assets/js/push-subscribe.js` | Botao "Ativar alertas". `pushEnabled` = unica autoridade de ativacao/desativacao. Persiste em localStorage. `toggle()` liga/desliga. `subscribe()` cria push subscription + Worker ID. `unsubscribe()` chama `POST /unsubscribe?id=` no Worker. `syncToWorker()` sincroniza niveis S/R (throttle: dedup 0.1% + intervalo 5min por symbol). Exporta `window.PushSubscribe` |
 | `sw.js` | Service Worker: recebe push, mostra notificacao, `notificationclick` foca ou abre janela |
 | `manifest.json` | PWA manifest: `display: "standalone"` (obrigatorio para iOS push) |
 | `index.html` | Registra SW, inclui scripts na ordem correta |
@@ -176,9 +176,10 @@ node_modules/
 - Server = alertas em background (PWA fechado/Cron)
 
 ### Problema de notificacao duplicada (PENDENTE — Fase 6)
-- Com o PWA aberto, o `alertEngine.js` dispara som/vibracao imediatamente ao detectar crossover
+- Com o PWA aberto e sino LIGADO, o `alertEngine.js` dispara som/vibracao imediatamente ao detectar crossover
 - O Cron do Worker detecta o mesmo crossover (ate 1 minuto depois) e envia push
 - Resultado: usuario recebe **duas** notificacoes para o mesmo evento
+- **Estado atual:** sino controla AlertEngine (client) + push subscription (Worker). Sino OFF = ambos desativados.
 - **Decisao de design:** NAO usar "esta online?" como criterio (online nao significa que o alerta ja disparou — client pode ter tick atrasado/falho)
 - **Solucao planejada:** client envia `POST /alerts/ack` com `alertId` no momento exato em que o `alertEngine.js` dispara, marcando `state:{id}.acked = true` no KV. O Cron verifica esse campo antes de decidir enviar push — se `acked` for `true` para aquele ciclo, pula o push e reseta o flag
 - **Por que:** ack explícito (evento ja tratado) e mais preciso que inferencia generica (usuario "online")
