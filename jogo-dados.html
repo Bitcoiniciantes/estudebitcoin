@@ -1,9 +1,11 @@
+```html
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Jogo de Dados e Calculadora</title>
+
 <style>
 :root { 
   --bg:#0b0e11; 
@@ -16,545 +18,1609 @@
   --txt:#eaeef3; 
   --muted:#8a93a2; 
 }
+
 * { box-sizing:border-box; }
-html, body { margin:0; background:var(--bg); color:var(--txt); }
-body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.5; padding: 20px; }
 
-/* ----- Jogo de Dados / Entropia ----- */
-  .entropy-section {
-    margin: 0 auto 20px auto;
-    max-width: 800px;
-    padding: 22px;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-  }
-  .entropy-section h2 { font-size: clamp(24px, 3vw, 30px); margin-bottom: 8px; margin-top: 0; }
-  .entropy-section > p { color: var(--muted); font-size: 16px; margin-bottom: 20px; margin-top: 0; }
-  .entropy-controls { position:sticky; top:0; z-index:10; display:flex; flex-wrap:wrap; align-items:end; justify-content:center; gap:10px; margin:0 0 18px; padding:10px 0; background:var(--card); border-bottom:1px solid var(--line); }
-  .entropy-field { display:grid; gap:5px; text-align:left; }
-  .entropy-field label { color:var(--muted); font-size:14px; }
-  .entropy-field select, .entropy-btn {
-    min-height:42px; padding:9px 13px; border:1px solid var(--line); border-radius:9px;
-    background:var(--card2); color:var(--txt); font:inherit; font-weight:700;
-  }
-  .entropy-field select:focus-visible, .entropy-btn:focus-visible { outline:2px solid var(--orange); outline-offset:2px; }
-  .entropy-btn { cursor:pointer; transition:transform .15s, border-color .15s, background .15s; }
-  .entropy-btn:hover:not(:disabled) { transform:translateY(-2px); border-color:var(--orange); }
-  .entropy-btn.primary { background:var(--orange); border-color:var(--orange); color:#0b0e11; }
-  .entropy-btn:disabled, .entropy-field select:disabled { cursor:not-allowed; opacity:.45; }
-  .entropy-btn.copied { background:rgba(22,199,132,.14); color:var(--green); border-color:rgba(22,199,132,.45); }
-  .entropy-dice-viewport { overflow:hidden; padding:8px 4px 14px; }
-  .entropy-dice-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(42px, 1fr)); gap:6px; width:100%; justify-content:center; justify-items:center; }
-  .entropy-die { position:relative; width:100%; max-width:72px; aspect-ratio:1; background:#fff; border:2px solid #d9dce1; border-radius:10px; box-shadow:0 3px 0 rgba(0,0,0,.45); transform-origin:50% 70%; }
-  .entropy-pip { position:absolute; width:16%; aspect-ratio:1; border-radius:50%; background:#111; opacity:0; transition:opacity .08s ease; }
-  .entropy-pip:nth-child(1) {top:14%;left:14%} .entropy-pip:nth-child(2) {top:14%;left:42%} .entropy-pip:nth-child(3) {top:14%;right:14%}
-  .entropy-pip:nth-child(4) {top:42%;left:14%} .entropy-pip:nth-child(5) {top:42%;left:42%} .entropy-pip:nth-child(6) {top:42%;right:14%}
-  .entropy-pip:nth-child(7) {bottom:14%;left:14%} .entropy-pip:nth-child(8) {bottom:14%;left:42%} .entropy-pip:nth-child(9) {bottom:14%;right:14%}
-  .entropy-die:not(.revealed):not(.rolling-face) .entropy-pip:nth-child(1), .entropy-die:not(.revealed):not(.rolling-face) .entropy-pip:nth-child(3), .entropy-die:not(.revealed):not(.rolling-face) .entropy-pip:nth-child(5), .entropy-die:not(.revealed):not(.rolling-face) .entropy-pip:nth-child(7), .entropy-die:not(.revealed):not(.rolling-face) .entropy-pip:nth-child(9),
-  .entropy-die.face-1 .entropy-pip:nth-child(5), .entropy-die.face-2 .entropy-pip:nth-child(1), .entropy-die.face-2 .entropy-pip:nth-child(9),
-  .entropy-die.face-3 .entropy-pip:nth-child(1), .entropy-die.face-3 .entropy-pip:nth-child(5), .entropy-die.face-3 .entropy-pip:nth-child(9),
-  .entropy-die.face-4 .entropy-pip:nth-child(1), .entropy-die.face-4 .entropy-pip:nth-child(3), .entropy-die.face-4 .entropy-pip:nth-child(7), .entropy-die.face-4 .entropy-pip:nth-child(9),
-  .entropy-die.face-5 .entropy-pip:nth-child(1), .entropy-die.face-5 .entropy-pip:nth-child(3), .entropy-die.face-5 .entropy-pip:nth-child(5), .entropy-die.face-5 .entropy-pip:nth-child(7), .entropy-die.face-5 .entropy-pip:nth-child(9),
-  .entropy-die.face-6 .entropy-pip:nth-child(1), .entropy-die.face-6 .entropy-pip:nth-child(3), .entropy-die.face-6 .entropy-pip:nth-child(4), .entropy-die.face-6 .entropy-pip:nth-child(6), .entropy-die.face-6 .entropy-pip:nth-child(7), .entropy-die.face-6 .entropy-pip:nth-child(9) { opacity:1; }
-  .entropy-dice-grid.is-rolling .entropy-die { animation:entropy-tumble .22s linear infinite, entropy-bounce .4s ease-in-out infinite alternate; }
-  .entropy-dice-grid.is-rolling .entropy-die:nth-child(2n) { animation-duration:.17s,.35s; animation-direction:reverse,alternate; }
-  .entropy-dice-grid.is-rolling .entropy-die:nth-child(3n) { animation-duration:.25s,.46s; }
-  @keyframes entropy-tumble { from { transform:rotate(0deg) scale(1) } 50% { transform:rotate(180deg) scale(.95,1.04) } to { transform:rotate(360deg) scale(1) } }
-  @keyframes entropy-bounce { from { translate:0 3px } to { translate:0 -4px } }
-  .entropy-result { margin:6px 0 16px; padding:12px; min-height:50px; overflow-wrap:anywhere; text-align:center; color:var(--orange); background:#10141a; border:1px solid var(--line); border-radius:10px; font:700 15px/1.6 ui-monospace,Consolas,monospace; user-select:none; }
-  .entropy-status { min-height:1.5em; margin:14px 0 0; color:var(--muted); font-size:15px; text-align:center; }
-  .entropy-disclaimer { margin:18px 0 0; padding:14px 16px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; line-height:1.55; }
-  .entropy-disclaimer strong { color:var(--orange); font-size:11px; letter-spacing:.03em; }
-  .entropy-disclaimer p { margin:0 0 8px; color:inherit; font-size:inherit; }
-  .entropy-disclaimer p:last-child { margin-bottom:0; }
-  .entropy-strength { margin:18px 0 0; padding:15px; background:#10141a; border:1px solid var(--line); border-radius:10px; }
-  .entropy-strength-header { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:12px; }
-  .entropy-strength h3 { margin:0; font-size:20px; color:var(--txt); }
-  .entropy-strength-header p { margin:0; color:var(--muted); font-size:13px; }
-  .entropy-strength-control { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 13px; }
-  .entropy-strength-control label { color:var(--muted); font-size:14px; }
-  .entropy-strength-control select { min-height:42px; padding:8px 11px; color:var(--txt); background:var(--card2); border:1px solid var(--line); border-radius:7px; font:600 15px inherit; }
-  .entropy-strength-control select:focus-visible { outline:2px solid var(--orange); outline-offset:2px; }
-  .entropy-strength-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
-  .entropy-strength-metric { min-width:0; padding:10px; background:var(--card2); border:1px solid var(--line); border-radius:8px; }
-  .entropy-strength-metric span { display:block; margin-bottom:5px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
-  .entropy-strength-metric strong { display:block; overflow-wrap:anywhere; color:var(--orange); font:700 18px/1.4 ui-monospace,Consolas,monospace; }
-  .entropy-strength-note { margin:14px 0 0; color:var(--muted); font-size:13px; line-height:1.55; }
-  
-  /* ----- Calculadora de Projeção (Estilos Adicionais) ----- */
-  .calc-input {
-    width: 100%; min-height: 42px; padding: 9px 13px;
-    background: var(--card2); color: var(--txt);
-    border: 1px solid var(--line); border-radius: 9px;
-    font: inherit; font-weight: 600; box-sizing: border-box;
-  }
-  .calc-input:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
-  .calc-slider {
-    width: 100%; margin: 15px 0; accent-color: var(--orange);
-    cursor: pointer;
-  }
+html, body {
+  margin:0;
+  background:var(--bg);
+  color:var(--txt);
+}
+
+body {
+  font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+  line-height:1.5;
+  padding:20px;
+}
+
+/* =========================================================
+   JOGO DE DADOS / ENTROPIA
+   ========================================================= */
+
+.entropy-section {
+  margin:0 auto;
+  max-width:800px;
+  padding:22px;
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:16px;
+}
+
+.entropy-section h2 {
+  font-size:clamp(24px,3vw,30px);
+  margin-bottom:8px;
+  margin-top:0;
+}
+
+.entropy-section > p {
+  color:var(--muted);
+  font-size:16px;
+  margin-bottom:20px;
+  margin-top:0;
+}
+
+.entropy-controls {
+  position:sticky;
+  top:0;
+  z-index:10;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:end;
+  justify-content:center;
+  gap:10px;
+  margin:0 0 18px;
+  padding:10px 0;
+  background:var(--card);
+  border-bottom:1px solid var(--line);
+}
+
+.entropy-field {
+  display:grid;
+  gap:5px;
+  text-align:left;
+}
+
+.entropy-field label {
+  color:var(--muted);
+  font-size:14px;
+}
+
+.entropy-field select,
+.entropy-btn {
+  min-height:42px;
+  padding:9px 13px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:var(--card2);
+  color:var(--txt);
+  font:inherit;
+  font-weight:700;
+}
+
+.entropy-field select:focus-visible,
+.entropy-btn:focus-visible {
+  outline:2px solid var(--orange);
+  outline-offset:2px;
+}
+
+.entropy-btn {
+  cursor:pointer;
+  transition:transform .15s,border-color .15s,background .15s;
+}
+
+.entropy-btn:hover:not(:disabled) {
+  transform:translateY(-2px);
+  border-color:var(--orange);
+}
+
+.entropy-btn.primary {
+  background:var(--orange);
+  border-color:var(--orange);
+  color:#0b0e11;
+}
+
+.entropy-btn:disabled,
+.entropy-field select:disabled {
+  cursor:not-allowed;
+  opacity:.45;
+}
+
+.entropy-btn.copied {
+  background:rgba(22,199,132,.14);
+  color:var(--green);
+  border-color:rgba(22,199,132,.45);
+}
+
+.entropy-dice-viewport {
+  overflow:hidden;
+  padding:8px 4px 14px;
+}
+
+.entropy-dice-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(42px,1fr));
+  gap:6px;
+  width:100%;
+  justify-content:center;
+  justify-items:center;
+}
+
+.entropy-die {
+  position:relative;
+  width:100%;
+  max-width:72px;
+  aspect-ratio:1;
+  background:#fff;
+  border:2px solid #d9dce1;
+  border-radius:10px;
+  box-shadow:0 3px 0 rgba(0,0,0,.45);
+  transform-origin:50% 70%;
+}
+
+.entropy-pip {
+  position:absolute;
+  width:16%;
+  aspect-ratio:1;
+  border-radius:50%;
+  background:#111;
+  opacity:0;
+  transition:opacity .08s ease;
+}
+
+.entropy-pip:nth-child(1) {top:14%;left:14%}
+.entropy-pip:nth-child(2) {top:14%;left:42%}
+.entropy-pip:nth-child(3) {top:14%;right:14%}
+.entropy-pip:nth-child(4) {top:42%;left:14%}
+.entropy-pip:nth-child(5) {top:42%;left:42%}
+.entropy-pip:nth-child(6) {top:42%;right:14%}
+.entropy-pip:nth-child(7) {bottom:14%;left:14%}
+.entropy-pip:nth-child(8) {bottom:14%;left:42%}
+.entropy-pip:nth-child(9) {bottom:14%;right:14%}
+
+.entropy-die:not(.revealed):not(.rolling-face) .entropy-pip:nth-child(1),
+.entropy-die:not(.revealed):not(.rolling-face) .entropy-pip:nth-child(3),
+.entropy-die:not(.revealed):not(.rolling-face) .entropy-pip:nth-child(5),
+.entropy-die:not(.revealed):not(.rolling-face) .entropy-pip:nth-child(7),
+.entropy-die:not(.revealed):not(.rolling-face) .entropy-pip:nth-child(9),
+
+.entropy-die.face-1 .entropy-pip:nth-child(5),
+
+.entropy-die.face-2 .entropy-pip:nth-child(1),
+.entropy-die.face-2 .entropy-pip:nth-child(9),
+
+.entropy-die.face-3 .entropy-pip:nth-child(1),
+.entropy-die.face-3 .entropy-pip:nth-child(5),
+.entropy-die.face-3 .entropy-pip:nth-child(9),
+
+.entropy-die.face-4 .entropy-pip:nth-child(1),
+.entropy-die.face-4 .entropy-pip:nth-child(3),
+.entropy-die.face-4 .entropy-pip:nth-child(7),
+.entropy-die.face-4 .entropy-pip:nth-child(9),
+
+.entropy-die.face-5 .entropy-pip:nth-child(1),
+.entropy-die.face-5 .entropy-pip:nth-child(3),
+.entropy-die.face-5 .entropy-pip:nth-child(5),
+.entropy-die.face-5 .entropy-pip:nth-child(7),
+.entropy-die.face-5 .entropy-pip:nth-child(9),
+
+.entropy-die.face-6 .entropy-pip:nth-child(1),
+.entropy-die.face-6 .entropy-pip:nth-child(3),
+.entropy-die.face-6 .entropy-pip:nth-child(4),
+.entropy-die.face-6 .entropy-pip:nth-child(6),
+.entropy-die.face-6 .entropy-pip:nth-child(7),
+.entropy-die.face-6 .entropy-pip:nth-child(9) {
+  opacity:1;
+}
+
+.entropy-dice-grid.is-rolling .entropy-die {
+  animation:
+    entropy-tumble .22s linear infinite,
+    entropy-bounce .4s ease-in-out infinite alternate;
+}
+
+.entropy-dice-grid.is-rolling .entropy-die:nth-child(2n) {
+  animation-duration:.17s,.35s;
+  animation-direction:reverse,alternate;
+}
+
+.entropy-dice-grid.is-rolling .entropy-die:nth-child(3n) {
+  animation-duration:.25s,.46s;
+}
+
+@keyframes entropy-tumble {
+  from { transform:rotate(0deg) scale(1) }
+  50% { transform:rotate(180deg) scale(.95,1.04) }
+  to { transform:rotate(360deg) scale(1) }
+}
+
+@keyframes entropy-bounce {
+  from { translate:0 3px }
+  to { translate:0 -4px }
+}
+
+.entropy-result {
+  margin:6px 0 16px;
+  padding:12px;
+  min-height:50px;
+  overflow-wrap:anywhere;
+  text-align:center;
+  color:var(--orange);
+  background:#10141a;
+  border:1px solid var(--line);
+  border-radius:10px;
+  font:700 15px/1.6 ui-monospace,Consolas,monospace;
+  user-select:none;
+}
+
+.entropy-status {
+  min-height:1.5em;
+  margin:14px 0 0;
+  color:var(--muted);
+  font-size:15px;
+  text-align:center;
+}
+
+.entropy-disclaimer {
+  margin:18px 0 0;
+  padding:14px 16px;
+  border-top:1px solid var(--line);
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.55;
+}
+
+.entropy-disclaimer strong {
+  color:var(--orange);
+  font-size:11px;
+  letter-spacing:.03em;
+}
+
+.entropy-disclaimer p {
+  margin:0 0 8px;
+  color:inherit;
+  font-size:inherit;
+}
+
+.entropy-disclaimer p:last-child {
+  margin-bottom:0;
+}
+
+.entropy-strength {
+  margin:18px 0 0;
+  padding:15px;
+  background:#10141a;
+  border:1px solid var(--line);
+  border-radius:10px;
+}
+
+.entropy-strength-header {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:12px;
+}
+
+.entropy-strength h3 {
+  margin:0;
+  font-size:20px;
+  color:var(--txt);
+}
+
+.entropy-strength-header p {
+  margin:0;
+  color:var(--muted);
+  font-size:13px;
+}
+
+.entropy-strength-control {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+  margin:0 0 13px;
+}
+
+.entropy-strength-control label {
+  color:var(--muted);
+  font-size:14px;
+}
+
+.entropy-strength-control select {
+  min-height:42px;
+  padding:8px 11px;
+  color:var(--txt);
+  background:var(--card2);
+  border:1px solid var(--line);
+  border-radius:7px;
+  font:600 15px inherit;
+}
+
+.entropy-strength-control select:focus-visible {
+  outline:2px solid var(--orange);
+  outline-offset:2px;
+}
+
+.entropy-strength-grid {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+
+.entropy-strength-metric {
+  min-width:0;
+  padding:10px;
+  background:var(--card2);
+  border:1px solid var(--line);
+  border-radius:8px;
+}
+
+.entropy-strength-metric span {
+  display:block;
+  margin-bottom:5px;
+  color:var(--muted);
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+
+.entropy-strength-metric strong {
+  display:block;
+  overflow-wrap:anywhere;
+  color:var(--orange);
+  font:700 18px/1.4 ui-monospace,Consolas,monospace;
+}
+
+.entropy-strength-note {
+  margin:14px 0 0;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.55;
+}
+
+/* =========================================================
+   CALCULADORA DE PROJEÇÃO
+   ========================================================= */
+
+.calc-input {
+  width:100%;
+  min-height:42px;
+  padding:9px 13px;
+  background:var(--card2);
+  color:var(--txt);
+  border:1px solid var(--line);
+  border-radius:9px;
+  font:inherit;
+  font-weight:600;
+  box-sizing:border-box;
+}
+
+.calc-input:focus-visible {
+  outline:2px solid var(--orange);
+  outline-offset:2px;
+}
+
+.calc-slider {
+  width:100%;
+  margin:15px 0;
+  accent-color:var(--orange);
+  cursor:pointer;
+}
+
+.calc-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  margin-top:20px;
+}
+
+@media (max-width:600px) {
+  .entropy-strength-grid,
   .calc-grid {
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 20px;
+    grid-template-columns:1fr;
   }
 
-  @media (max-width:600px) { 
-    .entropy-strength-grid, .calc-grid { grid-template-columns:1fr; } 
-    .entropy-section { padding:16px; margin: 0 10px 20px 10px; } 
-    .entropy-controls { align-items:stretch; } 
-    .entropy-field, .entropy-btn { flex:1 1 145px; } 
-    .entropy-dice-grid { gap:5px; } 
-    .entropy-die { max-width:none; border-radius:8px; } 
+  .entropy-section {
+    padding:16px;
+    margin:0 10px;
   }
-  @media (prefers-reduced-motion:reduce) { .entropy-dice-grid.is-rolling .entropy-die { animation:none; } }
 
+  .entropy-controls {
+    align-items:stretch;
+  }
+
+  .entropy-field,
+  .entropy-btn {
+    flex:1 1 145px;
+  }
+
+  .entropy-dice-grid {
+    gap:5px;
+  }
+
+  .entropy-die {
+    max-width:none;
+    border-radius:8px;
+  }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .entropy-dice-grid.is-rolling .entropy-die {
+    animation:none;
+  }
+}
 </style>
 </head>
+
 <body>
 
-  <!-- ==========================================
-       SEÇÃO: JOGO DE DADOS (Original Completo)
-       ========================================== -->
-  <section class="entropy-section" id="diceEntropyWidget" aria-labelledby="dice-entropy-heading">
-      <h2 id="dice-entropy-heading">Jogo de Dados</h2>
-      <p>Simulador visual de entropia. Os valores permanecem ocultos até a revelação manual.</p>
+<!-- =========================================================
+     SEÇÃO: JOGO DE DADOS
+     ========================================================= -->
 
-      <div class="entropy-controls">
-        <div class="entropy-field">
-          <label for="entropyDiceCount">Quantidade de dados</label>
-          <select id="entropyDiceCount">
-            <option value="5">5 dados</option>
-            <option value="10">10 dados</option>
-            <option value="15">15 dados</option>
-            <option value="20" selected>20 dados</option>
-            <option value="30">30 dados</option>
-            <option value="40">40 dados</option>
-            <option value="50">50 dados</option>
-            <option value="80">80 dados</option>
-            <option value="100">100 dados</option>
-            <option value="200">200 dados</option>
-            <option value="300">300 dados</option>
-          </select>
-        </div>
-        <button class="entropy-btn primary" id="entropyRoll" type="button">Jogar Dados</button>
-        <button class="entropy-btn" id="entropyShuffle" type="button" disabled>Embaralhar Resultado</button>
-        <button class="entropy-btn" id="entropyReveal" type="button" disabled>Revelar Dados</button>
-        <button class="entropy-btn" id="entropyCopy" type="button" disabled>Copiar Entropia</button>
+<section
+  class="entropy-section"
+  id="diceEntropyWidget"
+  aria-labelledby="dice-entropy-heading"
+>
+
+  <h2 id="dice-entropy-heading">Jogo de Dados</h2>
+
+  <p>
+    Simulador visual de entropia. Os valores permanecem ocultos
+    até a revelação manual.
+  </p>
+
+  <div class="entropy-controls">
+
+    <div class="entropy-field">
+      <label for="entropyDiceCount">Quantidade de dados</label>
+
+      <select id="entropyDiceCount">
+        <option value="5">5 dados</option>
+        <option value="10">10 dados</option>
+        <option value="15">15 dados</option>
+        <option value="20" selected>20 dados</option>
+        <option value="30">30 dados</option>
+        <option value="40">40 dados</option>
+        <option value="50">50 dados</option>
+        <option value="80">80 dados</option>
+        <option value="100">100 dados</option>
+        <option value="200">200 dados</option>
+        <option value="300">300 dados</option>
+      </select>
+    </div>
+
+    <button class="entropy-btn primary" id="entropyRoll" type="button">
+      Jogar Dados
+    </button>
+
+    <button class="entropy-btn" id="entropyShuffle" type="button" disabled>
+      Embaralhar Resultado
+    </button>
+
+    <button class="entropy-btn" id="entropyReveal" type="button" disabled>
+      Revelar Dados
+    </button>
+
+    <button class="entropy-btn" id="entropyCopy" type="button" disabled>
+      Copiar Entropia
+    </button>
+
+  </div>
+
+  <div class="entropy-dice-viewport">
+    <div
+      class="entropy-dice-grid"
+      id="entropyDiceGrid"
+      role="img"
+      aria-label="20 dados digitais em modo confidencial"
+    ></div>
+  </div>
+
+  <output
+    class="entropy-result"
+    id="entropyResult"
+    aria-label="Resultado mascarado"
+  ></output>
+
+  <p
+    class="entropy-status"
+    id="entropyStatus"
+    role="status"
+    aria-live="polite"
+  >
+    20 dados prontos para gerar entropia.
+  </p>
+
+  <section
+    class="entropy-strength"
+    aria-labelledby="entropyStrengthTitle"
+  >
+
+    <div class="entropy-strength-header">
+      <h3 id="entropyStrengthTitle">Força contra força bruta</h3>
+      <p>Estimativa educacional de busca exaustiva.</p>
+    </div>
+
+    <div class="entropy-strength-control">
+
+      <label for="entropyAttackRate">
+        Taxa hipotética de tentativas
+      </label>
+
+      <select id="entropyAttackRate">
+        <option value="1000000" selected>10⁶ por segundo</option>
+        <option value="1000000000">10⁹ por segundo</option>
+        <option value="1000000000000">10¹² por segundo</option>
+      </select>
+
+    </div>
+
+    <div class="entropy-strength-grid">
+
+      <div class="entropy-strength-metric">
+        <span>Espaço de busca</span>
+        <strong id="entropyCombinations">—</strong>
       </div>
 
-      <div class="entropy-dice-viewport">
-        <div class="entropy-dice-grid" id="entropyDiceGrid" role="img" aria-label="20 dados digitais em modo confidencial"></div>
+      <div class="entropy-strength-metric">
+        <span>Entropia teórica</span>
+        <strong id="entropyBits">—</strong>
       </div>
-      <output class="entropy-result" id="entropyResult" aria-label="Resultado mascarado"></output>
-      <p class="entropy-status" id="entropyStatus" role="status" aria-live="polite">20 dados prontos para gerar entropia.</p>
 
-      <section class="entropy-strength" aria-labelledby="entropyStrengthTitle">
-        <div class="entropy-strength-header">
-          <h3 id="entropyStrengthTitle">Força contra força bruta</h3>
-          <p>Estimativa educacional de busca exaustiva.</p>
-        </div>
-        <div class="entropy-strength-control">
-          <label for="entropyAttackRate">Taxa hipotética de tentativas</label>
-          <select id="entropyAttackRate">
-            <option value="1000000" selected>10⁶ por segundo</option>
-            <option value="1000000000">10⁹ por segundo</option>
-            <option value="1000000000000">10¹² por segundo</option>
-          </select>
-        </div>
-        <div class="entropy-strength-grid">
-          <div class="entropy-strength-metric"><span>Espaço de busca</span><strong id="entropyCombinations">—</strong></div>
-          <div class="entropy-strength-metric"><span>Entropia teórica</span><strong id="entropyBits">—</strong></div>
-          <div class="entropy-strength-metric"><span>Tempo médio</span><strong id="entropyCrackTime">—</strong></div>
-        </div>
-        <p class="entropy-strength-note" id="entropyStrengthNote">O tempo médio considera um alvo secreto, resultados uniformes e um ataque puramente exaustivo. Não mede riscos como malware, captura de tela, vazamento ou engenharia social.</p>
-      </section>
-
-      <div class="entropy-disclaimer">
-        <strong>AVISO DE SEGURANÇA E ISENÇÃO DE RESPONSABILIDADE</strong>
-        <p><b>Apenas para Fins Educacionais:</b> Esta ferramenta foi desenvolvida estritamente para demonstração de como a entropia matemática funciona. NÃO utilize os resultados gerados aqui para criar carteiras (wallets) destinadas a guardar fundos reais.</p>
-        <p><b>O Perigo do Ambiente Online:</b> Navegadores web são inerentemente inseguros. Seu dispositivo pode estar comprometido por malwares, extensões maliciosas ou rastreadores de tela capazes de registrar os dados gerados nesta página.</p>
-        <p><b>Limitações de Software:</b> Geradores de números aleatórios baseados em navegadores da web (JavaScript) não oferecem as garantias de segurança de um gerador de entropia puramente físico ou de dispositivos de hardware dedicados.</p>
-        <p><b>Recomendação de Segurança:</b> Se você deseja gerar uma seed phrase blindada para uso real, desconecte-se da internet e utilize dados de tabuleiro físicos e reais, anotando os resultados no papel.</p>
-        <p><b>Isenção Legal:</b> O uso desta ferramenta é de sua inteira responsabilidade. O autor e os mantenedores deste código não se responsabilizam por quaisquer perdas financeiras, roubos, danos ou comprometimento de chaves privadas decorrentes do uso das sequências geradas neste site.</p>
+      <div class="entropy-strength-metric">
+        <span>Tempo médio</span>
+        <strong id="entropyCrackTime">—</strong>
       </div>
+
+    </div>
+
+    <p class="entropy-strength-note" id="entropyStrengthNote">
+      O tempo médio considera um alvo secreto, resultados uniformes
+      e um ataque puramente exaustivo. Não mede riscos como malware,
+      captura de tela, vazamento ou engenharia social.
+    </p>
+
   </section>
 
-  <!-- ==========================================
-       SEÇÃO: CALCULADORA DE PROJEÇÃO
-       ========================================== -->
-  <section class="entropy-section" id="profitCalculator" aria-labelledby="calc-heading">
-      <h2 id="calc-heading">Calculadora de Projeção</h2>
-      <p>Projete seu lucro informando seu preço médio e movendo o valor projetado.</p>
+  <div class="entropy-disclaimer">
 
-      <div class="calc-grid" style="margin-bottom: 20px;">
-          <div>
-              <label for="calc-cap" style="display:block; color:var(--muted); font-size:14px; margin-bottom:6px; font-weight:600;">Capital Alocado (BTC)</label>
-              <input type="number" id="calc-cap" value="0.55880000" step="0.00000001" min="0" class="calc-input">
-          </div>
-          <div>
-              <label for="calc-avg-price" style="display:block; color:var(--muted); font-size:14px; margin-bottom:6px; font-weight:600;">Preço Médio (USD)</label>
-              <input type="number" id="calc-avg-price" value="" step="0.01" min="0" class="calc-input" placeholder="Aguardando cotação...">
-          </div>
+    <strong>AVISO DE SEGURANÇA E ISENÇÃO DE RESPONSABILIDADE</strong>
+
+    <p>
+      <b>Apenas para Fins Educacionais:</b>
+      Esta ferramenta foi desenvolvida estritamente para demonstração
+      de como a entropia matemática funciona. NÃO utilize os resultados
+      gerados aqui para criar carteiras (wallets) destinadas a guardar
+      fundos reais.
+    </p>
+
+    <p>
+      <b>O Perigo do Ambiente Online:</b>
+      Navegadores web são inerentemente inseguros. Seu dispositivo pode
+      estar comprometido por malwares, extensões maliciosas ou rastreadores
+      de tela capazes de registrar os dados gerados nesta página.
+    </p>
+
+    <p>
+      <b>Limitações de Software:</b>
+      Geradores de números aleatórios baseados em navegadores da web
+      (JavaScript) não oferecem as garantias de segurança de um gerador
+      de entropia puramente físico ou de dispositivos de hardware dedicados.
+    </p>
+
+    <p>
+      <b>Recomendação de Segurança:</b>
+      Se você deseja gerar uma seed phrase blindada para uso real,
+      desconecte-se da internet e utilize dados de tabuleiro físicos
+      e reais, anotando os resultados no papel.
+    </p>
+
+    <p>
+      <b>Isenção Legal:</b>
+      O uso desta ferramenta é de sua inteira responsabilidade.
+      O autor e os mantenedores deste código não se responsabilizam
+      por quaisquer perdas financeiras, roubos, danos ou comprometimento
+      de chaves privadas decorrentes do uso das sequências geradas
+      neste site.
+    </p>
+
+  </div>
+
+</section>
+
+
+<!-- =========================================================
+     SEÇÃO: CALCULADORA DE PROJEÇÃO
+     ========================================================= -->
+
+<section
+  class="entropy-section"
+  id="profitCalculator"
+  style="margin-top:30px;"
+  aria-labelledby="calc-heading"
+>
+
+  <h2 id="calc-heading">Calculadora de Projeção</h2>
+
+  <p>
+    Projete seu lucro informando seu preço médio e movendo o valor projetado.
+  </p>
+
+  <div class="calc-grid" style="margin-bottom:20px;">
+
+    <div>
+
+      <label
+        for="calc-cap"
+        style="display:block;color:var(--muted);font-size:14px;margin-bottom:6px;font-weight:600;"
+      >
+        Capital Alocado (BTC)
+      </label>
+
+      <input
+        type="number"
+        id="calc-cap"
+        value="0.55880000"
+        step="0.00000001"
+        min="0"
+        class="calc-input"
+      >
+
+    </div>
+
+    <div>
+
+      <label
+        for="calc-avg-price"
+        style="display:block;color:var(--muted);font-size:14px;margin-bottom:6px;font-weight:600;"
+      >
+        Preço Médio (BRL)
+      </label>
+
+      <input
+        type="number"
+        id="calc-avg-price"
+        value=""
+        step="0.01"
+        min="0"
+        class="calc-input"
+        placeholder="Aguardando cotação..."
+      >
+
+    </div>
+
+  </div>
+
+
+  <!-- COTAÇÃO ATUAL -->
+
+  <div
+    style="margin-bottom:25px;padding:12px;background:#10141a;border:1px solid var(--line);border-radius:9px;"
+  >
+
+    <span style="color:var(--muted);font-size:14px;">
+      Cotação Atual:
+    </span>
+
+    <strong
+      id="calc-current-lbl"
+      style="color:var(--txt);font-size:15px;margin-left:5px;"
+    >
+      Carregando...
+    </strong>
+
+  </div>
+
+
+  <!-- RÉGUA -->
+
+  <div style="margin-bottom:20px;">
+
+    <label
+      for="calc-slider"
+      style="display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:14px;margin-bottom:10px;font-weight:600;"
+    >
+
+      <span>Preço Projetado (BRL)</span>
+
+      <strong
+        id="calc-proj-lbl"
+        style="color:var(--orange);font-size:18px;"
+      >
+        ---
+      </strong>
+
+    </label>
+
+    <input
+      type="range"
+      id="calc-slider"
+      class="calc-slider"
+      disabled
+    >
+
+  </div>
+
+
+  <!-- RESULTADO -->
+
+  <div class="calc-grid">
+
+    <div class="entropy-strength-metric">
+
+      <span>Total Projetado (BRL)</span>
+
+      <strong
+        id="calc-total-brl"
+        style="color:var(--txt);"
+      >
+        ---
+      </strong>
+
+      <div
+        style="margin-top:8px;font-size:13px;color:var(--muted);"
+      >
+
+        Lucro Líquido:
+
+        <span
+          id="calc-profit-brl"
+          style="font-weight:700;"
+        >
+          ---
+        </span>
+
       </div>
 
-      <div style="margin-bottom: 20px; padding: 12px; background: #10141a; border: 1px solid var(--line); border-radius: 9px;">
-          <span style="color:var(--muted); font-size:14px;">Cotação Atual:</span> 
-          <strong id="calc-current-lbl" style="color:var(--txt); font-size:15px; margin-left: 5px;">Carregando...</strong>
-      </div>
+    </div>
 
-      <div style="margin-bottom: 20px;">
-          <label for="calc-slider" style="display:flex; justify-content: space-between; align-items: center; color:var(--muted); font-size:14px; margin-bottom:10px; font-weight:600;">
-              <span>Preço Projetado (USD)</span>
-              <strong id="calc-proj-lbl" style="color:var(--orange); font-size:18px;">---</strong>
-          </label>
-          <input type="range" id="calc-slider" class="calc-slider" disabled>
-      </div>
+  </div>
 
-      <div class="calc-grid">
-          <div class="entropy-strength-metric">
-              <span>Total Projetado (USD)</span>
-              <strong id="calc-total-usd" style="color:var(--txt);">---</strong>
-              <div style="margin-top: 8px; font-size:13px; color:var(--muted);">
-                Lucro Líquido: <span id="calc-profit-usd" style="font-weight:700;">---</span>
-              </div>
-          </div>
-          <div class="entropy-strength-metric">
-              <span>Total Projetado (BRL)</span>
-              <strong id="calc-total-brl" style="color:var(--txt);">---</strong>
-              <div style="margin-top: 8px; font-size:13px; color:var(--muted);">
-                Lucro Líquido: <span id="calc-profit-brl" style="font-weight:700;">---</span>
-              </div>
-          </div>
-      </div>
-  </section>
+</section>
 
-<!-- ==========================================
+
+<!-- =========================================================
      SCRIPTS
-     ========================================== -->
+     ========================================================= -->
+
 <script>
-  // Script: Jogo de Dados (Original Completo)
-  (() => {
-      "use strict";
-      const grid = document.getElementById("entropyDiceGrid");
-      const countSelect = document.getElementById("entropyDiceCount");
-      const rollButton = document.getElementById("entropyRoll");
-      const shuffleButton = document.getElementById("entropyShuffle");
-      const revealButton = document.getElementById("entropyReveal");
-      const copyButton = document.getElementById("entropyCopy");
-      const result = document.getElementById("entropyResult");
-      const status = document.getElementById("entropyStatus");
-      const attackRateSelect = document.getElementById("entropyAttackRate");
-      const combinationsOutput = document.getElementById("entropyCombinations");
-      const bitsOutput = document.getElementById("entropyBits");
-      const crackTimeOutput = document.getElementById("entropyCrackTime");
-      let diceCount = 20;
-      let hiddenEntropy = null;
-      let rolling = false;
-      let rollTimer = null;
-      let animationTimer = null;
-      let shuffleTimer = null;
-      let copyFeedbackTimer = null;
 
-      function secureDieRoll() {
-        const value = new Uint8Array(1);
-        do { crypto.getRandomValues(value); } while (value[0] >= 252);
-        return (value[0] % 6) + 1;
+/* =========================================================
+   JOGO DE DADOS
+   ========================================================= */
+
+(() => {
+
+  "use strict";
+
+  const grid = document.getElementById("entropyDiceGrid");
+  const countSelect = document.getElementById("entropyDiceCount");
+  const rollButton = document.getElementById("entropyRoll");
+  const shuffleButton = document.getElementById("entropyShuffle");
+  const revealButton = document.getElementById("entropyReveal");
+  const copyButton = document.getElementById("entropyCopy");
+  const result = document.getElementById("entropyResult");
+  const status = document.getElementById("entropyStatus");
+  const attackRateSelect = document.getElementById("entropyAttackRate");
+  const combinationsOutput = document.getElementById("entropyCombinations");
+  const bitsOutput = document.getElementById("entropyBits");
+  const crackTimeOutput = document.getElementById("entropyCrackTime");
+
+  let diceCount = 20;
+  let hiddenEntropy = null;
+  let rolling = false;
+  let rollTimer = null;
+  let animationTimer = null;
+  let shuffleTimer = null;
+  let copyFeedbackTimer = null;
+
+
+  function secureDieRoll() {
+
+    const value = new Uint8Array(1);
+
+    do {
+      crypto.getRandomValues(value);
+    } while (value[0] >= 252);
+
+    return (value[0] % 6) + 1;
+  }
+
+
+  function secureIndex(limit) {
+
+    const range = 0x100000000;
+    const ceiling = Math.floor(range / limit) * limit;
+    const value = new Uint32Array(1);
+
+    do {
+      crypto.getRandomValues(value);
+    } while (value[0] >= ceiling);
+
+    return value[0] % limit;
+  }
+
+
+  function maskedResult() {
+    return `[ ${Array(diceCount).fill("*").join(" ")} ]`;
+  }
+
+
+  function formatDurationFromLog10Seconds(log10Seconds) {
+
+    if (log10Seconds < 0) {
+      return "menos de 1 s";
+    }
+
+    const secondsPerYear = 31_557_600;
+    const log10Years =
+      log10Seconds - Math.log10(secondsPerYear);
+
+    if (log10Years >= 8) {
+      return "mais de 1 milhão de séculos";
+    }
+
+    const seconds = 10 ** log10Seconds;
+
+    if (seconds < 60) {
+      return `${seconds.toFixed(1)} s`;
+    }
+
+    if (seconds < 3_600) {
+      return `${(seconds / 60).toFixed(1)} min`;
+    }
+
+    if (seconds < 86_400) {
+      return `${(seconds / 3_600).toFixed(1)} h`;
+    }
+
+    if (seconds < secondsPerYear) {
+      return `${(seconds / 86_400).toFixed(1)} dias`;
+    }
+
+    const years = seconds / secondsPerYear;
+
+    if (years < 100) {
+      return `${years.toLocaleString("pt-BR", {
+        maximumFractionDigits:1
+      })} anos`;
+    }
+
+    return `${(years / 100).toLocaleString("pt-BR", {
+      maximumFractionDigits:1
+    })} séculos`;
+  }
+
+
+  function updateStrengthMeter() {
+
+    const attemptsPerSecond =
+      Number(attackRateSelect.value);
+
+    const entropyBits =
+      diceCount * Math.log2(6);
+
+    const log10Combinations =
+      diceCount * Math.log10(6);
+
+    const log10AverageSeconds =
+      log10Combinations -
+      Math.log10(attemptsPerSecond) -
+      Math.log10(2);
+
+    combinationsOutput.textContent =
+      `6^${diceCount} ≈ 10^${log10Combinations.toFixed(1)}`;
+
+    bitsOutput.textContent =
+      `${entropyBits.toFixed(1)} bits`;
+
+    crackTimeOutput.textContent =
+      formatDurationFromLog10Seconds(log10AverageSeconds);
+  }
+
+
+  function eraseEntropy() {
+
+    if (hiddenEntropy instanceof Uint8Array) {
+      hiddenEntropy.fill(0);
+    }
+
+    hiddenEntropy = null;
+  }
+
+
+  function createDice() {
+
+    const fragment =
+      document.createDocumentFragment();
+
+    for (let index = 0; index < diceCount; index += 1) {
+
+      const die = document.createElement("div");
+
+      die.className = "entropy-die";
+      die.setAttribute("aria-hidden", "true");
+
+      for (let pip = 0; pip < 9; pip += 1) {
+
+        const dot =
+          document.createElement("span");
+
+        dot.className = "entropy-pip";
+
+        die.append(dot);
       }
 
-      function secureIndex(limit) {
-        const range = 0x100000000;
-        const ceiling = Math.floor(range / limit) * limit;
-        const value = new Uint32Array(1);
-        do { crypto.getRandomValues(value); } while (value[0] >= ceiling);
-        return value[0] % limit;
-      }
+      fragment.append(die);
+    }
 
-      function maskedResult() { return `[ ${Array(diceCount).fill("*").join(" ")} ]`; }
+    grid.replaceChildren(fragment);
+  }
 
-      function formatDurationFromLog10Seconds(log10Seconds) {
-        if (log10Seconds < 0) return "menos de 1 s";
-        const secondsPerYear = 31_557_600;
-        const log10Years = log10Seconds - Math.log10(secondsPerYear);
-        if (log10Years >= 8) return "mais de 1 milhão de séculos";
-        const seconds = 10 ** log10Seconds;
-        if (seconds < 60) return `${seconds.toFixed(1)} s`;
-        if (seconds < 3_600) return `${(seconds / 60).toFixed(1)} min`;
-        if (seconds < 86_400) return `${(seconds / 3_600).toFixed(1)} h`;
-        if (seconds < secondsPerYear) return `${(seconds / 86_400).toFixed(1)} dias`;
-        const years = seconds / secondsPerYear;
-        if (years < 100) return `${years.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} anos`;
-        return `${(years / 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} séculos`;
-      }
 
-      function updateStrengthMeter() {
-        const attemptsPerSecond = Number(attackRateSelect.value);
-        const entropyBits = diceCount * Math.log2(6);
-        const log10Combinations = diceCount * Math.log10(6);
-        const log10AverageSeconds = log10Combinations - Math.log10(attemptsPerSecond) - Math.log10(2);
-        combinationsOutput.textContent = `6^${diceCount} ≈ 10^${log10Combinations.toFixed(1)}`;
-        bitsOutput.textContent = `${entropyBits.toFixed(1)} bits`;
-        crackTimeOutput.textContent = formatDurationFromLog10Seconds(log10AverageSeconds);
-      }
+  function setFaces(reveal) {
 
-      function eraseEntropy() {
-        if (hiddenEntropy instanceof Uint8Array) {
-          hiddenEntropy.fill(0);
+    grid.querySelectorAll(".entropy-die")
+      .forEach((die,index) => {
+
+        die.className = "entropy-die";
+
+        if (reveal && hiddenEntropy) {
+
+          die.classList.add(
+            "revealed",
+            `face-${hiddenEntropy[index]}`
+          );
         }
-        hiddenEntropy = null;
+      });
+  }
+
+
+  function animateFaces() {
+
+    grid.querySelectorAll(".entropy-die")
+      .forEach(die => {
+
+        die.className =
+          `entropy-die rolling-face face-${secureDieRoll()}`;
+      });
+  }
+
+
+  function startAnimation() {
+
+    clearInterval(animationTimer);
+
+    animateFaces();
+
+    animationTimer =
+      setInterval(animateFaces,100);
+  }
+
+
+  function stopAnimation() {
+
+    clearInterval(animationTimer);
+
+    animationTimer = null;
+  }
+
+
+  function setControls(enabled) {
+
+    countSelect.disabled = !enabled;
+    rollButton.disabled = !enabled;
+
+    shuffleButton.disabled =
+      !enabled ||
+      !(hiddenEntropy instanceof Uint8Array);
+
+    revealButton.disabled =
+      !enabled ||
+      !(hiddenEntropy instanceof Uint8Array);
+
+    copyButton.disabled =
+      !enabled ||
+      !(hiddenEntropy instanceof Uint8Array);
+  }
+
+
+  function reportWidgetHeight() {
+
+    if (window.parent === window) {
+      return;
+    }
+
+    const sections =
+      document.querySelectorAll(".entropy-section");
+
+    let totalHeight = 0;
+
+    sections.forEach(section => {
+      totalHeight +=
+        Math.ceil(section.getBoundingClientRect().height);
+    });
+
+    window.parent.postMessage(
+      {
+        type:"entropy-widget-height",
+        height:totalHeight + 50
+      },
+      window.location.origin
+    );
+  }
+
+
+  if ("ResizeObserver" in window) {
+
+    new ResizeObserver(reportWidgetHeight)
+      .observe(document.body);
+  }
+
+
+  function resetForCount() {
+
+    if (rolling) {
+      return;
+    }
+
+    diceCount =
+      Number.parseInt(countSelect.value,10);
+
+    let columnCount =
+      Math.min(diceCount,20);
+
+    for (
+      let candidate = columnCount;
+      candidate > 1;
+      candidate -= 1
+    ) {
+
+      if (diceCount % candidate === 0) {
+
+        columnCount = candidate;
+        break;
       }
+    }
 
-      function createDice() {
-        const fragment = document.createDocumentFragment();
-        for (let index = 0; index < diceCount; index += 1) {
-          const die = document.createElement("div");
-          die.className = "entropy-die";
-          die.setAttribute("aria-hidden", "true");
-          for (let pip = 0; pip < 9; pip += 1) {
-            const dot = document.createElement("span");
-            dot.className = "entropy-pip";
-            die.append(dot);
-          }
-          fragment.append(die);
-        }
-        grid.replaceChildren(fragment);
-      }
+    grid.style.setProperty(
+      "--entropy-dice-columns",
+      String(columnCount)
+    );
 
-      function setFaces(reveal) {
-        grid.querySelectorAll(".entropy-die").forEach((die, index) => {
-          die.className = "entropy-die";
-          if (reveal && hiddenEntropy) die.classList.add("revealed", `face-${hiddenEntropy[index]}`);
-        });
-      }
+    eraseEntropy();
 
-      function animateFaces() {
-        grid.querySelectorAll(".entropy-die").forEach(die => {
-          die.className = `entropy-die rolling-face face-${secureDieRoll()}`;
-        });
-      }
+    createDice();
 
-      function startAnimation() {
-        clearInterval(animationTimer);
-        animateFaces();
-        animationTimer = setInterval(animateFaces, 100);
-      }
+    result.textContent =
+      maskedResult();
 
-      function stopAnimation() { clearInterval(animationTimer); animationTimer = null; }
+    grid.setAttribute(
+      "aria-label",
+      `${diceCount} dados digitais em modo confidencial`
+    );
 
-      function setControls(enabled) {
-        countSelect.disabled = !enabled;
-        rollButton.disabled = !enabled;
-        shuffleButton.disabled = !enabled || !(hiddenEntropy instanceof Uint8Array);
-        revealButton.disabled = !enabled || !(hiddenEntropy instanceof Uint8Array);
-        copyButton.disabled = !enabled || !(hiddenEntropy instanceof Uint8Array);
-      }
+    setControls(true);
 
-      function reportWidgetHeight() {
-        if (window.parent === window) return;
-        const sections = document.querySelectorAll(".entropy-section");
-        let totalHeight = 0;
-        sections.forEach(s => totalHeight += Math.ceil(s.getBoundingClientRect().height));
-        window.parent.postMessage({ type: "entropy-widget-height", height: totalHeight + 50 }, window.location.origin);
-      }
+    status.textContent =
+      `${diceCount} dados prontos para gerar entropia.`;
 
-      if ("ResizeObserver" in window) {
-        new ResizeObserver(reportWidgetHeight).observe(document.body);
-      }
+    updateStrengthMeter();
+  }
 
-      function resetForCount() {
-        if (rolling) return;
-        diceCount = Number.parseInt(countSelect.value, 10);
-        let columnCount = Math.min(diceCount, 20);
-        for (let candidate = columnCount; candidate > 1; candidate -= 1) {
-          if (diceCount % candidate === 0) { columnCount = candidate; break; }
-        }
-        grid.style.setProperty("--entropy-dice-columns", String(columnCount));
-        eraseEntropy();
-        createDice();
-        result.textContent = maskedResult();
-        grid.setAttribute("aria-label", `${diceCount} dados digitais em modo confidencial`);
-        setControls(true);
-        status.textContent = `${diceCount} dados prontos para gerar entropia.`;
-        updateStrengthMeter();
-      }
 
-      function generateEntropy() {
-        const values = new Uint8Array(diceCount);
-        for (let index = 0; index < diceCount; index += 1) values[index] = secureDieRoll();
-        eraseEntropy();
-        hiddenEntropy = values;
-      }
+  function generateEntropy() {
 
-      function finishRoll() {
+    const values =
+      new Uint8Array(diceCount);
+
+    for (
+      let index = 0;
+      index < diceCount;
+      index += 1
+    ) {
+
+      values[index] =
+        secureDieRoll();
+    }
+
+    eraseEntropy();
+
+    hiddenEntropy = values;
+  }
+
+
+  function finishRoll() {
+
+    stopAnimation();
+
+    generateEntropy();
+
+    setFaces(false);
+
+    grid.classList.remove("is-rolling");
+
+    result.textContent =
+      maskedResult();
+
+    rolling = false;
+
+    setControls(true);
+
+    status.textContent =
+      "Entropia gerada e mantida em modo confidencial.";
+  }
+
+
+  function rollDice() {
+
+    if (rolling) {
+      return;
+    }
+
+    rolling = true;
+
+    setControls(false);
+
+    result.textContent =
+      maskedResult();
+
+    status.textContent =
+      "Gerando entropia confidencial...";
+
+    startAnimation();
+
+    grid.classList.add("is-rolling");
+
+    clearTimeout(rollTimer);
+
+    rollTimer =
+      setTimeout(finishRoll,1600);
+  }
+
+
+  function shuffleEntropy() {
+
+    for (
+      let index = hiddenEntropy.length - 1;
+      index > 0;
+      index -= 1
+    ) {
+
+      const target =
+        secureIndex(index + 1);
+
+      [
+        hiddenEntropy[index],
+        hiddenEntropy[target]
+      ] =
+      [
+        hiddenEntropy[target],
+        hiddenEntropy[index]
+      ];
+    }
+  }
+
+
+  function shuffle() {
+
+    if (
+      !(hiddenEntropy instanceof Uint8Array) ||
+      rolling
+    ) {
+      return;
+    }
+
+    rolling = true;
+
+    setControls(false);
+
+    shuffleEntropy();
+
+    setFaces(false);
+
+    result.textContent =
+      maskedResult();
+
+    status.textContent =
+      "Embaralhando a entropia oculta...";
+
+    startAnimation();
+
+    grid.classList.add("is-rolling");
+
+    clearTimeout(shuffleTimer);
+
+    shuffleTimer =
+      setTimeout(() => {
+
         stopAnimation();
-        generateEntropy();
+
         setFaces(false);
+
         grid.classList.remove("is-rolling");
-        result.textContent = maskedResult();
+
         rolling = false;
+
         setControls(true);
-        status.textContent = "Entropia gerada e mantida em modo confidencial.";
+
+        status.textContent =
+          "Entropia embaralhada e mantida em modo confidencial.";
+
+      },700);
+  }
+
+
+  function reveal() {
+
+    if (
+      !(hiddenEntropy instanceof Uint8Array) ||
+      rolling
+    ) {
+      return;
+    }
+
+    setFaces(true);
+
+    result.textContent =
+      `[ ${Array.from(hiddenEntropy).join(" ")} ]`;
+
+    revealButton.disabled = true;
+
+    status.textContent =
+      "Dados revelados.";
+  }
+
+
+  async function copy() {
+
+    if (
+      !(hiddenEntropy instanceof Uint8Array) ||
+      rolling ||
+      !navigator.clipboard?.writeText
+    ) {
+
+      status.textContent =
+        "A área de transferência não está disponível neste navegador.";
+
+      return;
+    }
+
+    try {
+
+      await navigator.clipboard.writeText(
+        Array.from(hiddenEntropy).join(",")
+      );
+
+      clearTimeout(copyFeedbackTimer);
+
+      copyButton.textContent =
+        "Copiado!";
+
+      copyButton.classList.add("copied");
+
+      status.textContent =
+        "Entropia copiada diretamente para a área de transferência.";
+
+      copyFeedbackTimer =
+        setTimeout(() => {
+
+          copyButton.textContent =
+            "Copiar Entropia";
+
+          copyButton.classList.remove("copied");
+
+        },1800);
+
+    } catch {
+
+      status.textContent =
+        "O navegador bloqueou o acesso à área de transferência.";
+    }
+  }
+
+
+  attackRateSelect.addEventListener(
+    "change",
+    updateStrengthMeter
+  );
+
+  countSelect.addEventListener(
+    "change",
+    resetForCount
+  );
+
+  rollButton.addEventListener(
+    "click",
+    rollDice
+  );
+
+  shuffleButton.addEventListener(
+    "click",
+    shuffle
+  );
+
+  revealButton.addEventListener(
+    "click",
+    reveal
+  );
+
+  copyButton.addEventListener(
+    "click",
+    copy
+  );
+
+  window.addEventListener(
+    "pagehide",
+    () => {
+
+      clearTimeout(rollTimer);
+      clearTimeout(shuffleTimer);
+
+      stopAnimation();
+
+      clearTimeout(copyFeedbackTimer);
+
+      eraseEntropy();
+    }
+  );
+
+  resetForCount();
+
+  requestAnimationFrame(reportWidgetHeight);
+
+})();
+
+
+/* =========================================================
+   CALCULADORA DE PROJEÇÃO — BRL
+   ========================================================= */
+
+(() => {
+
+  "use strict";
+
+  const capInput =
+    document.getElementById("calc-cap");
+
+  const avgPriceInput =
+    document.getElementById("calc-avg-price");
+
+  const slider =
+    document.getElementById("calc-slider");
+
+  const currentLbl =
+    document.getElementById("calc-current-lbl");
+
+  const projLbl =
+    document.getElementById("calc-proj-lbl");
+
+  const totalBrl =
+    document.getElementById("calc-total-brl");
+
+  const profitBrl =
+    document.getElementById("calc-profit-brl");
+
+
+  let currentBtcBrl = 0;
+
+
+  /* Formatação exclusivamente em BRL */
+
+  const fmtBRL =
+    new Intl.NumberFormat("pt-BR", {
+      style:"currency",
+      currency:"BRL",
+      minimumFractionDigits:2,
+      maximumFractionDigits:2
+    });
+
+
+  /* ---------------------------------------------------------
+     BUSCA COTAÇÃO
+     --------------------------------------------------------- */
+
+  async function initCalc() {
+
+    try {
+
+      const res =
+        await fetch(
+          "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,brl"
+        );
+
+      if (!res.ok) {
+        throw new Error("Falha HTTP na API");
       }
 
-      function rollDice() {
-        if (rolling) return;
-        rolling = true;
-        setControls(false);
-        result.textContent = maskedResult();
-        status.textContent = "Gerando entropia confidencial...";
-        startAnimation();
-        grid.classList.add("is-rolling");
-        clearTimeout(rollTimer);
-        rollTimer = setTimeout(finishRoll, 1600);
+      const data =
+        await res.json();
+
+      if (
+        data &&
+        data.bitcoin &&
+        Number.isFinite(data.bitcoin.brl)
+      ) {
+
+        currentBtcBrl =
+          Number(data.bitcoin.brl);
+
+
+        /*
+         * Preço médio inicial = cotação atual
+         * diretamente em BRL.
+         */
+
+        avgPriceInput.value =
+          currentBtcBrl.toFixed(2);
+
+
+        setupSlider();
+
+        updateCalc();
+
+      } else {
+
+        throw new Error("Cotação BRL inválida");
       }
 
-      function shuffleEntropy() {
-        for (let index = hiddenEntropy.length - 1; index > 0; index -= 1) {
-          const target = secureIndex(index + 1);
-          [hiddenEntropy[index], hiddenEntropy[target]] = [hiddenEntropy[target], hiddenEntropy[index]];
-        }
-      }
+    } catch (error) {
 
-      function shuffle() {
-        if (!(hiddenEntropy instanceof Uint8Array) || rolling) return;
-        rolling = true;
-        setControls(false);
-        shuffleEntropy();
-        setFaces(false);
-        result.textContent = maskedResult();
-        status.textContent = "Embaralhando a entropia oculta...";
-        startAnimation();
-        grid.classList.add("is-rolling");
-        clearTimeout(shuffleTimer);
-        shuffleTimer = setTimeout(() => {
-          stopAnimation();
-          setFaces(false);
-          grid.classList.remove("is-rolling");
-          rolling = false;
-          setControls(true);
-          status.textContent = "Entropia embaralhada e mantida em modo confidencial.";
-        }, 700);
-      }
+      console.error(
+        "Erro ao carregar cotação do BTC:",
+        error
+      );
 
-      function reveal() {
-        if (!(hiddenEntropy instanceof Uint8Array) || rolling) return;
-        setFaces(true);
-        result.textContent = `[ ${Array.from(hiddenEntropy).join(" ")} ]`;
-        revealButton.disabled = true;
-        status.textContent = "Dados revelados.";
-      }
+      currentLbl.textContent =
+        "Erro ao conectar com API de preço.";
 
-      async function copy() {
-        if (!(hiddenEntropy instanceof Uint8Array) || rolling || !navigator.clipboard?.writeText) {
-          status.textContent = "A área de transferência não está disponível neste navegador.";
-          return;
-        }
-        try {
-          await navigator.clipboard.writeText(Array.from(hiddenEntropy).join(","));
-          clearTimeout(copyFeedbackTimer);
-          copyButton.textContent = "Copiado!";
-          copyButton.classList.add("copied");
-          status.textContent = "Entropia copiada diretamente para a área de transferência.";
-          copyFeedbackTimer = setTimeout(() => {
-            copyButton.textContent = "Copiar Entropia";
-            copyButton.classList.remove("copied");
-          }, 1800);
-        } catch {
-          status.textContent = "O navegador bloqueou o acesso à área de transferência.";
-        }
-      }
+      projLbl.textContent =
+        "---";
+    }
+  }
 
-      attackRateSelect.addEventListener("change", updateStrengthMeter);
-      countSelect.addEventListener("change", resetForCount);
-      rollButton.addEventListener("click", rollDice);
-      shuffleButton.addEventListener("click", shuffle);
-      revealButton.addEventListener("click", reveal);
-      copyButton.addEventListener("click", copy);
-      window.addEventListener("pagehide", () => { clearTimeout(rollTimer); clearTimeout(shuffleTimer); stopAnimation(); clearTimeout(copyFeedbackTimer); eraseEntropy(); });
-      resetForCount();
-      requestAnimationFrame(reportWidgetHeight);
-  })();
 
-  // Script: Calculadora de Projeção (Formatada com pt-BR para 78.633,00)
-  (() => {
-      const capInput = document.getElementById("calc-cap");
-      const avgPriceInput = document.getElementById("calc-avg-price");
-      const slider = document.getElementById("calc-slider");
-      const currentLbl = document.getElementById("calc-current-lbl");
-      const projLbl = document.getElementById("calc-proj-lbl");
-      const totalUsd = document.getElementById("calc-total-usd");
-      const profitUsd = document.getElementById("calc-profit-usd");
-      const totalBrl = document.getElementById("calc-total-brl");
-      const profitBrl = document.getElementById("calc-profit-brl");
+  /* ---------------------------------------------------------
+     CONFIGURAÇÃO DA RÉGUA
+     --------------------------------------------------------- */
 
-      let currentBtcUsd = 0;
-      let currentBtcBrl = 0;
+  function setupSlider() {
 
-      // Utilizando pt-BR para formatar o dólar no padrão (78.633,00)
-      const fmtUSD = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'USD' });
-      const fmtBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    /*
+     * A régua trabalha diretamente em BRL.
+     *
+     * Mínimo = 20% da cotação atual
+     * Máximo = 500% da cotação atual
+     *
+     * DEFAULT = cotação atual EXATA.
+     */
 
-      async function initCalc() {
-          try {
-              const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,brl");
-              const data = await res.json();
-              if (data && data.bitcoin) {
-                  currentBtcUsd = data.bitcoin.usd;
-                  currentBtcBrl = data.bitcoin.brl;
-                  
-                  avgPriceInput.value = currentBtcUsd;
-                  setupSlider();
-                  updateCalc();
-              }
-          } catch (e) {
-              currentLbl.textContent = "Erro ao conectar com API de preço.";
-          }
-      }
+    slider.min =
+      (currentBtcBrl * 0.20).toFixed(2);
 
-      function setupSlider() {
-          slider.min = Math.floor(currentBtcUsd * 0.2);
-          slider.max = Math.floor(currentBtcUsd * 5);
-          slider.step = 500;
-          slider.value = Math.floor(currentBtcUsd); 
-          slider.disabled = false;
-          currentLbl.textContent = `${fmtUSD.format(currentBtcUsd)} / ${fmtBRL.format(currentBtcBrl)}`;
-      }
+    slider.max =
+      (currentBtcBrl * 5.00).toFixed(2);
 
-      function updateCalc() {
-          if (!currentBtcUsd) return;
-          const cap = parseFloat(capInput.value) || 0;
-          const avgPriceUsd = parseFloat(avgPriceInput.value) || 0;
-          const projUsd = parseFloat(slider.value) || 0;
-          
-          const fxRate = currentBtcBrl / currentBtcUsd;
-          
-          const projBrl = projUsd * fxRate;
-          const avgPriceBrl = avgPriceUsd * fxRate;
+    slider.step =
+      "0.01";
 
-          const tUsd = cap * projUsd;
-          const tBrl = cap * projBrl;
-          const costUsd = cap * avgPriceUsd;
-          const costBrl = cap * avgPriceBrl;
+    /*
+     * Ponto inicial da régua:
+     * exatamente a cotação atual.
+     */
 
-          const pUsd = tUsd - costUsd;
-          const pBrl = tBrl - costBrl;
+    slider.value =
+      currentBtcBrl.toFixed(2);
 
-          projLbl.textContent = fmtUSD.format(projUsd);
-          
-          totalUsd.textContent = fmtUSD.format(tUsd);
-          profitUsd.textContent = (pUsd >= 0 ? "+" : "") + fmtUSD.format(pUsd);
-          profitUsd.style.color = pUsd >= 0 ? "var(--green)" : "var(--red)";
+    slider.disabled =
+      false;
 
-          totalBrl.textContent = fmtBRL.format(tBrl);
-          profitBrl.textContent = (pBrl >= 0 ? "+" : "") + fmtBRL.format(pBrl);
-          profitBrl.style.color = pBrl >= 0 ? "var(--green)" : "var(--red)";
-      }
 
-      slider.addEventListener("input", updateCalc);
-      capInput.addEventListener("input", updateCalc);
-      avgPriceInput.addEventListener("input", updateCalc);
+    currentLbl.textContent =
+      fmtBRL.format(currentBtcBrl);
+  }
 
-      initCalc();
-  })();
+
+  /* ---------------------------------------------------------
+     ATUALIZA CALCULADORA
+     --------------------------------------------------------- */
+
+  function updateCalc() {
+
+    if (!currentBtcBrl) {
+      return;
+    }
+
+    const cap =
+      parseFloat(capInput.value) || 0;
+
+    const avgPriceBrl =
+      parseFloat(avgPriceInput.value) || 0;
+
+    const projBrl =
+      parseFloat(slider.value) || 0;
+
+
+    /*
+     * Valor total projetado:
+     *
+     * BTC × preço projetado em BRL
+     */
+
+    const tBrl =
+      cap * projBrl;
+
+
+    /*
+     * Custo da posição:
+     *
+     * BTC × preço médio em BRL
+     */
+
+    const costBrl =
+      cap * avgPriceBrl;
+
+
+    /*
+     * Lucro líquido:
+     *
+     * valor projetado - custo
+     */
+
+    const pBrl =
+      tBrl - costBrl;
+
+
+    projLbl.textContent =
+      fmtBRL.format(projBrl);
+
+
+    totalBrl.textContent =
+      fmtBRL.format(tBrl);
+
+
+    profitBrl.textContent =
+      (pBrl >= 0 ? "+" : "") +
+      fmtBRL.format(pBrl);
+
+
+    profitBrl.style.color =
+      pBrl >= 0
+        ? "var(--green)"
+        : "var(--red)";
+  }
+
+
+  /* ---------------------------------------------------------
+     EVENTOS
+     --------------------------------------------------------- */
+
+  slider.addEventListener(
+    "input",
+    updateCalc
+  );
+
+  capInput.addEventListener(
+    "input",
+    updateCalc
+  );
+
+  avgPriceInput.addEventListener(
+    "input",
+    updateCalc
+  );
+
+
+  /* Inicialização */
+
+  initCalc();
+
+})();
 </script>
+
 </body>
 </html>
+```
