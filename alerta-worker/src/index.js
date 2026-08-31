@@ -2,23 +2,61 @@
    Alerta Worker — Cloudflare Worker
    Monitoramento de background para alertas de preço S/R.
    - HTTP API: /subscribe, /alerts/sync, /unsubscribe
-   - Scheduled: avaliação de alertas a cada 5min (Cron)
+   - Scheduled: avaliação de alertas a cada 1min (Cron — ver wrangler.toml)
    - Web Push: @block65/webcrypto-web-push (Web Crypto API)
 
-   FIXES (ver conversa):
-   - sendWebPush agora lança erro real em resposta HTTP não-ok (fetch não
-     lança em 4xx/5xx por padrão), e retorna o status para o caller.
-   - triggered só é marcado true depois de pelo menos 1 push confirmado
-     como entregue (ok: true). Se todos falharem, o alerta permanece
-     "não disparado" e será reavaliado/reenviado no próximo ciclo.
-   - Subscriptions mortas (410/404/400) são removidas mesmo sem exception,
-     checando o status retornado.
-   - Log de erro por subscription para dar visibilidade no wrangler tail.
+   HISTÓRICO DE FIXES (ver conversa):
+
+   v1:
+   - sendWebPush lança erro real em resposta HTTP não-ok.
+   - Alerta só marcado como disparado após push confirmado entregue.
+   - Subscriptions mortas (400/404/410) removidas checando status.
+   - Multi-sample (3 leituras/ciclo) para reduzir (não eliminar) a janela
+     cega entre ticks do Cron.
+
+   v2:
+   - Crossover agora é sempre direcional (lastPrice < nível && current >=
+     nível), não mais "tocou o nível em algum momento" (min/max
+     acumulado, que disparava mesmo sem cruzamento real).
+   - resistanceTriggered / supportTriggered independentes (antes um
+     único "triggered" global impedia o segundo lado de disparar).
+   - levelsKey: reset do estado de disparo quando support/resistance/
+     direction mudam, pra histórico do nível antigo não vazar pro novo.
+
+   v3 (correção de bug crítico apontado em revisão externa):
+   - BUG CRÍTICO CORRIGIDO: se o push falhasse na hora do crossover, o
+     código atualizava lastPrice mesmo assim e o evento era perdido pra
+     sempre — o comentário dizia "tenta de novo" mas isso não acontecia
+     de fato. Agora existe pendingResistance/pendingSupport: quando um
+     crossover é detectado mas a entrega falha (delivered === 0), o
+     evento fica pendente e é RETENTADO em todo ciclo seguinte até ser
+     confirmado como entregue — só então vira "triggered".
+   - Reancoragem no reset de S/R agora usa o preço do próprio oracle do
+     Worker (mempool/CoinGecko), não o lastPrice mandado pelo browser —
+     evita reintroduzir divergência entre a visão do client e a do
+     Worker logo no momento mais sensível (mudança de nível).
+   - Validação: support deve ser menor que resistance.
+   - Validação: preços não-finitos (NaN/Infinity) nunca entram no state.
+   - Comentário do multi-sample corrigido: reduz a janela cega, não
+     "captura" agulhadas de forma geral (ainda é amostragem discreta a
+     cada ~15s, não um stream contínuo).
+
+   DECISÕES CONHECIDAS, NÃO RESOLVIDAS NESTA VERSÃO:
+   - Fonte de preço continua mempool.space (BTC) + CoinGecko (demais),
+     não Binance — api.binance.com bloqueia IPs de datacenter da
+     Cloudflare com 403 (AGENTS.md, Fase 4.5). O preço do alerta pode
+     divergir levemente do preço mostrado no gráfico do usuário.
+   - Concorrência de escrita no KV entre o Cron e /alerts/sync rodando
+     ao mesmo tempo não tem lock/CAS. "Risco baixo" no volume de uso
+     atual, mas isso é uma afirmação sobre probabilidade, não uma prova
+     de que está resolvido — revisitar se o projeto crescer.
+   - env.ALERTAS_KV.list() não pagina; funciona bem na escala atual
+     (poucos alertas/subscriptions), mas não escalaria indefinidamente.
    ===================================================================== */
 
 import { buildPushPayload } from '@block65/webcrypto-web-push';
 
-// ─── Helpers ───────────────────────────────────────────────────────
+// ─── Helpers genéricos ─────────────────────────────────────────────
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -29,6 +67,10 @@ function json(data, status = 200) {
 
 function generateId() {
   return crypto.randomUUID();
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ─── CORS preflight ────────────────────────────────────────────────
@@ -48,6 +90,22 @@ function handleOptions() {
 function subKey(id) { return 'sub:' + id; }
 function alertKey(id) { return 'alert:' + id; }
 function alertStateKey(id) { return 'state:' + id; }
+
+function buildLevelsKey(support, resistance, direction) {
+  return support + '|' + resistance + '|' + direction;
+}
+
+function freshState(levelsKey, lastPrice = null) {
+  return {
+    lastPrice,
+    resistanceTriggered: false,
+    supportTriggered: false,
+    pendingResistance: null,
+    pendingSupport: null,
+    levelsKey,
+    updatedAt: new Date().toISOString()
+  };
+}
 
 // ─── Endpoints HTTP ────────────────────────────────────────────────
 
@@ -85,41 +143,59 @@ async function handleAlertsSync(request, env) {
   }
 
   const id = body.symbol;
-  const alert = {
-    id: id,
-    symbol: body.symbol,
-    support: Number(body.support),
-    resistance: Number(body.resistance),
-    enabled: body.enabled !== false,
-    direction: body.direction || 'BOTH',
-    updatedAt: new Date().toISOString()
-  };
+  const support = Number(body.support);
+  const resistance = Number(body.resistance);
+  const direction = body.direction || 'BOTH';
 
-  if (!Number.isFinite(alert.support) || !Number.isFinite(alert.resistance)) {
+  if (!Number.isFinite(support) || !Number.isFinite(resistance)) {
     return json({ error: 'Invalid support/resistance' }, 400);
   }
-
-  await env.ALERTAS_KV.put(alertKey(id), JSON.stringify(alert));
-
-  // Seed state apenas na criação (state não existe ainda)
-  const existingState = await env.ALERTAS_KV.get(alertStateKey(id));
-  if (!existingState && Number.isFinite(body.lastPrice)) {
-    await env.ALERTAS_KV.put(alertStateKey(id), JSON.stringify({
-      lastPrice: body.lastPrice,
-      triggered: false
-    }));
+  if (support >= resistance) {
+    return json({ error: 'Support must be below resistance' }, 400);
   }
 
-  return json({ ok: true, id: id });
+  const levelsKey = buildLevelsKey(support, resistance, direction);
+
+  const alert = {
+    id,
+    symbol: body.symbol,
+    support,
+    resistance,
+    enabled: body.enabled !== false,
+    direction,
+    levelsKey,
+    updatedAt: new Date().toISOString()
+  };
+  await env.ALERTAS_KV.put(alertKey(id), JSON.stringify(alert));
+
+  const stateRaw = await env.ALERTAS_KV.get(alertStateKey(id));
+  const state = stateRaw ? JSON.parse(stateRaw) : null;
+
+  if (!state) {
+    // Primeira vez: não há preço do próprio Worker ainda disponível aqui
+    // (isso é um endpoint HTTP, não o Cron), então usamos o lastPrice do
+    // client só nesse caso específico, como baseline temporária. O
+    // próximo tick do Cron já vai atualizar com o preço do oracle.
+    const seedPrice = Number.isFinite(body.lastPrice) ? body.lastPrice : null;
+    await env.ALERTAS_KV.put(alertStateKey(id), JSON.stringify(freshState(levelsKey, seedPrice)));
+    return json({ ok: true, id });
+  }
+
+  const levelsChanged = !state.levelsKey || state.levelsKey !== levelsKey;
+
+  if (levelsChanged) {
+    // Reset: NÃO usamos body.lastPrice aqui (poderia divergir do oracle
+    // do Worker). lastPrice fica null e é reancorado pelo próprio Cron
+    // no ciclo seguinte, com o preço que o Worker realmente vê.
+    await env.ALERTAS_KV.put(alertStateKey(id), JSON.stringify(freshState(levelsKey, null)));
+  }
+  // Níveis iguais: state fica intocado (preserva triggered/pending/lastPrice).
+
+  return json({ ok: true, id });
 }
 
 // ─── Web Push via @block65/webcrypto-web-push ──────────────────────
 
-/**
- * Envia um push. Lança erro se a resposta HTTP não for ok — fetch() por si
- * só NÃO lança em 4xx/5xx, então isso precisa ser checado explicitamente.
- * O erro inclui o status para o caller decidir se deve limpar a subscription.
- */
 async function sendWebPush(subscription, payload, env) {
   const pushPayload = await buildPushPayload(
     { data: payload },
@@ -146,12 +222,6 @@ async function sendWebPush(subscription, payload, env) {
   return { status: res.status, ok: true };
 }
 
-/**
- * Envia o push para todas as subscriptions. Remove subscriptions mortas
- * (410/404/400) do KV. Retorna quantos pushes foram confirmados como
- * entregues (ok: true) — usado para decidir se o alerta pode ser marcado
- * como "triggered".
- */
 async function broadcastPush(subscriptions, payload, env) {
   let delivered = 0;
 
@@ -167,16 +237,13 @@ async function broadcastPush(subscriptions, payload, env) {
         await env.ALERTAS_KV.delete(subKey(sub.id));
         console.error('[Push] Subscription ' + sub.id + ' removida (status ' + e.status + ')');
       }
-      // Outros status (401/403 = VAPID errado, 5xx = falha temporária do
-      // provedor) NÃO removem a subscription — provavelmente vale tentar
-      // de novo no próximo ciclo.
     }
   }
 
   return delivered;
 }
 
-// ─── Preço (batch via CoinGecko + mempool.space) ─────────────────
+// ─── Preço (mempool.space para BTC + CoinGecko batch para o resto) ──
 
 const SYMBOL_TO_COINGECKO = {
   'BTC': 'bitcoin', 'ETH': 'ethereum', 'SOL': 'solana', 'LINK': 'chainlink',
@@ -191,13 +258,13 @@ const SYMBOL_CURRENCY = {
 async function fetchPrices(symbols) {
   const prices = new Map();
 
-  // BTC via mempool.space (funciona de Workers, sem rate limit)
   if (symbols.includes('BTC')) {
     try {
       const res = await fetch('https://mempool.space/api/v1/prices');
       if (res.ok) {
         const data = await res.json();
-        if (data.USD) prices.set('BTC', Number(data.USD));
+        const price = Number(data.USD);
+        if (Number.isFinite(price)) prices.set('BTC', price);
       } else {
         console.error('[Prices] mempool.space respondeu ' + res.status);
       }
@@ -206,7 +273,6 @@ async function fetchPrices(symbols) {
     }
   }
 
-  // Demais via CoinGecko (batch: uma única chamada, inclui usd+brl)
   const coingeckoIds = [];
   const symbolByCoinId = {};
   for (const sym of symbols) {
@@ -226,7 +292,8 @@ async function fetchPrices(symbols) {
         const data = await res.json();
         for (const [coinId, sym] of Object.entries(symbolByCoinId)) {
           const cur = SYMBOL_CURRENCY[sym] || 'usd';
-          if (data[coinId] && data[coinId][cur]) prices.set(sym, Number(data[coinId][cur]));
+          const price = data[coinId] ? Number(data[coinId][cur]) : NaN;
+          if (Number.isFinite(price)) prices.set(sym, price);
         }
       } else {
         console.error('[Prices] CoinGecko respondeu ' + res.status);
@@ -239,67 +306,52 @@ async function fetchPrices(symbols) {
   return prices;
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /**
- * Busca preços múltiplas vezes dentro da MESMA execução do Cron, com um
- * pequeno intervalo entre as leituras. Isso ajuda a capturar agulhadas
- * (spikes que sobem/descem e revertem rápido) que uma única amostra por
- * ciclo não pegaria — sem precisar de uma nova fonte de dados OHLC.
- *
- * Retorna um Map<symbol, { min, max, last }>.
+ * Busca preços 3x dentro da MESMA execução do Cron (~15s entre leituras).
+ * Reduz — não elimina — a janela cega entre ticks do Cron: um crossover
+ * que acontece e reverte inteiramente entre duas amostras (ex: dentro de
+ * um intervalo de ~10s) ainda não é visto. É amostragem discreta, não um
+ * stream contínuo de mercado.
  */
-async function fetchPricesMultiSample(symbols, samples = 3, intervalMs = 15000) {
-  const acc = new Map();
+async function fetchPriceSequences(symbols, samples = 3, intervalMs = 15000) {
+  const seqMap = new Map();
 
   for (let i = 0; i < samples; i++) {
     const prices = await fetchPrices(symbols);
     for (const [sym, price] of prices) {
-      if (!acc.has(sym)) {
-        acc.set(sym, { min: price, max: price, last: price });
-      } else {
-        const entry = acc.get(sym);
-        entry.min = Math.min(entry.min, price);
-        entry.max = Math.max(entry.max, price);
-        entry.last = price;
-      }
+      if (!seqMap.has(sym)) seqMap.set(sym, []);
+      seqMap.get(sym).push(price);
     }
     if (i < samples - 1) await sleep(intervalMs);
   }
 
-  return acc;
+  return seqMap;
 }
 
-// ─── Evaluação de Crossover (semelhante ao alertEngine.js) ────────
+// ─── Crossover direcional ──────────────────────────────────────────
 
-/**
- * Avalia crossover usando min/max observados desde a última checagem,
- * não só o preço pontual atual. Isso captura cruzamentos que aconteceram
- * e reverteram entre dois ciclos do Cron (ex: preço tocou a resistência
- * e voltou pra dentro da faixa em menos de 5min) — o Worker só via um
- * ponto por ciclo antes, e perdia esses casos.
- *
- * minPrice/maxPrice vêm do state acumulado; currentPrice é sempre incluído
- * na comparação.
- */
-function evaluateCrossover(minPrice, maxPrice, support, resistance, direction) {
-  if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice)) return null;
+function crossedResistance(previousPrice, currentPrice, resistance) {
+  return previousPrice < resistance && currentPrice >= resistance;
+}
 
-  if (direction === 'BOTH' || direction === 'RESISTANCE') {
-    if (maxPrice >= resistance) {
-      return { type: 'RESISTANCE', level: resistance };
-    }
-  }
+function crossedSupport(previousPrice, currentPrice, support) {
+  return previousPrice > support && currentPrice <= support;
+}
 
-  if (direction === 'BOTH' || direction === 'SUPPORT') {
-    if (minPrice <= support) {
-      return { type: 'SUPPORT', level: support };
-    }
-  }
+function buildAlertPayload(symbol, directionType, level, priceAtEvent) {
+  const symbolName = symbol.replace('USDT', '').replace('BRL', '');
+  const dirLabel = directionType === 'RESISTANCE' ? 'Resistência' : 'Suporte';
+  const isBRL = symbol.includes('BRL');
+  const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: isBRL ? 'BRL' : 'USD' });
 
-  return null;
+  return {
+    title: symbolName + ' — ' + dirLabel + ' rompida',
+    body: symbolName + ' cruzou ' + dirLabel + ' em ' + fmt.format(level) + ' (preço no momento: ' + fmt.format(priceAtEvent) + ')',
+    url: '/',
+    symbol,
+    level,
+    direction: directionType
+  };
 }
 
 // ─── Scheduled Handler ─────────────────────────────────────────────
@@ -327,88 +379,108 @@ async function scheduledHandler(event, env) {
     symbolAlerts.get(alert.symbol).push(alert);
   }
 
-  // Buscar preços de todos os symbols várias vezes dentro deste ciclo
-  // (3 amostras, ~15s de intervalo) para capturar agulhadas rápidas que
-  // uma única leitura por ciclo perderia.
   const allSymbols = [...symbolAlerts.keys()];
-  const sampledPrices = await fetchPricesMultiSample(allSymbols);
+  const sequences = await fetchPriceSequences(allSymbols);
 
   for (const [symbol, alerts] of symbolAlerts) {
-    const sample = sampledPrices.get(symbol);
-    if (!sample) {
+    const seq = sequences.get(symbol);
+    if (!seq || seq.length === 0) {
       console.error('[Cron] Sem preço para ' + symbol + ' neste ciclo — pulando avaliação.');
       continue;
     }
-    // currentPrice = última leitura (usado no payload da notificação e
-    // como lastPrice para o próximo ciclo). min/max desta rodada de
-    // amostras entram na avaliação de crossover abaixo.
-    const currentPrice = sample.last;
-    const cycleMin = sample.min;
-    const cycleMax = sample.max;
+    const currentPrice = seq[seq.length - 1];
 
     for (const alert of alerts) {
+      const levelsKey = buildLevelsKey(alert.support, alert.resistance, alert.direction);
       const stateRaw = await env.ALERTAS_KV.get(alertStateKey(alert.id));
-      const state = stateRaw
-        ? JSON.parse(stateRaw)
-        : { lastPrice: null, triggered: false, minPrice: null, maxPrice: null };
+      let state = stateRaw ? JSON.parse(stateRaw) : freshState(levelsKey, null);
+
+      // Migração/rede de segurança: formato antigo ou levels divergentes.
+      if (!state.levelsKey || state.levelsKey !== levelsKey) {
+        state = freshState(levelsKey, currentPrice);
+        await env.ALERTAS_KV.put(alertStateKey(alert.id), JSON.stringify(state));
+        continue; // primeira leitura pós-reset só ancora a referência
+      }
 
       if (state.lastPrice === null) {
         state.lastPrice = currentPrice;
-        state.minPrice = currentPrice;
-        state.maxPrice = currentPrice;
-        state.triggered = false;
         await env.ALERTAS_KV.put(alertStateKey(alert.id), JSON.stringify(state));
         continue;
       }
 
-      // Acumula extremos desde a última vez que o alerta NÃO estava
-      // "triggered", combinando com o min/max das amostras deste ciclo
-      // (cycleMin/cycleMax). Reduz bastante — mas não elimina 100% — a
-      // janela cega, já que agora há leituras a cada ~15s dentro de um
-      // cron de 1min, em vez de 1 leitura a cada 5min.
-      const minPrice = Math.min(state.minPrice ?? cycleMin, cycleMin);
-      const maxPrice = Math.max(state.maxPrice ?? cycleMax, cycleMax);
+      const wantsResistance = alert.direction === 'BOTH' || alert.direction === 'RESISTANCE';
+      const wantsSupport = alert.direction === 'BOTH' || alert.direction === 'SUPPORT';
 
-      const crossover = evaluateCrossover(minPrice, maxPrice, alert.support, alert.resistance, alert.direction);
-
-      if (crossover) {
-        if (!state.triggered) {
-          const symbolName = symbol.replace('USDT', '').replace('BRL', '');
-          const dirLabel = crossover.type === 'RESISTANCE' ? 'Resistência' : 'Suporte';
-          const isBRL = symbol.includes('BRL');
-          const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: isBRL ? 'BRL' : 'USD' });
-          const payload = {
-            title: symbolName + ' — ' + dirLabel + ' rompida',
-            body: symbolName + ' cruzou ' + dirLabel + ' em ' + fmt.format(crossover.level) + ' (preço atual: ' + fmt.format(currentPrice) + ')',
-            url: '/',
-            symbol: symbol,
-            level: crossover.level,
-            direction: crossover.type
-          };
-
-          const delivered = await broadcastPush(subscriptions, payload, env);
-
-          // Só marca como disparado se pelo menos 1 push foi CONFIRMADO
-          // como entregue. Se todos falharem, tenta de novo no próximo
-          // ciclo em vez de silenciosamente desistir.
-          if (delivered > 0) {
-            state.triggered = true;
-            state.minPrice = currentPrice;
-            state.maxPrice = currentPrice;
-          } else {
-            console.error('[Cron] Crossover de ' + symbol + ' detectado mas 0 pushes entregues — tentando de novo no próximo ciclo.');
-          }
+      // ── 1) Reenviar eventos pendentes primeiro (retry de push que já
+      //    falhou antes). Enquanto pendente, não detectamos um NOVO
+      //    crossover na mesma direção — só reenviamos o evento original
+      //    até ele ser confirmado como entregue.
+      if (state.pendingResistance) {
+        const payload = buildAlertPayload(symbol, 'RESISTANCE', alert.resistance, state.pendingResistance.price);
+        const delivered = await broadcastPush(subscriptions, payload, env);
+        if (delivered > 0) {
+          state.resistanceTriggered = true;
+          state.pendingResistance = null;
+        } else {
+          console.error('[Cron] Retry de RESISTÊNCIA pendente (' + symbol + ') ainda falhou — tenta de novo no próximo ciclo.');
         }
-      } else {
-        if (state.triggered) {
-          const awayFromResistance = currentPrice < alert.resistance;
-          const awayFromSupport = currentPrice > alert.support;
-          if (awayFromResistance || awayFromSupport) {
-            state.triggered = false;
-          }
+      }
+      if (state.pendingSupport) {
+        const payload = buildAlertPayload(symbol, 'SUPPORT', alert.support, state.pendingSupport.price);
+        const delivered = await broadcastPush(subscriptions, payload, env);
+        if (delivered > 0) {
+          state.supportTriggered = true;
+          state.pendingSupport = null;
+        } else {
+          console.error('[Cron] Retry de SUPORTE pendente (' + symbol + ') ainda falhou — tenta de novo no próximo ciclo.');
         }
-        state.minPrice = minPrice;
-        state.maxPrice = maxPrice;
+      }
+
+      // ── 2) Rearme: volta pra dentro da faixa libera o alerta pra
+      //    disparar de novo nessa direção.
+      if (state.resistanceTriggered && currentPrice < alert.resistance) {
+        state.resistanceTriggered = false;
+      }
+      if (state.supportTriggered && currentPrice > alert.support) {
+        state.supportTriggered = false;
+      }
+
+      // ── 3) Detectar NOVOS crossovers (só se não estiver pendente nem
+      //    já triggered nessa direção) andando pela sequência de
+      //    amostras deste ciclo.
+      let resistanceCrossPrice = null;
+      let supportCrossPrice = null;
+      let prev = state.lastPrice;
+      for (const price of seq) {
+        if (wantsResistance && !state.resistanceTriggered && !state.pendingResistance && resistanceCrossPrice === null) {
+          if (crossedResistance(prev, price, alert.resistance)) resistanceCrossPrice = price;
+        }
+        if (wantsSupport && !state.supportTriggered && !state.pendingSupport && supportCrossPrice === null) {
+          if (crossedSupport(prev, price, alert.support)) supportCrossPrice = price;
+        }
+        prev = price;
+      }
+
+      if (resistanceCrossPrice !== null) {
+        const payload = buildAlertPayload(symbol, 'RESISTANCE', alert.resistance, resistanceCrossPrice);
+        const delivered = await broadcastPush(subscriptions, payload, env);
+        if (delivered > 0) {
+          state.resistanceTriggered = true;
+        } else {
+          state.pendingResistance = { level: alert.resistance, price: resistanceCrossPrice, detectedAt: new Date().toISOString() };
+          console.error('[Cron] Crossover de RESISTÊNCIA em ' + symbol + ' detectado mas 0 pushes entregues — marcado pendente, retry no próximo ciclo.');
+        }
+      }
+
+      if (supportCrossPrice !== null) {
+        const payload = buildAlertPayload(symbol, 'SUPPORT', alert.support, supportCrossPrice);
+        const delivered = await broadcastPush(subscriptions, payload, env);
+        if (delivered > 0) {
+          state.supportTriggered = true;
+        } else {
+          state.pendingSupport = { level: alert.support, price: supportCrossPrice, detectedAt: new Date().toISOString() };
+          console.error('[Cron] Crossover de SUPORTE em ' + symbol + ' detectado mas 0 pushes entregues — marcado pendente, retry no próximo ciclo.');
+        }
       }
 
       state.lastPrice = currentPrice;
@@ -437,7 +509,7 @@ export default {
         return handleAlertsSync(request, env);
       }
       if (path === '/' && request.method === 'GET') {
-        return json({ service: 'alerta-worker', status: 'ok', version: '1.0.0' });
+        return json({ service: 'alerta-worker', status: 'ok', version: '3.0.0' });
       }
     } catch (err) {
       return json({ error: err.message }, 500);
