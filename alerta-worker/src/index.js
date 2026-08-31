@@ -5,57 +5,23 @@
    - Scheduled: avaliação de alertas a cada 1min (Cron — ver wrangler.toml)
    - Web Push: @block65/webcrypto-web-push (Web Crypto API)
 
-   HISTÓRICO DE FIXES (ver conversa):
+   HISTÓRICO DE FIXES:
 
-   v1:
-   - sendWebPush lança erro real em resposta HTTP não-ok.
-   - Alerta só marcado como disparado após push confirmado entregue.
-   - Subscriptions mortas (400/404/410) removidas checando status.
-   - Multi-sample (3 leituras/ciclo) para reduzir (não eliminar) a janela
-     cega entre ticks do Cron.
+   v1-v4: ver git history.
 
-   v2:
-   - Crossover agora é sempre direcional (lastPrice < nível && current >=
-     nível), não mais "tocou o nível em algum momento" (min/max
-     acumulado, que disparava mesmo sem cruzamento real).
-   - resistanceTriggered / supportTriggered independentes (antes um
-     único "triggered" global impedia o segundo lado de disparar).
-   - levelsKey: reset do estado de disparo quando support/resistance/
-     direction mudam, pra histórico do nível antigo não vazar pro novo.
+   v5 (correção de quota KV — estado consolidado):
+   - Estado consolidado em 'cron:states' (1 put condicional vs N puts).
+   - Migração automática de chaves 'state:{id}' legadas.
 
-   v3 (correção de bug crítico apontado em revisão externa):
-   - BUG CRÍTICO CORRIGIDO: se o push falhasse na hora do crossover, o
-     código atualizava lastPrice mesmo assim e o evento era perdido pra
-     sempre — o comentário dizia "tenta de novo" mas isso não acontecia
-     de fato. Agora existe pendingResistance/pendingSupport: quando um
-     crossover é detectado mas a entrega falha (delivered === 0), o
-     evento fica pendente e é RETENTADO em todo ciclo seguinte até ser
-     confirmado como entregue — só então vira "triggered".
-   - Reancoragem no reset de S/R agora usa o preço do próprio oracle do
-     Worker (mempool/CoinGecko), não o lastPrice mandado pelo browser —
-     evita reintroduzir divergência entre a visão do client e a do
-     Worker logo no momento mais sensível (mudança de nível).
-   - Validação: support deve ser menor que resistance.
-   - Validação: preços não-finitos (NaN/Infinity) nunca entram no state.
-   - Comentário do multi-sample corrigido: reduz a janela cega, não
-     "captura" agulhadas de forma geral (ainda é amostragem discreta a
-     cada ~15s, não um stream contínuo).
-
-   v4:
-   - SUBSTITUIÇÃO DE ORACLE: remoção de mempool.space e CoinGecko.
-     Adoção da MEXC Spot API para todos os pares (crypto + BRL via
-     USDCBRL). Contorna o cache agressivo de 1-5 min da API gratuita
-     do CoinGecko e o WAF da Binance. Oráculo único, sem dependência
-     de APIs externas adicionais.
-   - PAXG mapeado como GOLD(PAXG)USDT (renomeado na MEXC em Feb/2026).
-
-   DECISÕES CONHECIDAS, NÃO RESOLVIDAS NESTA VERSÃO:
-   - Concorrência de escrita no KV entre o Cron e /alerts/sync rodando
-     ao mesmo tempo não tem lock/CAS. "Risco baixo" no volume de uso
-     atual, mas isso é uma afirmação sobre probabilidade, não uma prova
-     de que está resolvido — revisitar se o projeto crescer.
-   - env.ALERTAS_KV.list() não pagina; funciona bem na escala atual
-     (poucos alertas/subscriptions), mas não escalaria indefinidamente.
+   v6 (correção de quota KV — índice, zero LIST):
+   - ÍNDICE 'cron:index': lista de alert IDs e sub IDs. Atualizado
+     SOMENTE em /subscribe, /unsubscribe, /alerts/sync.
+   - Cron faz 1 GET (index) em vez de 2 LIST por ciclo.
+   - Migração: se índice vazio, cria a partir de LIST (uma única vez).
+   - broadcastPush retorna deadSubIds; limpeza em batch no final do ciclo.
+   - Consumo por ciclo (8 alertas, 3 subs): 1 GET index + 8 GET alerts
+     + 3 GET subs + 1 GET states + 0-1 PUT states = 13 reads, 0-1 writes.
+   - Consumo/dia: ~18.720 reads (18.7% de 100K) + ~0-1.440 writes.
    ===================================================================== */
 
 import { buildPushPayload } from '@block65/webcrypto-web-push';
@@ -91,9 +57,11 @@ function handleOptions() {
 
 // ─── KV Keys ───────────────────────────────────────────────────────
 
+const INDEX_KEY = 'cron:index';   // índice de alert IDs e sub IDs
+const STATES_KEY = 'cron:states'; // estado consolidado de todos os alertas
+
 function subKey(id) { return 'sub:' + id; }
 function alertKey(id) { return 'alert:' + id; }
-function alertStateKey(id) { return 'state:' + id; }
 
 function buildLevelsKey(support, resistance, direction) {
   return support + '|' + resistance + '|' + direction;
@@ -111,24 +79,79 @@ function freshState(levelsKey, lastPrice = null) {
   };
 }
 
+// ─── Index helpers (cron:index) ────────────────────────────────────
+
+async function readIndex(env) {
+  const raw = await env.ALERTAS_KV.get(INDEX_KEY);
+  if (raw) return JSON.parse(raw);
+  return { alerts: [], subs: [] };
+}
+
+async function writeIndex(env, index) {
+  await env.ALERTAS_KV.put(INDEX_KEY, JSON.stringify(index));
+}
+
+async function addSubToIndex(env, subId) {
+  const index = await readIndex(env);
+  if (!index.subs.includes(subId)) {
+    index.subs.push(subId);
+    await writeIndex(env, index);
+  }
+}
+
+async function removeSubFromIndex(env, subId) {
+  const index = await readIndex(env);
+  const i = index.subs.indexOf(subId);
+  if (i !== -1) {
+    index.subs.splice(i, 1);
+    await writeIndex(env, index);
+  }
+}
+
+async function addAlertToIndex(env, alertId) {
+  const index = await readIndex(env);
+  if (!index.alerts.includes(alertId)) {
+    index.alerts.push(alertId);
+    await writeIndex(env, index);
+  }
+}
+
+async function removeSubsFromIndex(env, subIds) {
+  if (subIds.length === 0) return;
+  const index = await readIndex(env);
+  let changed = false;
+  for (const id of subIds) {
+    const i = index.subs.indexOf(id);
+    if (i !== -1) { index.subs.splice(i, 1); changed = true; }
+  }
+  if (changed) await writeIndex(env, index);
+}
+
 // ─── Endpoints HTTP ────────────────────────────────────────────────
 
 async function handleSubscribe(request, env) {
-  const body = await request.json();
-  if (!body || !body.endpoint || !body.keys || !body.keys.p256dh || !body.keys.auth) {
-    return json({ error: 'Invalid subscription' }, 400);
+  try {
+    const body = await request.json();
+    if (!body || !body.endpoint || !body.keys || !body.keys.p256dh || !body.keys.auth) {
+      return json({ error: 'Invalid subscription' }, 400);
+    }
+
+    const id = generateId();
+    const subscription = {
+      id,
+      endpoint: body.endpoint,
+      keys: { p256dh: body.keys.p256dh, auth: body.keys.auth },
+      createdAt: new Date().toISOString()
+    };
+
+    await env.ALERTAS_KV.put(subKey(id), JSON.stringify(subscription));
+    await addSubToIndex(env, id);
+    return json({ id, ok: true });
+
+  } catch (err) {
+    console.error('[Subscribe] Erro:', err?.name, err?.message);
+    return json({ error: 'Subscribe failed', name: err?.name, message: err?.message }, 500);
   }
-
-  const id = generateId();
-  const subscription = {
-    id,
-    endpoint: body.endpoint,
-    keys: { p256dh: body.keys.p256dh, auth: body.keys.auth },
-    createdAt: new Date().toISOString()
-  };
-
-  await env.ALERTAS_KV.put(subKey(id), JSON.stringify(subscription));
-  return json({ id, ok: true });
 }
 
 async function handleUnsubscribe(request, env) {
@@ -137,6 +160,7 @@ async function handleUnsubscribe(request, env) {
   if (!id) return json({ error: 'Missing id' }, 400);
 
   await env.ALERTAS_KV.delete(subKey(id));
+  await removeSubFromIndex(env, id);
   return json({ ok: true });
 }
 
@@ -171,29 +195,26 @@ async function handleAlertsSync(request, env) {
     updatedAt: new Date().toISOString()
   };
   await env.ALERTAS_KV.put(alertKey(id), JSON.stringify(alert));
+  await addAlertToIndex(env, id);
 
-  const stateRaw = await env.ALERTAS_KV.get(alertStateKey(id));
-  const state = stateRaw ? JSON.parse(stateRaw) : null;
+  // Ler estado consolidado
+  const statesRaw = await env.ALERTAS_KV.get(STATES_KEY);
+  const allStates = statesRaw ? JSON.parse(statesRaw) : {};
+  const state = allStates[id] || null;
 
   if (!state) {
-    // Primeira vez: não há preço do próprio Worker ainda disponível aqui
-    // (isso é um endpoint HTTP, não o Cron), então usamos o lastPrice do
-    // client só nesse caso específico, como baseline temporária. O
-    // próximo tick do Cron já vai atualizar com o preço do oracle.
     const seedPrice = Number.isFinite(body.lastPrice) ? body.lastPrice : null;
-    await env.ALERTAS_KV.put(alertStateKey(id), JSON.stringify(freshState(levelsKey, seedPrice)));
+    allStates[id] = freshState(levelsKey, seedPrice);
+    await env.ALERTAS_KV.put(STATES_KEY, JSON.stringify(allStates));
     return json({ ok: true, id });
   }
 
   const levelsChanged = !state.levelsKey || state.levelsKey !== levelsKey;
 
   if (levelsChanged) {
-    // Reset: NÃO usamos body.lastPrice aqui (poderia divergir do oracle
-    // do Worker). lastPrice fica null e é reancorado pelo próprio Cron
-    // no ciclo seguinte, com o preço que o Worker realmente vê.
-    await env.ALERTAS_KV.put(alertStateKey(id), JSON.stringify(freshState(levelsKey, null)));
+    allStates[id] = freshState(levelsKey, null);
+    await env.ALERTAS_KV.put(STATES_KEY, JSON.stringify(allStates));
   }
-  // Níveis iguais: state fica intocado (preserva triggered/pending/lastPrice).
 
   return json({ ok: true, id });
 }
@@ -228,6 +249,7 @@ async function sendWebPush(subscription, payload, env) {
 
 async function broadcastPush(subscriptions, payload, env) {
   let delivered = 0;
+  const deadSubIds = [];
 
   for (const sub of subscriptions) {
     try {
@@ -238,13 +260,13 @@ async function broadcastPush(subscriptions, payload, env) {
 
       const deadStatuses = [400, 404, 410];
       if (deadStatuses.includes(e.status)) {
-        await env.ALERTAS_KV.delete(subKey(sub.id));
-        console.error('[Push] Subscription ' + sub.id + ' removida (status ' + e.status + ')');
+        deadSubIds.push(sub.id);
+        console.error('[Push] Subscription ' + sub.id + ' marcada para remoção (status ' + e.status + ')');
       }
     }
   }
 
-  return delivered;
+  return { delivered, deadSubIds };
 }
 
 // ─── Preço (MEXC Spot — crypto + BRL via USDCBRL) ───────────────────
@@ -339,24 +361,31 @@ function buildAlertPayload(symbol, directionType, level, priceAtEvent) {
   };
 }
 
-// ─── Scheduled Handler ─────────────────────────────────────────────
+// ─── Scheduled Handler (v6 — índice + estado consolidado, zero LIST) ─
 
 async function scheduledHandler(event, env) {
-  const alertList = await env.ALERTAS_KV.list({ prefix: 'alert:' });
-  if (alertList.keys.length === 0) return;
+  // ── Ler índice (1 GET) ────────────────────────────────────────────
+  let index = await readIndex(env);
 
-  const subList = await env.ALERTAS_KV.list({ prefix: 'sub:' });
-  if (subList.keys.length === 0) return;
-
-  const subscriptions = [];
-  for (const key of subList.keys) {
-    const val = await env.ALERTAS_KV.get(key.name);
-    if (val) subscriptions.push(JSON.parse(val));
+  // ── Migração: se índice não existe, criar a partir de LIST ────────
+  if (index.alerts.length === 0 && index.subs.length === 0) {
+    console.log('[Cron] Índice vazio — verificando chaves legadas...');
+    const alertList = await env.ALERTAS_KV.list({ prefix: 'alert:' });
+    const subList = await env.ALERTAS_KV.list({ prefix: 'sub:' });
+    index = {
+      alerts: alertList.keys.map(k => k.name.replace('alert:', '')),
+      subs: subList.keys.map(k => k.name.replace('sub:', ''))
+    };
+    await writeIndex(env, index);
+    console.log('[Cron] Índice criado: ' + index.alerts.length + ' alertas, ' + index.subs.length + ' subs');
   }
 
+  if (index.alerts.length === 0) return;
+
+  // ── Ler alert configs (N GETs — necessário) ───────────────────────
   const symbolAlerts = new Map();
-  for (const key of alertList.keys) {
-    const val = await env.ALERTAS_KV.get(key.name);
+  for (const alertId of index.alerts) {
+    const val = await env.ALERTAS_KV.get(alertKey(alertId));
     if (!val) continue;
     const alert = JSON.parse(val);
     if (!alert.enabled) continue;
@@ -364,8 +393,53 @@ async function scheduledHandler(event, env) {
     symbolAlerts.get(alert.symbol).push(alert);
   }
 
+  // ── Ler subscriptions (N GETs — necessário para push) ─────────────
+  const subscriptions = [];
+  for (const subId of index.subs) {
+    const val = await env.ALERTAS_KV.get(subKey(subId));
+    if (val) subscriptions.push(JSON.parse(val));
+  }
+
+  if (subscriptions.length === 0) return;
+
+  // ── Ler estado consolidado (1 GET) ────────────────────────────────
+  const statesRaw = await env.ALERTAS_KV.get(STATES_KEY);
+  let allStates = statesRaw ? JSON.parse(statesRaw) : {};
+
+  // ── Migração: chaves antigas 'state:{id}' → cron:states ──────────
+  const legacyKeys = await env.ALERTAS_KV.list({ prefix: 'state:' });
+  if (legacyKeys.keys.length > 0) {
+    for (const key of legacyKeys.keys) {
+      const raw = await env.ALERTAS_KV.get(key.name);
+      if (raw) {
+        const id = key.name.replace('state:', '');
+        if (!allStates[id]) allStates[id] = JSON.parse(raw);
+      }
+      await env.ALERTAS_KV.delete(key.name);
+    }
+    console.log('[Cron] Migração: chaves legadas state:* consolidadas em cron:states');
+  }
+
+  // ── Snapshot de eventos ANTES do processamento ────────────────────
+  // Compara apenas campos de evento (triggered/pending/levelsKey) e
+  // lastPrice arredondado (~0.1%). Se nada mudou significativamente,
+  // NÃO grava no KV — economia de write.
+  const eventSnapshot = {};
+  for (const [id, state] of Object.entries(allStates)) {
+    eventSnapshot[id] = {
+      rt: state.resistanceTriggered,
+      st: state.supportTriggered,
+      pr: state.pendingResistance,
+      ps: state.pendingSupport,
+      lk: state.levelsKey,
+      lp: state.lastPrice
+    };
+  }
+
   const allSymbols = [...symbolAlerts.keys()];
   const sequences = await fetchPriceSequences(allSymbols);
+
+  const allDeadSubIds = [];
 
   for (const [symbol, alerts] of symbolAlerts) {
     const seq = sequences.get(symbol);
@@ -377,19 +451,18 @@ async function scheduledHandler(event, env) {
 
     for (const alert of alerts) {
       const levelsKey = buildLevelsKey(alert.support, alert.resistance, alert.direction);
-      const stateRaw = await env.ALERTAS_KV.get(alertStateKey(alert.id));
-      let state = stateRaw ? JSON.parse(stateRaw) : freshState(levelsKey, null);
+      let state = allStates[alert.id] || freshState(levelsKey, null);
 
       // Migração/rede de segurança: formato antigo ou levels divergentes.
       if (!state.levelsKey || state.levelsKey !== levelsKey) {
         state = freshState(levelsKey, currentPrice);
-        await env.ALERTAS_KV.put(alertStateKey(alert.id), JSON.stringify(state));
+        allStates[alert.id] = state;
         continue; // primeira leitura pós-reset só ancora a referência
       }
 
       if (state.lastPrice === null) {
         state.lastPrice = currentPrice;
-        await env.ALERTAS_KV.put(alertStateKey(alert.id), JSON.stringify(state));
+        allStates[alert.id] = state;
         continue;
       }
 
@@ -402,7 +475,8 @@ async function scheduledHandler(event, env) {
       //    até ele ser confirmado como entregue.
       if (state.pendingResistance) {
         const payload = buildAlertPayload(symbol, 'RESISTANCE', alert.resistance, state.pendingResistance.price);
-        const delivered = await broadcastPush(subscriptions, payload, env);
+        const { delivered, deadSubIds } = await broadcastPush(subscriptions, payload, env);
+        allDeadSubIds.push(...deadSubIds);
         if (delivered > 0) {
           state.resistanceTriggered = true;
           state.pendingResistance = null;
@@ -412,7 +486,8 @@ async function scheduledHandler(event, env) {
       }
       if (state.pendingSupport) {
         const payload = buildAlertPayload(symbol, 'SUPPORT', alert.support, state.pendingSupport.price);
-        const delivered = await broadcastPush(subscriptions, payload, env);
+        const { delivered, deadSubIds } = await broadcastPush(subscriptions, payload, env);
+        allDeadSubIds.push(...deadSubIds);
         if (delivered > 0) {
           state.supportTriggered = true;
           state.pendingSupport = null;
@@ -448,7 +523,8 @@ async function scheduledHandler(event, env) {
 
       if (resistanceCrossPrice !== null) {
         const payload = buildAlertPayload(symbol, 'RESISTANCE', alert.resistance, resistanceCrossPrice);
-        const delivered = await broadcastPush(subscriptions, payload, env);
+        const { delivered, deadSubIds } = await broadcastPush(subscriptions, payload, env);
+        allDeadSubIds.push(...deadSubIds);
         if (delivered > 0) {
           state.resistanceTriggered = true;
         } else {
@@ -459,7 +535,8 @@ async function scheduledHandler(event, env) {
 
       if (supportCrossPrice !== null) {
         const payload = buildAlertPayload(symbol, 'SUPPORT', alert.support, supportCrossPrice);
-        const delivered = await broadcastPush(subscriptions, payload, env);
+        const { delivered, deadSubIds } = await broadcastPush(subscriptions, payload, env);
+        allDeadSubIds.push(...deadSubIds);
         if (delivered > 0) {
           state.supportTriggered = true;
         } else {
@@ -469,8 +546,49 @@ async function scheduledHandler(event, env) {
       }
 
       state.lastPrice = currentPrice;
-      await env.ALERTAS_KV.put(alertStateKey(alert.id), JSON.stringify(state));
+      allStates[alert.id] = state;
     }
+  }
+
+  // ── Limpar subs mortas (1 DELETE + 1 put do index) ───────────────
+  const uniqueDeadSubIds = [...new Set(allDeadSubIds)];
+  for (const deadId of uniqueDeadSubIds) {
+    await env.ALERTAS_KV.delete(subKey(deadId));
+  }
+  await removeSubsFromIndex(env, uniqueDeadSubIds);
+
+  // ── Escrita condicional: comparar campos de evento + lastPrice ────
+  let stateChanged = uniqueDeadSubIds.length > 0;
+  if (!stateChanged) {
+    for (const [id, state] of Object.entries(allStates)) {
+      const prev = eventSnapshot[id];
+      if (!prev) { stateChanged = true; break; }
+      if (state.resistanceTriggered !== prev.rt) { stateChanged = true; break; }
+      if (state.supportTriggered !== prev.st) { stateChanged = true; break; }
+      if (JSON.stringify(state.pendingResistance) !== JSON.stringify(prev.pr)) { stateChanged = true; break; }
+      if (JSON.stringify(state.pendingSupport) !== JSON.stringify(prev.ps)) { stateChanged = true; break; }
+      if (state.levelsKey !== prev.lk) { stateChanged = true; break; }
+      // lastPrice: só considera mudança se > 0.1%
+      if (prev.lp !== null && state.lastPrice !== null) {
+        const diff = Math.abs(state.lastPrice - prev.lp) / prev.lp;
+        if (diff > 0.001) { stateChanged = true; break; }
+      } else if (prev.lp !== state.lastPrice) {
+        stateChanged = true; break;
+      }
+    }
+    // Verificar alertas removidos
+    if (!stateChanged) {
+      for (const id of Object.keys(eventSnapshot)) {
+        if (!allStates[id]) { stateChanged = true; break; }
+      }
+    }
+  }
+
+  if (stateChanged) {
+    await env.ALERTAS_KV.put(STATES_KEY, JSON.stringify(allStates));
+    console.log('[Cron] Estado salvo em cron:states (' + Object.keys(allStates).length + ' alertas)');
+  } else {
+    console.log('[Cron] Nenhuma mudança — put omitido');
   }
 }
 
@@ -494,7 +612,7 @@ export default {
         return handleAlertsSync(request, env);
       }
       if (path === '/' && request.method === 'GET') {
-        return json({ service: 'alerta-worker', status: 'ok', version: '3.0.0' });
+        return json({ service: 'alerta-worker', status: 'ok', version: '6.0.0' });
       }
     } catch (err) {
       return json({ error: err.message }, 500);

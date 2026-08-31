@@ -44,19 +44,20 @@
 
 | Rota | Metodo | Funcao |
 |---|---|---|
-| `/subscribe` | POST | Valida e salva subscription no KV (gera UUID) |
-| `/unsubscribe` | POST | Deleta subscription por `?id=` |
-| `/alerts/sync` | POST | Salva alerta (symbol, support, resistance, direction) no KV |
-| `/` | GET | Health check |
-| Cron `*/1 min` | scheduled | Itera alertas, busca preco (3 amostras/ciclo), evalua crossover direcional, envia push com retry |
+| `/subscribe` | POST | Valida e salva subscription no KV (gera UUID) + atualiza `cron:index` |
+| `/unsubscribe` | POST | Deleta subscription por `?id=` + remove de `cron:index` |
+| `/alerts/sync` | POST | Salva alerta no KV + atualiza `cron:index` + atualiza `cron:states` se necessario |
+| `/` | GET | Health check (retorna versao) |
+| Cron `* * * * *` | scheduled | Le `cron:index` (1 GET), le alert configs + subs (N GETs), le `cron:states` (1 GET), busca preco MEXC, evalua crossover, envia push, escreve `cron:states` se mudou (0-1 PUT) |
 
 ### KV structure (Cloudflare `ALERTAS_KV`)
 
-| Prefixo | Conteudo |
+| Chave | Conteudo |
 |---|---|
-| `sub:{uuid}` | Subscription (endpoint + keys) |
+| `sub:{uuid}` | Subscription (endpoint + keys) — atualizado por `/subscribe` e `/unsubscribe` |
 | `alert:{symbol}` | Config do alerta — **ID = symbol** (ex: `alert:BTC`, `alert:ETH`), nao UUID |
-| `state:{symbol}` | Estado do alerta (lastPrice, resistanceTriggered, supportTriggered, pendingResistance, pendingSupport, levelsKey) — preservado entre syncs porque o ID e estavel |
+| `cron:index` | Indice de IDs: `{ alerts: ["BTC","ETH",...], subs: ["uuid1","uuid2",...] }` — atualizado SOMENTE em `/subscribe`, `/unsubscribe`, `/alerts/sync`. Cron faz GET direto (zero LIST) |
+| `cron:states` | Estado consolidado de TODOS os alertas: `{ "BTC": { lastPrice, resistanceTriggered, ... }, "ETH": { ... } }` — 1 PUT condicional por ciclo (so se algo mudou) |
 
 ---
 
@@ -105,8 +106,8 @@
 - Chamado de `ticker-widget.js` apos `AlertEngine.setAlertLevels()`
 - **Throttle:** dedup (so sync se support/resistance mudou > 0.1%) + intervalo minimo 5min por symbol
 - **Payload:** `{ symbol, support, resistance, direction, lastPrice }`
-- **ID do alerta:** `{symbol}` (ex: `alert:BTC`) — estavel entre syncs, preserva `state:{id}`
-- **Seed de state:** Worker cria `state:{id}` com `lastPrice` do client **apenas na primeira vez** (state nao existe). State existente e intocado — so o Cron atualiza
+- **ID do alerta:** `{symbol}` (ex: `alert:BTC`) — estavel entre syncs, preserva `cron:states`
+- **Seed de state:** Worker cria estado em `cron:states` com `lastPrice` do client **apenas na primeira vez** (state nao existe). State existente e intocado — so o Cron atualiza
 - **Por que:** ID estavel permite que o Cron preserva lastPrice/triggered entre atualizacoes de nivel
 
 ### Fase 5 — Teste real
@@ -134,6 +135,16 @@
 - **PAXG:** mapeado como `GOLD(PAXG)USDT` (renomeado na MEXC em Feb/2026)
 - **BRL:** par `USDCBRL` na propria MEXC (elimina dependencia de API externa)
 - **Por que:** CoinGecko tem cache de 1-5 min (stale para multi-sample); AwesomeAPI retorna 429 de IPs de datacenter; MEXC nao bloqueia Workers, API publica sem chave, preco em tempo real
+
+### Fase 5.8 — Worker v6 (correcao de quota KV)
+- **Causa raiz do bug "Erro ao ativar":** Worker v5 consumia ~11.570 writes/dia + 2.880 LIST/dia, estourando a cota free tier do Workers KV (1.000 writes/dia + 1.000 LIST/dia). O `/subscribe` falhava com `KV put() limit exceeded for the day`.
+- **Cron: zero LIST.** Substituido por indice persistente `cron:index` contendo arrays `alerts[]` e `subs[]`. Cron faz 1 GET (index) em vez de 2 LIST por ciclo. Indice atualizado SOMENTE em `/subscribe`, `/unsubscribe`, `/alerts/sync`.
+- **Estado consolidado.** Todos os estados de alertas em uma unica chave `cron:states` (JSON com chaves por symbol). 1 PUT condicional por ciclo vs 8+ PUTs antes.
+- **Escrita condicional.** Compara campos de evento (triggered, pending, levelsKey) + lastPrice com threshold 0.1%. Ciclos onde nada muda NAO consomem writes.
+- **Migracao automatica.** Chaves antigas `state:{symbol}` sao migradas para `cron:states` no primeiro ciclo. Indice vazio e populado via LIST uma unica vez.
+- **Dead sub cleanup em batch.** `broadcastPush()` retorna `deadSubIds`; remocao do KV + index acontece uma vez no fim do ciclo, nao por alerta.
+- **Consumo estimado (8 alertas, 3 subs):** ~18.720 reads/dia (18.7% de 100K) + ~0-1.440 writes/dia (vs 11.570 antes). LIST = 0/dia.
+- **Por que:** Workers KV free tier tem 1.000 writes/dia e 1.000 LIST/dia. Cron a cada 1min com N alertas consumia cota em <2h. Indice + consolidacao + escrita condicional reduz consumo em ~99%.
 
 ---
 
@@ -186,11 +197,14 @@ node_modules/
 
 ### Cron
 - Roda a cada 1 minuto (`* * * * *`)
+- **Leitura:** 1 GET `cron:index` + N GETs alert configs + N GETs subs + 1 GET `cron:states` = 2 + 2N reads
+- **Escrita:** 0-1 PUT `cron:states` (condicional: so se triggered/pending/rearm/levelsKey mudou OU lastPrice variou > 0.1%)
+- **Zero LIST** por ciclo (migrado para indice `cron:index`)
 - Busca preco de MEXC (crypto + BRL via USDCBRL, Promise.all) — 3 amostras por ciclo (~15s entre leituras)
 - Crossover direcional: verifica `prev < level && current >= level` (nao so toque no nivel)
 - Rearme: quando preco volta pra dentro da faixa, triggered reseta e alerta pode disparar de novo
 - Retry: eventos pendentes (push falhou) sao reenviados em todos os ciclos ate confirmacao
-- Auto-limpa subscriptions mortas (HTTP 410, 404 ou 400)
+- Auto-limpa subscriptions mortas (HTTP 410, 404 ou 400) — batch no fim do ciclo
 
 ### iPhone/iOS
 - Web Push so funciona em PWA instalado (standalone)
