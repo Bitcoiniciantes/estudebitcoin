@@ -41,11 +41,15 @@
      "captura" agulhadas de forma geral (ainda é amostragem discreta a
      cada ~15s, não um stream contínuo).
 
+   v4:
+   - SUBSTITUIÇÃO DE ORACLE: remoção de mempool.space e CoinGecko.
+     Adoção da MEXC Spot API para todos os pares (crypto + BRL via
+     USDCBRL). Contorna o cache agressivo de 1-5 min da API gratuita
+     do CoinGecko e o WAF da Binance. Oráculo único, sem dependência
+     de APIs externas adicionais.
+   - PAXG mapeado como GOLD(PAXG)USDT (renomeado na MEXC em Feb/2026).
+
    DECISÕES CONHECIDAS, NÃO RESOLVIDAS NESTA VERSÃO:
-   - Fonte de preço continua mempool.space (BTC) + CoinGecko (demais),
-     não Binance — api.binance.com bloqueia IPs de datacenter da
-     Cloudflare com 403 (AGENTS.md, Fase 4.5). O preço do alerta pode
-     divergir levemente do preço mostrado no gráfico do usuário.
    - Concorrência de escrita no KV entre o Cron e /alerts/sync rodando
      ao mesmo tempo não tem lock/CAS. "Risco baixo" no volume de uso
      atual, mas isso é uma afirmação sobre probabilidade, não uma prova
@@ -243,66 +247,47 @@ async function broadcastPush(subscriptions, payload, env) {
   return delivered;
 }
 
-// ─── Preço (mempool.space para BTC + CoinGecko batch para o resto) ──
+// ─── Preço (MEXC Spot — crypto + BRL via USDCBRL) ───────────────────
+// MEXC: API pública, sem chave, sem cache agressivo, preço em tempo real.
+// PAXG mapeado como GOLD(PAXG)USDT (renomeado na MEXC em Feb/2026).
+// BRL via par USDCBRL na própria MEXC (elimina dependência de API externa).
 
-const SYMBOL_TO_COINGECKO = {
-  'BTC': 'bitcoin', 'ETH': 'ethereum', 'SOL': 'solana', 'LINK': 'chainlink',
-  'AVAX': 'avalanche-2', 'RENDER': 'render-token', 'PAXG': 'pax-gold',
-  'USDT-BRL': 'tether'
-};
-
-const SYMBOL_CURRENCY = {
-  'USDT-BRL': 'brl'
+const SYMBOL_TO_MEXC = {
+  'BTC': 'BTCUSDT',
+  'ETH': 'ETHUSDT',
+  'SOL': 'SOLUSDT',
+  'LINK': 'LINKUSDT',
+  'AVAX': 'AVAXUSDT',
+  'RENDER': 'RENDERUSDT',
+  'PAXG': 'GOLD(PAXG)USDT',
+  'USDT-BRL': 'USDCBRL'
 };
 
 async function fetchPrices(symbols) {
   const prices = new Map();
+  const fetchPromises = [];
 
-  if (symbols.includes('BTC')) {
-    try {
-      const res = await fetch('https://mempool.space/api/v1/prices');
-      if (res.ok) {
-        const data = await res.json();
-        const price = Number(data.USD);
-        if (Number.isFinite(price)) prices.set('BTC', price);
-      } else {
-        console.error('[Prices] mempool.space respondeu ' + res.status);
-      }
-    } catch (e) {
-      console.error('[Prices] mempool.space falhou: ' + e.message);
-    }
-  }
-
-  const coingeckoIds = [];
-  const symbolByCoinId = {};
   for (const sym of symbols) {
-    if (sym === 'BTC' && prices.has('BTC')) continue;
-    const coinId = SYMBOL_TO_COINGECKO[sym];
-    if (coinId) {
-      coingeckoIds.push(coinId);
-      symbolByCoinId[coinId] = sym;
+    const mexcSymbol = SYMBOL_TO_MEXC[sym];
+    if (mexcSymbol) {
+      const p = fetch('https://api.mexc.com/api/v3/ticker/price?symbol=' + mexcSymbol)
+        .then(res => {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .then(data => {
+          const price = Number(data.price);
+          if (Number.isFinite(price)) {
+            prices.set(sym, price);
+            console.log('[Prices] MEXC ' + sym + ': $' + price);
+          }
+        })
+        .catch(e => console.error('[Prices] MEXC ' + sym + ': ' + e.message));
+      fetchPromises.push(p);
     }
   }
 
-  if (coingeckoIds.length > 0) {
-    try {
-      const url = 'https://api.coingecko.com/api/v3/simple/price?ids=' + coingeckoIds.join(',') + '&vs_currencies=usd,brl';
-      const res = await fetch(url, { headers: { 'User-Agent': 'EstudeBitcoin-AlertWorker/1.0' } });
-      if (res.ok) {
-        const data = await res.json();
-        for (const [coinId, sym] of Object.entries(symbolByCoinId)) {
-          const cur = SYMBOL_CURRENCY[sym] || 'usd';
-          const price = data[coinId] ? Number(data[coinId][cur]) : NaN;
-          if (Number.isFinite(price)) prices.set(sym, price);
-        }
-      } else {
-        console.error('[Prices] CoinGecko respondeu ' + res.status);
-      }
-    } catch (e) {
-      console.error('[Prices] CoinGecko falhou: ' + e.message);
-    }
-  }
-
+  await Promise.all(fetchPromises);
   return prices;
 }
 

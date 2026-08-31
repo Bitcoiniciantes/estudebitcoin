@@ -94,10 +94,11 @@
 
 ### Fase 4.5 — Preco
 - Binance bloqueia IPs de Cloudflare Workers (HTTP 403)
-- Migrado para `mempool.space/api/v1/prices` (primario para BTC) + CoinGecko (batch para todos os symbols)
-- **Bug:** CoinGecko retorna 403 sem `User-Agent` — Workers nao enviam User-Agent por padrao. Corrigido com `headers: { 'User-Agent': 'EstudeBitcoin-AlertWorker/1.0' }`
-- **BRL vs USD:** `USDT-BRL` usa `vs_currencies=brl`, demais usam `vs_currencies=usd`. Batch unico com `vs_currencies=usd,brl` e selecao por `SYMBOL_CURRENCY` map
-- **Por que:** `api.binance.com` retorna 403 de datacenters; `mempool.space` funciona para BTC; CoinGecko funciona para todos com User-Agent
+- Migrado para MEXC Spot API — oráculo único para crypto e BRL
+- **Crypto:** API pública, sem chave, sem cache agressivo, preco em tempo real
+- **BRL:** par USDCBRL na própria MEXC (elimina dependência de API externa)
+- **PAXG:** renomeado para GOLD(PAXG)USDT na MEXC (Feb/2026)
+- **Por que:** api.binance.com retorna 403; CoinGecko tem cache de 1-5 min (stale para multi-sample); AwesomeAPI retorna 429 de IPs de datacenter; MEXC nao bloqueia Workers e fornece todos os pares necessários
 
 ### Fase 5 — Sincronizacao Client→Worker
 - `syncToWorker()` em `push-subscribe.js`: chama `POST /alerts/sync` quando niveis S/R mudam
@@ -177,7 +178,7 @@ node_modules/
 
 ### Cron
 - Roda a cada 1 minuto (`* * * * *`)
-- Busca preco de `mempool.space` (BTC) + CoinGecko batch (demais symbols) — 3 amostras por ciclo (~15s entre leituras)
+- Busca preco de MEXC (crypto + BRL via USDCBRL, Promise.all) — 3 amostras por ciclo (~15s entre leituras)
 - Crossover direcional: verifica `prev < level && current >= level` (nao so toque no nivel)
 - Rearme: quando preco volta pra dentro da faixa, triggered reseta e alerta pode disparar de novo
 - Retry: eventos pendentes (push falhou) sao reenviados em todos os ciclos ate confirmacao
