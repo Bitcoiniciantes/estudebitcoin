@@ -4,6 +4,16 @@
    - HTTP API: /subscribe, /alerts/sync, /unsubscribe
    - Scheduled: avaliação de alertas a cada 5min (Cron)
    - Web Push: @block65/webcrypto-web-push (Web Crypto API)
+
+   FIXES (ver conversa):
+   - sendWebPush agora lança erro real em resposta HTTP não-ok (fetch não
+     lança em 4xx/5xx por padrão), e retorna o status para o caller.
+   - triggered só é marcado true depois de pelo menos 1 push confirmado
+     como entregue (ok: true). Se todos falharem, o alerta permanece
+     "não disparado" e será reavaliado/reenviado no próximo ciclo.
+   - Subscriptions mortas (410/404/400) são removidas mesmo sem exception,
+     checando o status retornado.
+   - Log de erro por subscription para dar visibilidade no wrangler tail.
    ===================================================================== */
 
 import { buildPushPayload } from '@block65/webcrypto-web-push';
@@ -105,6 +115,11 @@ async function handleAlertsSync(request, env) {
 
 // ─── Web Push via @block65/webcrypto-web-push ──────────────────────
 
+/**
+ * Envia um push. Lança erro se a resposta HTTP não for ok — fetch() por si
+ * só NÃO lança em 4xx/5xx, então isso precisa ser checado explicitamente.
+ * O erro inclui o status para o caller decidir se deve limpar a subscription.
+ */
 async function sendWebPush(subscription, payload, env) {
   const pushPayload = await buildPushPayload(
     { data: payload },
@@ -120,7 +135,45 @@ async function sendWebPush(subscription, payload, env) {
   );
 
   const res = await fetch(subscription.endpoint, pushPayload);
-  return { status: res.status, ok: res.ok };
+
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => '');
+    const err = new Error(`Push failed: HTTP ${res.status} ${bodyText}`.trim());
+    err.status = res.status;
+    throw err;
+  }
+
+  return { status: res.status, ok: true };
+}
+
+/**
+ * Envia o push para todas as subscriptions. Remove subscriptions mortas
+ * (410/404/400) do KV. Retorna quantos pushes foram confirmados como
+ * entregues (ok: true) — usado para decidir se o alerta pode ser marcado
+ * como "triggered".
+ */
+async function broadcastPush(subscriptions, payload, env) {
+  let delivered = 0;
+
+  for (const sub of subscriptions) {
+    try {
+      await sendWebPush(sub, payload, env);
+      delivered++;
+    } catch (e) {
+      console.error('[Push] Falha para sub ' + sub.id + ': ' + e.message);
+
+      const deadStatuses = [400, 404, 410];
+      if (deadStatuses.includes(e.status)) {
+        await env.ALERTAS_KV.delete(subKey(sub.id));
+        console.error('[Push] Subscription ' + sub.id + ' removida (status ' + e.status + ')');
+      }
+      // Outros status (401/403 = VAPID errado, 5xx = falha temporária do
+      // provedor) NÃO removem a subscription — provavelmente vale tentar
+      // de novo no próximo ciclo.
+    }
+  }
+
+  return delivered;
 }
 
 // ─── Preço (batch via CoinGecko + mempool.space) ─────────────────
@@ -145,8 +198,12 @@ async function fetchPrices(symbols) {
       if (res.ok) {
         const data = await res.json();
         if (data.USD) prices.set('BTC', Number(data.USD));
+      } else {
+        console.error('[Prices] mempool.space respondeu ' + res.status);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('[Prices] mempool.space falhou: ' + e.message);
+    }
   }
 
   // Demais via CoinGecko (batch: uma única chamada, inclui usd+brl)
@@ -171,8 +228,12 @@ async function fetchPrices(symbols) {
           const cur = SYMBOL_CURRENCY[sym] || 'usd';
           if (data[coinId] && data[coinId][cur]) prices.set(sym, Number(data[coinId][cur]));
         }
+      } else {
+        console.error('[Prices] CoinGecko respondeu ' + res.status);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('[Prices] CoinGecko falhou: ' + e.message);
+    }
   }
 
   return prices;
@@ -180,17 +241,27 @@ async function fetchPrices(symbols) {
 
 // ─── Evaluação de Crossover (semelhante ao alertEngine.js) ────────
 
-function evaluateCrossover(previousPrice, currentPrice, support, resistance, direction) {
-  if (!Number.isFinite(previousPrice) || !Number.isFinite(currentPrice)) return null;
+/**
+ * Avalia crossover usando min/max observados desde a última checagem,
+ * não só o preço pontual atual. Isso captura cruzamentos que aconteceram
+ * e reverteram entre dois ciclos do Cron (ex: preço tocou a resistência
+ * e voltou pra dentro da faixa em menos de 5min) — o Worker só via um
+ * ponto por ciclo antes, e perdia esses casos.
+ *
+ * minPrice/maxPrice vêm do state acumulado; currentPrice é sempre incluído
+ * na comparação.
+ */
+function evaluateCrossover(minPrice, maxPrice, support, resistance, direction) {
+  if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice)) return null;
 
   if (direction === 'BOTH' || direction === 'RESISTANCE') {
-    if (previousPrice < resistance && currentPrice >= resistance) {
+    if (maxPrice >= resistance) {
       return { type: 'RESISTANCE', level: resistance };
     }
   }
 
   if (direction === 'BOTH' || direction === 'SUPPORT') {
-    if (previousPrice > support && currentPrice <= support) {
+    if (minPrice <= support) {
       return { type: 'SUPPORT', level: support };
     }
   }
@@ -229,25 +300,36 @@ async function scheduledHandler(event, env) {
 
   for (const [symbol, alerts] of symbolAlerts) {
     const currentPrice = prices.get(symbol);
-    if (currentPrice === null || currentPrice === undefined) continue;
+    if (currentPrice === null || currentPrice === undefined) {
+      console.error('[Cron] Sem preço para ' + symbol + ' neste ciclo — pulando avaliação.');
+      continue;
+    }
 
     for (const alert of alerts) {
       const stateRaw = await env.ALERTAS_KV.get(alertStateKey(alert.id));
-      const state = stateRaw ? JSON.parse(stateRaw) : { lastPrice: null, triggered: false };
+      const state = stateRaw
+        ? JSON.parse(stateRaw)
+        : { lastPrice: null, triggered: false, minPrice: null, maxPrice: null };
 
       if (state.lastPrice === null) {
         state.lastPrice = currentPrice;
+        state.minPrice = currentPrice;
+        state.maxPrice = currentPrice;
         state.triggered = false;
         await env.ALERTAS_KV.put(alertStateKey(alert.id), JSON.stringify(state));
         continue;
       }
 
-      const crossover = evaluateCrossover(state.lastPrice, currentPrice, alert.support, alert.resistance, alert.direction);
+      // Acumula extremos desde a última vez que o alerta NÃO estava
+      // "triggered" — reduz (mas não elimina) a janela cega entre
+      // amostras do Cron.
+      const minPrice = Math.min(state.minPrice ?? currentPrice, currentPrice);
+      const maxPrice = Math.max(state.maxPrice ?? currentPrice, currentPrice);
+
+      const crossover = evaluateCrossover(minPrice, maxPrice, alert.support, alert.resistance, alert.direction);
 
       if (crossover) {
         if (!state.triggered) {
-          state.triggered = true;
-
           const symbolName = symbol.replace('USDT', '').replace('BRL', '');
           const dirLabel = crossover.type === 'RESISTANCE' ? 'Resistência' : 'Suporte';
           const isBRL = symbol.includes('BRL');
@@ -261,14 +343,17 @@ async function scheduledHandler(event, env) {
             direction: crossover.type
           };
 
-          for (const sub of subscriptions) {
-            try {
-              await sendWebPush(sub, payload, env);
-            } catch (e) {
-              if (e.message && (e.message.includes('410') || e.message.includes('400'))) {
-                await env.ALERTAS_KV.delete(subKey(sub.id));
-              }
-            }
+          const delivered = await broadcastPush(subscriptions, payload, env);
+
+          // Só marca como disparado se pelo menos 1 push foi CONFIRMADO
+          // como entregue. Se todos falharem, tenta de novo no próximo
+          // ciclo em vez de silenciosamente desistir.
+          if (delivered > 0) {
+            state.triggered = true;
+            state.minPrice = currentPrice;
+            state.maxPrice = currentPrice;
+          } else {
+            console.error('[Cron] Crossover de ' + symbol + ' detectado mas 0 pushes entregues — tentando de novo no próximo ciclo.');
           }
         }
       } else {
@@ -279,6 +364,8 @@ async function scheduledHandler(event, env) {
             state.triggered = false;
           }
         }
+        state.minPrice = minPrice;
+        state.maxPrice = maxPrice;
       }
 
       state.lastPrice = currentPrice;
