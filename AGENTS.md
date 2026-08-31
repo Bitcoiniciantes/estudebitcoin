@@ -37,7 +37,7 @@
 | Arquivo | Responsabilidade |
 |---|---|
 | `alerta-worker/src/index.js` | Worker completo: HTTP API + Cron scheduled handler |
-| `alerta-worker/wrangler.toml` | Config: KV binding, cron `*/5 * * * *`, `nodejs_compat` flag |
+| `alerta-worker/wrangler.toml` | Config: KV binding, cron `* * * * *` (a cada 1 min), `nodejs_compat` flag |
 | `alerta-worker/package.json` | Dependencia: `@block65/webcrypto-web-push` |
 
 ### Endpoints do Worker
@@ -48,7 +48,7 @@
 | `/unsubscribe` | POST | Deleta subscription por `?id=` |
 | `/alerts/sync` | POST | Salva alerta (symbol, support, resistance, direction) no KV |
 | `/` | GET | Health check |
-| Cron `*/5 min` | scheduled | Itera alertas, busca preco, evalua crossover, envia push |
+| Cron `*/1 min` | scheduled | Itera alertas, busca preco (3 amostras/ciclo), evalua crossover direcional, envia push com retry |
 
 ### KV structure (Cloudflare `ALERTAS_KV`)
 
@@ -56,7 +56,7 @@
 |---|---|
 | `sub:{uuid}` | Subscription (endpoint + keys) |
 | `alert:{symbol}` | Config do alerta — **ID = symbol** (ex: `alert:BTC`, `alert:ETH`), nao UUID |
-| `state:{symbol}` | Estado do alerta (lastPrice, triggered) — preservado entre syncs porque o ID e estavel |
+| `state:{symbol}` | Estado do alerta (lastPrice, resistanceTriggered, supportTriggered, pendingResistance, pendingSupport, levelsKey) — preservado entre syncs porque o ID e estavel |
 
 ---
 
@@ -114,6 +114,19 @@
 - Subscriptions com erro 400/410 sao auto-deletadas pelo handler
 - **Por que:** Teste end-to-end necessario antes de ativar Cron em producao
 
+### Fase 5.5 — Worker v3 (correcoes criticas)
+- **Cron mudou de 5min para 1min** (`* * * * *`) — reduz janela cega
+- **Multi-sample:** 3 leituras de preco por ciclo com 15s de intervalo — reduz (nao elimina) a janela cega entre ticks
+- **Crossover direcional:** `crossedResistance(prev, curr, level)` = `prev < level && current >= level` (nao so "tocou o nivel")
+- **Triggered separado:** `resistanceTriggered` e `supportTriggered` independentes — antes um unico `triggered` global impedia o segundo lado de disparar
+- **Retry com pending:** se push falha, evento fica `pendingResistance`/`pendingSupport` e e reenviado em todo ciclo seguinte ate confirmacao. `triggered` so vira `true` apos 1+ push entregue
+- **Rearme:** quando preco volta pra dentro da faixa, triggered reseta e alerta pode disparar de novo
+- **Reset de state por levelsKey:** quando support/resistance/direction mudam, state e resetado com `freshState()` — historico do nivel antigo nao vaza pro novo
+- **Reancoragem no oracle:** na mudanca de nivel, `lastPrice` fica `null` e e reancorado pelo proprio Cron (nao pelo `lastPrice` do client) — evita divergencia
+- **Validacao:** support deve ser menor que resistance; precos NaN/Infinity sao rejeitados
+- **Error handling:** `sendWebPush` lança erro em HTTP nao-ok; logs em cada etapa (fetch preco, push individual)
+- **Por que:** v2 tinha bug critico — se push falhasse na hora do crossover, evento era perdido pra sempre. Multi-sample + retry + triggered direcional resolve os falsos negativos mais comuns
+
 ---
 
 ## 3. Regras de seguranca (inviolaveis)
@@ -156,17 +169,19 @@ node_modules/
 
 ### Problema de notificacao duplicada (PENDENTE — Fase 6)
 - Com o PWA aberto, o `alertEngine.js` dispara som/vibracao imediatamente ao detectar crossover
-- O Cron do Worker detecta o mesmo crossover (ate 5 min depois) e envia push
+- O Cron do Worker detecta o mesmo crossover (ate 1 minuto depois) e envia push
 - Resultado: usuario recebe **duas** notificacoes para o mesmo evento
 - **Decisao de design:** NAO usar "esta online?" como criterio (online nao significa que o alerta ja disparou — client pode ter tick atrasado/falho)
 - **Solucao planejada:** client envia `POST /alerts/ack` com `alertId` no momento exato em que o `alertEngine.js` dispara, marcando `state:{id}.acked = true` no KV. O Cron verifica esse campo antes de decidir enviar push — se `acked` for `true` para aquele ciclo, pula o push e reseta o flag
 - **Por que:** ack explícito (evento ja tratado) e mais preciso que inferencia generica (usuario "online")
 
 ### Cron
-- Roda a cada 5 minutos (`*/5 * * * *`)
-- Busca preco de `mempool.space` (BTC) + CoinGecko batch (demais symbols) — uma unica chamada para todos
-- Detecta crossover e envia push para todas as subscriptions ativas
-- Auto-limpa subscriptions mortas (HTTP 410 ou 400)
+- Roda a cada 1 minuto (`* * * * *`)
+- Busca preco de `mempool.space` (BTC) + CoinGecko batch (demais symbols) — 3 amostras por ciclo (~15s entre leituras)
+- Crossover direcional: verifica `prev < level && current >= level` (nao so toque no nivel)
+- Rearme: quando preco volta pra dentro da faixa, triggered reseta e alerta pode disparar de novo
+- Retry: eventos pendentes (push falhou) sao reenviados em todos os ciclos ate confirmacao
+- Auto-limpa subscriptions mortas (HTTP 410, 404 ou 400)
 
 ### iPhone/iOS
 - Web Push so funciona em PWA instalado (standalone)
