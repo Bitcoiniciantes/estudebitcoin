@@ -98,10 +98,14 @@ window.DynamicSR = (function () {
     });
 
     // Desbloquear áudio
-    window.AlertEngine.unlockAudio();
+    if (window.PushSubscribe && window.PushSubscribe.isEnabled()) {
+      window.AlertEngine.unlockAudio();
+    }
 
-    // Registrar no motor de alertas
-    window.AlertEngine.setAlertLevels(symbol, result.support, result.resistance);
+    // Registrar no motor de alertas (só se push ativo)
+    if (window.PushSubscribe && window.PushSubscribe.isEnabled()) {
+      window.AlertEngine.setAlertLevels(symbol, result.support, result.resistance);
+    }
 
     return { support: result.support, resistance: result.resistance };
   }
@@ -245,8 +249,10 @@ window.DynamicSR = (function () {
       SUPORTE: result.support
     });
 
-    window.AlertEngine.unlockAudio();
-    window.AlertEngine.setAlertLevels(symbol, result.support, result.resistance);
+    if (window.PushSubscribe && window.PushSubscribe.isEnabled()) {
+      window.AlertEngine.unlockAudio();
+      window.AlertEngine.setAlertLevels(symbol, result.support, result.resistance);
+    }
     return { support: result.support, resistance: result.resistance };
   }
 
