@@ -98,8 +98,29 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
     display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 20px;
   }
 
+  /* ----- Gráficos interativos ----- */
+  .calc-charts { margin-top:24px; padding:15px; background:#10141a; border:1px solid var(--line); border-radius:10px; }
+  .calc-charts-header { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:14px; }
+  .calc-charts-header h3 { margin:0; color:var(--txt); font-size:20px; }
+  .calc-charts-header p { margin:3px 0 0; color:var(--muted); font-size:13px; }
+  .chart-controls { display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px; }
+  .chart-control { display:grid; gap:5px; }
+  .chart-control label { color:var(--muted); font-size:13px; font-weight:600; }
+  .chart-control select { min-height:38px; padding:7px 10px; color:var(--txt); background:var(--card2); border:1px solid var(--line); border-radius:7px; font:600 14px inherit; }
+  .chart-control select:focus-visible { outline:2px solid var(--orange); outline-offset:2px; }
+  .chart-refresh { min-height:38px; padding:7px 11px; }
+  .chart-grid { display:grid; grid-template-columns:1fr; gap:12px; }
+  .chart-card { min-width:0; padding:12px; background:var(--card); border:1px solid var(--line); border-radius:9px; }
+  .chart-card h4 { margin:0; color:var(--txt); font-size:15px; }
+  .chart-card p { margin:3px 0 8px; color:var(--muted); font-size:12px; }
+  .chart-wrap { position:relative; height:280px; }
+  .chart-wrap canvas { display:block; width:100% !important; height:100% !important; }
+  .chart-status { min-height:1.5em; margin:5px 0 7px; color:var(--muted); font-size:12px; }
+  .chart-note { margin:12px 0 0; color:var(--muted); font-size:12px; line-height:1.5; }
+
   @media (max-width:600px) { 
-    .entropy-strength-grid, .calc-grid { grid-template-columns:1fr; } 
+    .entropy-strength-grid, .calc-grid, .chart-grid { grid-template-columns:1fr; }
+    .chart-wrap { height:240px; } 
     .entropy-section { padding:16px; margin: 0 10px; } 
     .entropy-controls { align-items:stretch; } 
     .entropy-field, .entropy-btn { flex:1 1 145px; } 
@@ -189,7 +210,7 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
       <div class="calc-grid" style="margin-bottom: 20px;">
           <div>
               <label for="calc-cap" style="display:block; color:var(--muted); font-size:14px; margin-bottom:6px; font-weight:600;">Capital Alocado (BTC)</label>
-              <input type="number" id="calc-cap" value="0.55880000" step="0.00000001" min="0" class="calc-input">
+              <input type="number" id="calc-cap" value="0.55820616" step="0.00000001" min="0" class="calc-input">
           </div>
           <div>
               <label for="calc-avg-price" style="display:block; color:var(--muted); font-size:14px; margin-bottom:6px; font-weight:600;">Preço Médio (USD)</label>
@@ -227,11 +248,44 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
               </div>
           </div>
       </div>
+
+      <section class="calc-charts" aria-labelledby="calc-charts-heading">
+          <div class="calc-charts-header">
+              <div>
+                  <h3 id="calc-charts-heading">Gráficos interativos</h3>
+                  <p>Explore a cotação histórica e o impacto das projeções na sua posição.</p>
+              </div>
+              <div class="chart-controls">
+                  <div class="chart-control">
+                      <label for="history-range">Período histórico</label>
+                      <select id="history-range">
+                          <option value="30">30 dias</option>
+                          <option value="90">90 dias</option>
+                          <option value="365" selected>1 ano</option>
+                          <option value="730">2 anos</option>
+                      </select>
+                  </div>
+                  <button class="entropy-btn chart-refresh" id="history-refresh" type="button">Atualizar</button>
+              </div>
+          </div>
+
+          <div class="chart-grid">
+              <div class="chart-card">
+                  <h4>Evolução histórica da cotação</h4>
+                  <p>Preço do Bitcoin em USD conforme os dados históricos disponíveis.</p>
+                  <div class="chart-status" id="history-status" role="status" aria-live="polite">Aguardando dados...</div>
+                  <div class="chart-status" id="projection-status" role="status" aria-live="polite">Total projetado: aguardando cotação...</div>
+                  <div class="chart-wrap"><canvas id="history-chart" aria-label="Gráfico interativo da evolução histórica da cotação do Bitcoin com linha pontilhada de total projetado"></canvas></div>
+              </div>
+          </div>
+          <p class="chart-note">Os dados históricos são carregados da API pública da CoinGecko. A linha pontilhada de total projetado é atualizada ao mover a régua e representa o valor total do capital acumulado na projeção, calculado por preço projetado × capital alocado; não representa uma previsão garantida de mercado.</p>
+      </section>
   </section>
 
 <!-- ==========================================
      SCRIPTS
      ========================================== -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
   // Script: Jogo de Dados (Original Inalterado)
   (() => {
@@ -493,6 +547,18 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
       const fmtUSD = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const fmtBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
+      function publishCalcState(projUsd, avgPriceUsd, cap) {
+          window.bitcoinCalculatorState = {
+              currentBtcUsd,
+              currentBtcBrl,
+              projectedUsd: projUsd,
+              avgPriceUsd,
+              cap,
+              maxProjectionUsd: Number(slider.max) || 1000000
+          };
+          window.dispatchEvent(new CustomEvent("bitcoin-calculator-update", { detail: window.bitcoinCalculatorState }));
+      }
+
       async function initCalc() {
           try {
               const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,brl");
@@ -559,6 +625,8 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
           totalBrl.textContent = fmtBRL.format(tBrl);
           profitBrl.textContent = (pBrl >= 0 ? "+" : "") + fmtBRL.format(pBrl);
           profitBrl.style.color = pBrl >= 0 ? "var(--green)" : "var(--red)";
+
+          publishCalcState(projUsd, avgPriceUsd, cap);
       }
 
       slider.addEventListener("input", updateCalc);
@@ -566,6 +634,202 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
       avgPriceInput.addEventListener("input", updateCalc);
 
       initCalc();
+  })();
+
+  // Script: Gráficos interativos de histórico e projeção
+  (() => {
+      const historyCanvas = document.getElementById("history-chart");
+      const historyRange = document.getElementById("history-range");
+      const refreshButton = document.getElementById("history-refresh");
+      const historyStatus = document.getElementById("history-status");
+      const projectionStatus = document.getElementById("projection-status");
+
+      if (!historyCanvas) return;
+
+      let historyChart = null;
+      let historyAbortController = null;
+      let calculatorState = window.bitcoinCalculatorState || null;
+
+      const fmtChartUSD = new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+      });
+      const fmtCompactUSD = new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "USD",
+          notation: "compact",
+          maximumFractionDigits: 1
+      });
+      const fmtDate = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+      const gridColor = "rgba(138, 147, 162, 0.14)";
+      const tickColor = "#8a93a2";
+
+      function chartOptions(yLabel, secondAxis = false, secondAxisLabel = "Valor da posição", secondAxisColor = "#16c784") {
+          const options = {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: "index", intersect: false },
+              animation: { duration: 450 },
+              plugins: {
+                  legend: {
+                      labels: { color: "#eaeef3", usePointStyle: true, boxWidth: 8, padding: 14 }
+                  },
+                  tooltip: {
+                      backgroundColor: "#15191f",
+                      borderColor: "#262d38",
+                      borderWidth: 1,
+                      titleColor: "#eaeef3",
+                      bodyColor: "#eaeef3",
+                      callbacks: {
+                          label: context => {
+                              const value = context.parsed.y;
+                              return ` ${context.dataset.label}: ${fmtChartUSD.format(value)}`;
+                          }
+                      }
+                  }
+              },
+              scales: {
+                  x: {
+                      ticks: { color: tickColor, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+                      grid: { color: gridColor }
+                  },
+                  y: {
+                      beginAtZero: false,
+                      title: { display: true, text: yLabel, color: tickColor },
+                      ticks: { color: tickColor, callback: value => fmtCompactUSD.format(value) },
+                      grid: { color: gridColor }
+                  }
+              }
+          };
+
+          if (secondAxis) {
+              options.scales.y1 = {
+                  position: "right",
+                  beginAtZero: true,
+                  title: { display: true, text: secondAxisLabel, color: secondAxisColor },
+                  ticks: { color: secondAxisColor, callback: value => fmtCompactUSD.format(value) },
+                  grid: { drawOnChartArea: false }
+              };
+          }
+          return options;
+      }
+
+      function getProjectedTotal() {
+          if (!calculatorState) return 0;
+          const projectedUsd = Number(calculatorState.projectedUsd) || 0;
+          const cap = Number(calculatorState.cap) || 0;
+          return projectedUsd * cap;
+      }
+
+      function updateProjectedTotalLine() {
+          if (!historyChart || !calculatorState) {
+              projectionStatus.textContent = "Total projetado: aguardando cotação...";
+              return;
+          }
+
+          const projectedTotal = getProjectedTotal();
+          const totalDataset = historyChart.data.datasets.find(dataset => dataset.id === "projected-total");
+          if (!totalDataset) return;
+
+          totalDataset.data = historyChart.data.labels.map(() => projectedTotal);
+          historyChart.update("none");
+          projectionStatus.textContent = `Linha pontilhada: total projetado de ${fmtChartUSD.format(projectedTotal)} | Projeção: ${fmtChartUSD.format(Number(calculatorState.projectedUsd) || 0)}`;
+      }
+
+      function createProjectedTotalDataset(labels) {
+          const projectedTotal = getProjectedTotal();
+          return {
+              id: "projected-total",
+              label: "Total projetado (USD)",
+              data: labels.map(() => projectedTotal),
+              borderColor: "#16c784",
+              backgroundColor: "rgba(22, 199, 132, 0.08)",
+              borderDash: [8, 6],
+              borderWidth: 2,
+              pointRadius: 0,
+              pointHoverRadius: 5,
+              tension: 0,
+              yAxisID: "y1"
+          };
+      }
+
+      async function loadHistory() {
+          if (typeof Chart === "undefined") {
+              historyStatus.textContent = "Não foi possível carregar a biblioteca dos gráficos.";
+              return;
+          }
+
+          const days = Number(historyRange.value) || 365;
+          historyStatus.textContent = "Carregando histórico da cotação...";
+          refreshButton.disabled = true;
+          if (historyAbortController) historyAbortController.abort();
+          historyAbortController = new AbortController();
+
+          try {
+              const endpoint = `https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=${days}&interval=daily&precision=2`;
+              const response = await fetch(endpoint, { signal: historyAbortController.signal });
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              const data = await response.json();
+              const prices = Array.isArray(data.prices) ? data.prices.filter(point => Array.isArray(point) && point.length >= 2) : [];
+              if (!prices.length) throw new Error("Sem pontos históricos");
+
+              const labels = prices.map(([timestamp]) => fmtDate.format(new Date(timestamp)));
+              const values = prices.map(([, price]) => Number(price));
+              const first = values[0];
+              const last = values[values.length - 1];
+              const change = first ? ((last - first) / first) * 100 : 0;
+              const changeLabel = `${change >= 0 ? "+" : ""}${change.toFixed(2).replace(".", ",")}% no período`;
+              historyStatus.textContent = `${prices.length} pontos | ${changeLabel} | Último: ${fmtChartUSD.format(last)}`;
+
+              const dataset = {
+                  id: "bitcoin-history",
+                  label: "Bitcoin (USD)",
+                  data: values,
+                  borderColor: "#f7931a",
+                  backgroundColor: "rgba(247, 147, 26, 0.17)",
+                  fill: true,
+                  tension: 0.24,
+                  pointRadius: 0,
+                  pointHoverRadius: 5,
+                  pointHoverBackgroundColor: "#f7931a",
+                  borderWidth: 2
+              };
+
+              if (!historyChart) {
+                  historyChart = new Chart(historyCanvas, {
+                      type: "line",
+                      data: { labels, datasets: [dataset, createProjectedTotalDataset(labels)] },
+                      options: chartOptions("Preço em USD", true, "Total projetado", "#16c784")
+                  });
+              } else {
+                  historyChart.data = { labels, datasets: [dataset, createProjectedTotalDataset(labels)] };
+                  historyChart.update();
+              }
+              updateProjectedTotalLine();
+          } catch (error) {
+              if (error.name !== "AbortError") {
+                  historyStatus.textContent = "Não foi possível carregar o histórico agora. Tente atualizar novamente.";
+              }
+          } finally {
+              refreshButton.disabled = false;
+          }
+      }
+
+      window.addEventListener("bitcoin-calculator-update", event => {
+          calculatorState = event.detail;
+          updateProjectedTotalLine();
+      });
+      historyRange.addEventListener("change", loadHistory);
+      refreshButton.addEventListener("click", loadHistory);
+
+      if (typeof Chart === "undefined") {
+          historyStatus.textContent = "A biblioteca dos gráficos ainda não foi carregada.";
+      } else {
+          updateProjectedTotalLine();
+          loadHistory();
+      }
   })();
 </script>
 </body>
