@@ -5,7 +5,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Jogo de Dados e Calculadora</title>
-
 <style>
 :root { 
   --bg:#0b0e11; 
@@ -18,45 +17,31 @@
   --txt:#eaeef3; 
   --muted:#8a93a2; 
 }
-
 * { box-sizing:border-box; }
+html, body { margin:0; background:var(--bg); color:var(--txt); }
+body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.5; padding:20px; }
 
-html, body {
-  margin:0;
-  background:var(--bg);
-  color:var(--txt);
-}
-
-body {
-  font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
-  line-height:1.5;
-  padding:20px;
-}
-
-/* =========================================================
-   JOGO DE DADOS / ENTROPIA
-   ========================================================= */
-
+/* ----- Jogo de Dados / Entropia ----- */
 .entropy-section {
-  margin:0 auto;
-  max-width:800px;
-  padding:22px;
-  background:var(--card);
-  border:1px solid var(--line);
-  border-radius:16px;
+  margin: 0 auto;
+  max-width: 800px;
+  padding: 22px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
 }
 
 .entropy-section h2 {
-  font-size:clamp(24px,3vw,30px);
-  margin-bottom:8px;
-  margin-top:0;
+  font-size: clamp(24px, 3vw, 30px);
+  margin-bottom: 8px;
+  margin-top: 0;
 }
 
 .entropy-section > p {
-  color:var(--muted);
-  font-size:16px;
-  margin-bottom:20px;
-  margin-top:0;
+  color: var(--muted);
+  font-size: 16px;
+  margin-bottom: 20px;
+  margin-top: 0;
 }
 
 .entropy-controls {
@@ -105,7 +90,7 @@ body {
 
 .entropy-btn {
   cursor:pointer;
-  transition:transform .15s,border-color .15s,background .15s;
+  transition:transform .15s, border-color .15s, background .15s;
 }
 
 .entropy-btn:hover:not(:disabled) {
@@ -138,7 +123,7 @@ body {
 
 .entropy-dice-grid {
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(42px,1fr));
+  grid-template-columns:repeat(auto-fill, minmax(42px, 1fr));
   gap:6px;
   width:100%;
   justify-content:center;
@@ -182,27 +167,21 @@ body {
 .entropy-die:not(.revealed):not(.rolling-face) .entropy-pip:nth-child(5),
 .entropy-die:not(.revealed):not(.rolling-face) .entropy-pip:nth-child(7),
 .entropy-die:not(.revealed):not(.rolling-face) .entropy-pip:nth-child(9),
-
 .entropy-die.face-1 .entropy-pip:nth-child(5),
-
 .entropy-die.face-2 .entropy-pip:nth-child(1),
 .entropy-die.face-2 .entropy-pip:nth-child(9),
-
 .entropy-die.face-3 .entropy-pip:nth-child(1),
 .entropy-die.face-3 .entropy-pip:nth-child(5),
 .entropy-die.face-3 .entropy-pip:nth-child(9),
-
 .entropy-die.face-4 .entropy-pip:nth-child(1),
 .entropy-die.face-4 .entropy-pip:nth-child(3),
 .entropy-die.face-4 .entropy-pip:nth-child(7),
 .entropy-die.face-4 .entropy-pip:nth-child(9),
-
 .entropy-die.face-5 .entropy-pip:nth-child(1),
 .entropy-die.face-5 .entropy-pip:nth-child(3),
 .entropy-die.face-5 .entropy-pip:nth-child(5),
 .entropy-die.face-5 .entropy-pip:nth-child(7),
 .entropy-die.face-5 .entropy-pip:nth-child(9),
-
 .entropy-die.face-6 .entropy-pip:nth-child(1),
 .entropy-die.face-6 .entropy-pip:nth-child(3),
 .entropy-die.face-6 .entropy-pip:nth-child(4),
@@ -213,9 +192,8 @@ body {
 }
 
 .entropy-dice-grid.is-rolling .entropy-die {
-  animation:
-    entropy-tumble .22s linear infinite,
-    entropy-bounce .4s ease-in-out infinite alternate;
+  animation:entropy-tumble .22s linear infinite,
+            entropy-bounce .4s ease-in-out infinite alternate;
 }
 
 .entropy-dice-grid.is-rolling .entropy-die:nth-child(2n) {
@@ -379,9 +357,7 @@ body {
   line-height:1.55;
 }
 
-/* =========================================================
-   CALCULADORA DE PROJEÇÃO
-   ========================================================= */
+/* ----- Calculadora de Projeção ----- */
 
 .calc-input {
   width:100%;
@@ -455,9 +431,9 @@ body {
 
 <body>
 
-<!-- =========================================================
+<!-- ==========================================
      SEÇÃO: JOGO DE DADOS
-     ========================================================= -->
+     ========================================== -->
 
 <section
   class="entropy-section"
@@ -468,14 +444,17 @@ body {
   <h2 id="dice-entropy-heading">Jogo de Dados</h2>
 
   <p>
-    Simulador visual de entropia. Os valores permanecem ocultos
-    até a revelação manual.
+    Simulador visual de entropia. Os valores permanecem ocultos até
+    a revelação manual.
   </p>
 
   <div class="entropy-controls">
 
     <div class="entropy-field">
-      <label for="entropyDiceCount">Quantidade de dados</label>
+
+      <label for="entropyDiceCount">
+        Quantidade de dados
+      </label>
 
       <select id="entropyDiceCount">
         <option value="5">5 dados</option>
@@ -490,33 +469,55 @@ body {
         <option value="200">200 dados</option>
         <option value="300">300 dados</option>
       </select>
+
     </div>
 
-    <button class="entropy-btn primary" id="entropyRoll" type="button">
+    <button
+      class="entropy-btn primary"
+      id="entropyRoll"
+      type="button"
+    >
       Jogar Dados
     </button>
 
-    <button class="entropy-btn" id="entropyShuffle" type="button" disabled>
+    <button
+      class="entropy-btn"
+      id="entropyShuffle"
+      type="button"
+      disabled
+    >
       Embaralhar Resultado
     </button>
 
-    <button class="entropy-btn" id="entropyReveal" type="button" disabled>
+    <button
+      class="entropy-btn"
+      id="entropyReveal"
+      type="button"
+      disabled
+    >
       Revelar Dados
     </button>
 
-    <button class="entropy-btn" id="entropyCopy" type="button" disabled>
+    <button
+      class="entropy-btn"
+      id="entropyCopy"
+      type="button"
+      disabled
+    >
       Copiar Entropia
     </button>
 
   </div>
 
   <div class="entropy-dice-viewport">
+
     <div
       class="entropy-dice-grid"
       id="entropyDiceGrid"
       role="img"
       aria-label="20 dados digitais em modo confidencial"
     ></div>
+
   </div>
 
   <output
@@ -540,8 +541,15 @@ body {
   >
 
     <div class="entropy-strength-header">
-      <h3 id="entropyStrengthTitle">Força contra força bruta</h3>
-      <p>Estimativa educacional de busca exaustiva.</p>
+
+      <h3 id="entropyStrengthTitle">
+        Força contra força bruta
+      </h3>
+
+      <p>
+        Estimativa educacional de busca exaustiva.
+      </p>
+
     </div>
 
     <div class="entropy-strength-control">
@@ -551,9 +559,19 @@ body {
       </label>
 
       <select id="entropyAttackRate">
-        <option value="1000000" selected>10⁶ por segundo</option>
-        <option value="1000000000">10⁹ por segundo</option>
-        <option value="1000000000000">10¹² por segundo</option>
+
+        <option value="1000000" selected>
+          10⁶ por segundo
+        </option>
+
+        <option value="1000000000">
+          10⁹ por segundo
+        </option>
+
+        <option value="1000000000000">
+          10¹² por segundo
+        </option>
+
       </select>
 
     </div>
@@ -577,7 +595,10 @@ body {
 
     </div>
 
-    <p class="entropy-strength-note" id="entropyStrengthNote">
+    <p
+      class="entropy-strength-note"
+      id="entropyStrengthNote"
+    >
       O tempo médio considera um alvo secreto, resultados uniformes
       e um ataque puramente exaustivo. Não mede riscos como malware,
       captura de tela, vazamento ou engenharia social.
@@ -587,7 +608,9 @@ body {
 
   <div class="entropy-disclaimer">
 
-    <strong>AVISO DE SEGURANÇA E ISENÇÃO DE RESPONSABILIDADE</strong>
+    <strong>
+      AVISO DE SEGURANÇA E ISENÇÃO DE RESPONSABILIDADE
+    </strong>
 
     <p>
       <b>Apenas para Fins Educacionais:</b>
@@ -614,8 +637,8 @@ body {
     <p>
       <b>Recomendação de Segurança:</b>
       Se você deseja gerar uma seed phrase blindada para uso real,
-      desconecte-se da internet e utilize dados de tabuleiro físicos
-      e reais, anotando os resultados no papel.
+      desconecte-se da internet e utilize dados de tabuleiro físicos e
+      reais, anotando os resultados no papel.
     </p>
 
     <p>
@@ -632,9 +655,9 @@ body {
 </section>
 
 
-<!-- =========================================================
+<!-- ==========================================
      SEÇÃO: CALCULADORA DE PROJEÇÃO
-     ========================================================= -->
+     ========================================== -->
 
 <section
   class="entropy-section"
@@ -643,13 +666,18 @@ body {
   aria-labelledby="calc-heading"
 >
 
-  <h2 id="calc-heading">Calculadora de Projeção</h2>
+  <h2 id="calc-heading">
+    Calculadora de Projeção
+  </h2>
 
   <p>
     Projete seu lucro informando seu preço médio e movendo o valor projetado.
   </p>
 
-  <div class="calc-grid" style="margin-bottom:20px;">
+  <div
+    class="calc-grid"
+    style="margin-bottom:20px;"
+  >
 
     <div>
 
@@ -677,7 +705,7 @@ body {
         for="calc-avg-price"
         style="display:block;color:var(--muted);font-size:14px;margin-bottom:6px;font-weight:600;"
       >
-        Preço Médio (BRL)
+        Preço Médio (USD)
       </label>
 
       <input
@@ -701,7 +729,9 @@ body {
     style="margin-bottom:25px;padding:12px;background:#10141a;border:1px solid var(--line);border-radius:9px;"
   >
 
-    <span style="color:var(--muted);font-size:14px;">
+    <span
+      style="color:var(--muted);font-size:14px;"
+    >
       Cotação Atual:
     </span>
 
@@ -715,7 +745,7 @@ body {
   </div>
 
 
-  <!-- RÉGUA -->
+  <!-- RÉGUA DE PROJEÇÃO -->
 
   <div style="margin-bottom:20px;">
 
@@ -724,7 +754,9 @@ body {
       style="display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:14px;margin-bottom:10px;font-weight:600;"
     >
 
-      <span>Preço Projetado (BRL)</span>
+      <span>
+        Preço Projetado (USD)
+      </span>
 
       <strong
         id="calc-proj-lbl"
@@ -745,13 +777,46 @@ body {
   </div>
 
 
-  <!-- RESULTADO -->
+  <!-- RESULTADOS -->
 
   <div class="calc-grid">
 
     <div class="entropy-strength-metric">
 
-      <span>Total Projetado (BRL)</span>
+      <span>
+        Total Projetado (USD)
+      </span>
+
+      <strong
+        id="calc-total-usd"
+        style="color:var(--txt);"
+      >
+        ---
+      </strong>
+
+      <div
+        style="margin-top:8px;font-size:13px;color:var(--muted);"
+      >
+
+        Lucro Líquido:
+
+        <span
+          id="calc-profit-usd"
+          style="font-weight:700;"
+        >
+          ---
+        </span>
+
+      </div>
+
+    </div>
+
+
+    <div class="entropy-strength-metric">
+
+      <span>
+        Total Projetado (BRL)
+      </span>
 
       <strong
         id="calc-total-brl"
@@ -782,32 +847,56 @@ body {
 </section>
 
 
-<!-- =========================================================
+<!-- ==========================================
      SCRIPTS
-     ========================================================= -->
+     ========================================== -->
 
 <script>
 
 /* =========================================================
-   JOGO DE DADOS
+   SCRIPT: JOGO DE DADOS
    ========================================================= */
 
 (() => {
 
   "use strict";
 
-  const grid = document.getElementById("entropyDiceGrid");
-  const countSelect = document.getElementById("entropyDiceCount");
-  const rollButton = document.getElementById("entropyRoll");
-  const shuffleButton = document.getElementById("entropyShuffle");
-  const revealButton = document.getElementById("entropyReveal");
-  const copyButton = document.getElementById("entropyCopy");
-  const result = document.getElementById("entropyResult");
-  const status = document.getElementById("entropyStatus");
-  const attackRateSelect = document.getElementById("entropyAttackRate");
-  const combinationsOutput = document.getElementById("entropyCombinations");
-  const bitsOutput = document.getElementById("entropyBits");
-  const crackTimeOutput = document.getElementById("entropyCrackTime");
+  const grid =
+    document.getElementById("entropyDiceGrid");
+
+  const countSelect =
+    document.getElementById("entropyDiceCount");
+
+  const rollButton =
+    document.getElementById("entropyRoll");
+
+  const shuffleButton =
+    document.getElementById("entropyShuffle");
+
+  const revealButton =
+    document.getElementById("entropyReveal");
+
+  const copyButton =
+    document.getElementById("entropyCopy");
+
+  const result =
+    document.getElementById("entropyResult");
+
+  const status =
+    document.getElementById("entropyStatus");
+
+  const attackRateSelect =
+    document.getElementById("entropyAttackRate");
+
+  const combinationsOutput =
+    document.getElementById("entropyCombinations");
+
+  const bitsOutput =
+    document.getElementById("entropyBits");
+
+  const crackTimeOutput =
+    document.getElementById("entropyCrackTime");
+
 
   let diceCount = 20;
   let hiddenEntropy = null;
@@ -820,7 +909,8 @@ body {
 
   function secureDieRoll() {
 
-    const value = new Uint8Array(1);
+    const value =
+      new Uint8Array(1);
 
     do {
       crypto.getRandomValues(value);
@@ -832,9 +922,14 @@ body {
 
   function secureIndex(limit) {
 
-    const range = 0x100000000;
-    const ceiling = Math.floor(range / limit) * limit;
-    const value = new Uint32Array(1);
+    const range =
+      0x100000000;
+
+    const ceiling =
+      Math.floor(range / limit) * limit;
+
+    const value =
+      new Uint32Array(1);
 
     do {
       crypto.getRandomValues(value);
@@ -845,7 +940,10 @@ body {
 
 
   function maskedResult() {
-    return `[ ${Array(diceCount).fill("*").join(" ")} ]`;
+
+    return `[ ${Array(diceCount)
+      .fill("*")
+      .join(" ")} ]`;
   }
 
 
@@ -855,15 +953,19 @@ body {
       return "menos de 1 s";
     }
 
-    const secondsPerYear = 31_557_600;
+    const secondsPerYear =
+      31_557_600;
+
     const log10Years =
-      log10Seconds - Math.log10(secondsPerYear);
+      log10Seconds -
+      Math.log10(secondsPerYear);
 
     if (log10Years >= 8) {
       return "mais de 1 milhão de séculos";
     }
 
-    const seconds = 10 ** log10Seconds;
+    const seconds =
+      10 ** log10Seconds;
 
     if (seconds < 60) {
       return `${seconds.toFixed(1)} s`;
@@ -881,17 +983,25 @@ body {
       return `${(seconds / 86_400).toFixed(1)} dias`;
     }
 
-    const years = seconds / secondsPerYear;
+    const years =
+      seconds / secondsPerYear;
 
     if (years < 100) {
-      return `${years.toLocaleString("pt-BR", {
-        maximumFractionDigits:1
-      })} anos`;
+
+      return `${years.toLocaleString(
+        "pt-BR",
+        {
+          maximumFractionDigits:1
+        }
+      )} anos`;
     }
 
-    return `${(years / 100).toLocaleString("pt-BR", {
-      maximumFractionDigits:1
-    })} séculos`;
+    return `${(years / 100).toLocaleString(
+      "pt-BR",
+      {
+        maximumFractionDigits:1
+      }
+    )} séculos`;
   }
 
 
@@ -918,7 +1028,9 @@ body {
       `${entropyBits.toFixed(1)} bits`;
 
     crackTimeOutput.textContent =
-      formatDurationFromLog10Seconds(log10AverageSeconds);
+      formatDurationFromLog10Seconds(
+        log10AverageSeconds
+      );
   }
 
 
@@ -937,19 +1049,34 @@ body {
     const fragment =
       document.createDocumentFragment();
 
-    for (let index = 0; index < diceCount; index += 1) {
+    for (
+      let index = 0;
+      index < diceCount;
+      index += 1
+    ) {
 
-      const die = document.createElement("div");
+      const die =
+        document.createElement("div");
 
-      die.className = "entropy-die";
-      die.setAttribute("aria-hidden", "true");
+      die.className =
+        "entropy-die";
 
-      for (let pip = 0; pip < 9; pip += 1) {
+      die.setAttribute(
+        "aria-hidden",
+        "true"
+      );
+
+      for (
+        let pip = 0;
+        pip < 9;
+        pip += 1
+      ) {
 
         const dot =
           document.createElement("span");
 
-        dot.className = "entropy-pip";
+        dot.className =
+          "entropy-pip";
 
         die.append(dot);
       }
@@ -963,12 +1090,17 @@ body {
 
   function setFaces(reveal) {
 
-    grid.querySelectorAll(".entropy-die")
+    grid
+      .querySelectorAll(".entropy-die")
       .forEach((die,index) => {
 
-        die.className = "entropy-die";
+        die.className =
+          "entropy-die";
 
-        if (reveal && hiddenEntropy) {
+        if (
+          reveal &&
+          hiddenEntropy
+        ) {
 
           die.classList.add(
             "revealed",
@@ -981,7 +1113,8 @@ body {
 
   function animateFaces() {
 
-    grid.querySelectorAll(".entropy-die")
+    grid
+      .querySelectorAll(".entropy-die")
       .forEach(die => {
 
         die.className =
@@ -997,7 +1130,10 @@ body {
     animateFaces();
 
     animationTimer =
-      setInterval(animateFaces,100);
+      setInterval(
+        animateFaces,
+        100
+      );
   }
 
 
@@ -1011,8 +1147,11 @@ body {
 
   function setControls(enabled) {
 
-    countSelect.disabled = !enabled;
-    rollButton.disabled = !enabled;
+    countSelect.disabled =
+      !enabled;
+
+    rollButton.disabled =
+      !enabled;
 
     shuffleButton.disabled =
       !enabled ||
@@ -1035,13 +1174,18 @@ body {
     }
 
     const sections =
-      document.querySelectorAll(".entropy-section");
+      document.querySelectorAll(
+        ".entropy-section"
+      );
 
     let totalHeight = 0;
 
-    sections.forEach(section => {
+    sections.forEach(s => {
+
       totalHeight +=
-        Math.ceil(section.getBoundingClientRect().height);
+        Math.ceil(
+          s.getBoundingClientRect().height
+        );
     });
 
     window.parent.postMessage(
@@ -1056,8 +1200,9 @@ body {
 
   if ("ResizeObserver" in window) {
 
-    new ResizeObserver(reportWidgetHeight)
-      .observe(document.body);
+    new ResizeObserver(
+      reportWidgetHeight
+    ).observe(document.body);
   }
 
 
@@ -1068,7 +1213,10 @@ body {
     }
 
     diceCount =
-      Number.parseInt(countSelect.value,10);
+      Number.parseInt(
+        countSelect.value,
+        10
+      );
 
     let columnCount =
       Math.min(diceCount,20);
@@ -1079,9 +1227,13 @@ body {
       candidate -= 1
     ) {
 
-      if (diceCount % candidate === 0) {
+      if (
+        diceCount % candidate === 0
+      ) {
 
-        columnCount = candidate;
+        columnCount =
+          candidate;
+
         break;
       }
     }
@@ -1129,7 +1281,8 @@ body {
 
     eraseEntropy();
 
-    hiddenEntropy = values;
+    hiddenEntropy =
+      values;
   }
 
 
@@ -1141,7 +1294,9 @@ body {
 
     setFaces(false);
 
-    grid.classList.remove("is-rolling");
+    grid.classList.remove(
+      "is-rolling"
+    );
 
     result.textContent =
       maskedResult();
@@ -1173,12 +1328,17 @@ body {
 
     startAnimation();
 
-    grid.classList.add("is-rolling");
+    grid.classList.add(
+      "is-rolling"
+    );
 
     clearTimeout(rollTimer);
 
     rollTimer =
-      setTimeout(finishRoll,1600);
+      setTimeout(
+        finishRoll,
+        1600
+      );
   }
 
 
@@ -1196,8 +1356,7 @@ body {
       [
         hiddenEntropy[index],
         hiddenEntropy[target]
-      ] =
-      [
+      ] = [
         hiddenEntropy[target],
         hiddenEntropy[index]
       ];
@@ -1230,7 +1389,9 @@ body {
 
     startAnimation();
 
-    grid.classList.add("is-rolling");
+    grid.classList.add(
+      "is-rolling"
+    );
 
     clearTimeout(shuffleTimer);
 
@@ -1241,7 +1402,9 @@ body {
 
         setFaces(false);
 
-        grid.classList.remove("is-rolling");
+        grid.classList.remove(
+          "is-rolling"
+        );
 
         rolling = false;
 
@@ -1268,7 +1431,8 @@ body {
     result.textContent =
       `[ ${Array.from(hiddenEntropy).join(" ")} ]`;
 
-    revealButton.disabled = true;
+    revealButton.disabled =
+      true;
 
     status.textContent =
       "Dados revelados.";
@@ -1295,12 +1459,16 @@ body {
         Array.from(hiddenEntropy).join(",")
       );
 
-      clearTimeout(copyFeedbackTimer);
+      clearTimeout(
+        copyFeedbackTimer
+      );
 
       copyButton.textContent =
         "Copiado!";
 
-      copyButton.classList.add("copied");
+      copyButton.classList.add(
+        "copied"
+      );
 
       status.textContent =
         "Entropia copiada diretamente para a área de transferência.";
@@ -1311,7 +1479,9 @@ body {
           copyButton.textContent =
             "Copiar Entropia";
 
-          copyButton.classList.remove("copied");
+          copyButton.classList.remove(
+            "copied"
+          );
 
         },1800);
 
@@ -1358,11 +1528,14 @@ body {
     () => {
 
       clearTimeout(rollTimer);
+
       clearTimeout(shuffleTimer);
 
       stopAnimation();
 
-      clearTimeout(copyFeedbackTimer);
+      clearTimeout(
+        copyFeedbackTimer
+      );
 
       eraseEntropy();
     }
@@ -1370,18 +1543,18 @@ body {
 
   resetForCount();
 
-  requestAnimationFrame(reportWidgetHeight);
+  requestAnimationFrame(
+    reportWidgetHeight
+  );
 
 })();
 
 
 /* =========================================================
-   CALCULADORA DE PROJEÇÃO — BRL
+   SCRIPT: CALCULADORA DE PROJEÇÃO
    ========================================================= */
 
 (() => {
-
-  "use strict";
 
   const capInput =
     document.getElementById("calc-cap");
@@ -1398,6 +1571,12 @@ body {
   const projLbl =
     document.getElementById("calc-proj-lbl");
 
+  const totalUsd =
+    document.getElementById("calc-total-usd");
+
+  const profitUsd =
+    document.getElementById("calc-profit-usd");
+
   const totalBrl =
     document.getElementById("calc-total-brl");
 
@@ -1405,10 +1584,21 @@ body {
     document.getElementById("calc-profit-brl");
 
 
+  let currentBtcUsd = 0;
   let currentBtcBrl = 0;
 
 
-  /* Formatação exclusivamente em BRL */
+  /* =========================================================
+     FORMATADORES
+     ========================================================= */
+
+  const fmtUSD =
+    new Intl.NumberFormat("en-US", {
+      style:"currency",
+      currency:"USD",
+      minimumFractionDigits:2,
+      maximumFractionDigits:2
+    });
 
   const fmtBRL =
     new Intl.NumberFormat("pt-BR", {
@@ -1419,9 +1609,9 @@ body {
     });
 
 
-  /* ---------------------------------------------------------
-     BUSCA COTAÇÃO
-     --------------------------------------------------------- */
+  /* =========================================================
+     COTAÇÃO
+     ========================================================= */
 
   async function initCalc() {
 
@@ -1433,7 +1623,9 @@ body {
         );
 
       if (!res.ok) {
-        throw new Error("Falha HTTP na API");
+        throw new Error(
+          `HTTP ${res.status}`
+        );
       }
 
       const data =
@@ -1442,20 +1634,24 @@ body {
       if (
         data &&
         data.bitcoin &&
+        Number.isFinite(data.bitcoin.usd) &&
         Number.isFinite(data.bitcoin.brl)
       ) {
+
+        currentBtcUsd =
+          Number(data.bitcoin.usd);
 
         currentBtcBrl =
           Number(data.bitcoin.brl);
 
 
         /*
-         * Preço médio inicial = cotação atual
-         * diretamente em BRL.
+         * Mantém o comportamento original:
+         * o preço médio começa na cotação atual em USD.
          */
 
         avgPriceInput.value =
-          currentBtcBrl.toFixed(2);
+          currentBtcUsd;
 
 
         setupSlider();
@@ -1464,128 +1660,221 @@ body {
 
       } else {
 
-        throw new Error("Cotação BRL inválida");
+        throw new Error(
+          "Cotação inválida"
+        );
       }
 
-    } catch (error) {
+    } catch (e) {
 
       console.error(
-        "Erro ao carregar cotação do BTC:",
-        error
+        "Erro ao carregar cotação:",
+        e
       );
 
       currentLbl.textContent =
         "Erro ao conectar com API de preço.";
-
-      projLbl.textContent =
-        "---";
     }
   }
 
 
-  /* ---------------------------------------------------------
-     CONFIGURAÇÃO DA RÉGUA
-     --------------------------------------------------------- */
+  /* =========================================================
+     RÉGUA
+     ========================================================= */
 
   function setupSlider() {
 
     /*
-     * A régua trabalha diretamente em BRL.
+     * A régua continua sendo baseada em USD.
      *
-     * Mínimo = 20% da cotação atual
-     * Máximo = 500% da cotação atual
+     * Limite inferior:
+     * 20% da cotação atual.
      *
-     * DEFAULT = cotação atual EXATA.
+     * Limite superior:
+     * 500% da cotação atual.
      */
 
     slider.min =
-      (currentBtcBrl * 0.20).toFixed(2);
+      Math.floor(
+        currentBtcUsd * 0.2
+      );
 
     slider.max =
-      (currentBtcBrl * 5.00).toFixed(2);
-
-    slider.step =
-      "0.01";
+      Math.floor(
+        currentBtcUsd * 5
+      );
 
     /*
-     * Ponto inicial da régua:
-     * exatamente a cotação atual.
+     * Mantido em US$ 500 por passo,
+     * conforme comportamento original.
+     */
+
+    slider.step =
+      500;
+
+    /*
+     * ALTERAÇÃO PRINCIPAL:
+     * começa exatamente na cotação atual.
+     *
+     * Não usar Math.floor().
      */
 
     slider.value =
-      currentBtcBrl.toFixed(2);
+      currentBtcUsd;
 
     slider.disabled =
       false;
 
 
+    /*
+     * Mantém USD + BRL na cotação atual.
+     *
+     * Exemplo:
+     * $76,866.12 (USD) / R$ 412.345,67 (BRL)
+     */
+
     currentLbl.textContent =
-      fmtBRL.format(currentBtcBrl);
+      `${fmtUSD.format(currentBtcUsd)} (USD) / ${fmtBRL.format(currentBtcBrl)} (BRL)`;
   }
 
 
-  /* ---------------------------------------------------------
-     ATUALIZA CALCULADORA
-     --------------------------------------------------------- */
+  /* =========================================================
+     CÁLCULO
+     * ========================================================= */
 
   function updateCalc() {
 
-    if (!currentBtcBrl) {
+    if (!currentBtcUsd) {
       return;
     }
 
     const cap =
       parseFloat(capInput.value) || 0;
 
-    const avgPriceBrl =
+    const avgPriceUsd =
       parseFloat(avgPriceInput.value) || 0;
 
-    const projBrl =
+    const projUsd =
       parseFloat(slider.value) || 0;
 
 
     /*
-     * Valor total projetado:
-     *
-     * BTC × preço projetado em BRL
+     * Taxa BRL/USD calculada a partir das duas
+     * cotações recebidas da API.
      */
+
+    const fxRate =
+      currentBtcBrl /
+      currentBtcUsd;
+
+
+    /*
+     * Conversão do preço projetado para BRL.
+     */
+
+    const projBrl =
+      projUsd *
+      fxRate;
+
+
+    /*
+     * Conversão do preço médio para BRL.
+     */
+
+    const avgPriceBrl =
+      avgPriceUsd *
+      fxRate;
+
+
+    /*
+     * Total projetado.
+     */
+
+    const tUsd =
+      cap *
+      projUsd;
 
     const tBrl =
-      cap * projBrl;
+      cap *
+      projBrl;
 
 
     /*
-     * Custo da posição:
-     *
-     * BTC × preço médio em BRL
+     * Custo base.
      */
+
+    const costUsd =
+      cap *
+      avgPriceUsd;
 
     const costBrl =
-      cap * avgPriceBrl;
+      cap *
+      avgPriceBrl;
 
 
     /*
-     * Lucro líquido:
-     *
-     * valor projetado - custo
+     * Lucro líquido.
      */
 
-    const pBrl =
-      tBrl - costBrl;
+    const pUsd =
+      tUsd -
+      costUsd;
 
+    const pBrl =
+      tBrl -
+      costBrl;
+
+
+    /*
+     * PREÇO PROJETADO
+     *
+     * Continua em USD.
+     */
 
     projLbl.textContent =
-      fmtBRL.format(projBrl);
+      fmtUSD.format(projUsd);
 
+
+    /*
+     * TOTAL USD
+     */
+
+    totalUsd.textContent =
+      fmtUSD.format(tUsd);
+
+
+    /*
+     * LUCRO USD
+     */
+
+    profitUsd.textContent =
+      (pUsd >= 0 ? "+" : "") +
+      fmtUSD.format(pUsd);
+
+    profitUsd.style.color =
+      pUsd >= 0
+        ? "var(--green)"
+        : "var(--red)";
+
+
+    /*
+     * TOTAL BRL
+     *
+     * Formato brasileiro:
+     * R$ 76.866,12
+     */
 
     totalBrl.textContent =
       fmtBRL.format(tBrl);
 
 
+    /*
+     * LUCRO BRL
+     */
+
     profitBrl.textContent =
       (pBrl >= 0 ? "+" : "") +
       fmtBRL.format(pBrl);
-
 
     profitBrl.style.color =
       pBrl >= 0
@@ -1594,9 +1883,9 @@ body {
   }
 
 
-  /* ---------------------------------------------------------
+  /* =========================================================
      EVENTOS
-     --------------------------------------------------------- */
+     ========================================================= */
 
   slider.addEventListener(
     "input",
