@@ -96,29 +96,64 @@
     }
   }
 
+  // ─── Diagnóstico visual (TEMP — remover depois do diagnóstico) ──────
+
+  function clearDiagnostic() {
+    var el = document.getElementById('push-diagnostic');
+    if (el) el.remove();
+  }
+
+  function showPushDiagnostic(message) {
+    console.error('[Push][DIAG]', message);
+
+    var btn = document.getElementById('push-activate-btn');
+    if (btn) {
+      btn.textContent = 'ERRO: ' + String(message).slice(0, 80);
+      btn.classList.add('push-error');
+    }
+
+    var existing = document.getElementById('push-diagnostic');
+    if (!existing) {
+      existing = document.createElement('pre');
+      existing.id = 'push-diagnostic';
+      existing.style.cssText =
+        'position:fixed;z-index:99999;left:10px;right:10px;bottom:10px;' +
+        'max-height:45vh;overflow:auto;padding:12px;' +
+        'background:#111;color:#0f0;font-size:11px;white-space:pre-wrap;' +
+        'font-family:monospace;border-radius:8px;border:1px solid #333;';
+      document.body.appendChild(existing);
+    }
+
+    existing.textContent += '\n' + message;
+  }
+
   // ─── Worker communication ───────────────────────────────────────────
 
   function sendToWorker(subscription) {
     if (!WORKER_URL) {
-      console.warn('[Push][sendToWorker] Worker URL não configurada. Abortando.');
+      showPushDiagnostic('[sendToWorker] Worker URL AUSENTE');
       return Promise.reject(new Error('WORKER_URL não configurada'));
     }
     console.log('[Push][sendToWorker] POST', WORKER_URL + '/subscribe');
+    showPushDiagnostic('[10] POST /subscribe → ' + WORKER_URL);
     return fetch(WORKER_URL + '/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(subscription)
     }).then(function (res) {
       console.log('[Push][sendToWorker] HTTP status:', res.status, res.statusText);
+      showPushDiagnostic('[11] HTTP ' + res.status + ' ' + res.statusText);
       if (!res.ok) {
         return res.text().then(function (body) {
           console.error('[Push][sendToWorker] Response body:', body);
+          showPushDiagnostic('[11] Body: ' + body.slice(0, 200));
           throw new Error('Worker HTTP ' + res.status + ': ' + body);
         });
       }
       return res.json();
     }).catch(function (err) {
       console.error('[Push][sendToWorker] fetch error:', err.name, err.message);
+      showPushDiagnostic('[sendToWorker] Fetch error: ' + err.message);
       throw err;
     });
   }
@@ -171,57 +206,58 @@
   // ─── Subscribe (SINO ON) ───────────────────────────────────────────
 
   function subscribe() {
-    console.log('[Push][1] subscribe() chamado');
-    console.log('[Push][2] VAPID_PUBLIC_KEY:', VAPID_PUBLIC_KEY ? VAPID_PUBLIC_KEY.substring(0, 20) + '...' : 'AUSENTE');
-    console.log('[Push][2] WORKER_URL:', WORKER_URL || 'AUSENTE');
-    console.log('[Push][3] Notification.permission (antes):', Notification.permission);
+    clearDiagnostic();
+    showPushDiagnostic('[1] subscribe() chamado');
+    showPushDiagnostic('[2] VAPID: ' + (VAPID_PUBLIC_KEY ? 'OK' : 'AUSENTE'));
+    showPushDiagnostic('[2] WORKER: ' + (WORKER_URL || 'AUSENTE'));
+    showPushDiagnostic('[3] permission (antes): ' + Notification.permission);
 
     Notification.requestPermission().then(function (permission) {
-      console.log('[Push][4] Permissão resultado:', permission);
+      showPushDiagnostic('[4] permission resultado: ' + permission);
       if (permission !== 'granted') {
-        console.log('[Push] Permissão negada — abortando.');
+        showPushDiagnostic('Permissão negada — abortando.');
         updateButton('denied');
         return;
       }
 
-      console.log('[Push][5] serviceWorker.ready...');
+      showPushDiagnostic('[5] serviceWorker.ready...');
       navigator.serviceWorker.ready.then(function (registration) {
-        console.log('[Push][6] SW scope:', registration.scope);
-        console.log('[Push][7] pushManager.subscribe() iniciado...');
+        showPushDiagnostic('[6] SW scope: ' + registration.scope);
+        showPushDiagnostic('[7] pushManager.subscribe()...');
         return registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         });
       }).then(function (subscription) {
         var endpoint = subscription ? subscription.endpoint : 'AUSENTE';
-        console.log('[Push][8] PushSubscription criada');
-        console.log('[Push][9] endpoint:', endpoint.substring(0, 60) + '...');
+        showPushDiagnostic('[8] PushSubscription criada');
+        showPushDiagnostic('[9] endpoint: ' + endpoint.substring(0, 60));
         saveSubscriptionLocally(subscription);
-        console.log('[Push][10] POST /subscribe iniciado');
         return sendToWorker(subscription);
       }).then(function (result) {
-        console.log('[Push][11] Worker response:', JSON.stringify(result));
+        showPushDiagnostic('[11] Worker response: ' + JSON.stringify(result));
         var receivedId = result && result.id ? result.id : null;
-        console.log('[Push][12] workerSubscriptionId recebido:', receivedId);
+        showPushDiagnostic('[12] workerSubscriptionId: ' + receivedId);
         if (receivedId) {
           workerSubscriptionId = receivedId;
         }
         pushEnabled = true;
-        console.log('[Push][13] pushEnabled=true');
+        showPushDiagnostic('[13] pushEnabled=true');
         persistState();
         activateAlertEngine();
         updateButton('subscribed');
-        console.log('[Push][14] AlertEngine ativado');
-        console.log('[Push][15] ✅ SUCESSO TOTAL');
+        showPushDiagnostic('[15] SUCESSO TOTAL');
+        setTimeout(clearDiagnostic, 5000);
       }).catch(function (err) {
-        console.error('[Push][ERRO] err.name:', err && err.name);
-        console.error('[Push][ERRO] err.message:', err && err.message);
-        console.error('[Push][ERRO] err.stack:', err && err.stack);
-        console.error('[Push][ERRO] err completo:', err);
+        showPushDiagnostic(
+          'ERRO\n' +
+          'name=' + (err && err.name) + '\n' +
+          'message=' + (err && err.message) + '\n' +
+          'stack=' + (err && err.stack || '')
+        );
         pushEnabled = false;
         persistState();
         updateButton('error');
-        console.error('[Push][ERRO] Estado forçado OFF. Botão = "Erro ao ativar"');
       });
     });
   }
