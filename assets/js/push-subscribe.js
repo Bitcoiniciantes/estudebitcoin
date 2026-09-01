@@ -106,12 +106,6 @@
   function showPushDiagnostic(message) {
     console.error('[Push][DIAG]', message);
 
-    var btn = document.getElementById('push-activate-btn');
-    if (btn) {
-      btn.textContent = 'ERRO: ' + String(message).slice(0, 80);
-      btn.classList.add('push-error');
-    }
-
     var existing = document.getElementById('push-diagnostic');
     if (!existing) {
       existing = document.createElement('pre');
@@ -315,8 +309,9 @@
     if (!btn) return;
     switch (state) {
       case 'subscribed':
-        btn.textContent = 'Alertas ativos';
+        btn.textContent = 'Alerta ativado';
         btn.classList.add('push-active');
+        btn.classList.remove('push-error');
         btn.onclick = toggle;
         break;
       case 'denied':
