@@ -152,7 +152,7 @@
             if (srResult && window.PushSubscribe && window.PushSubscribe.isEnabled()) {
               window.AlertEngine.unlockAudio();
               window.AlertEngine.setAlertLevels(symbol, srResult.support, srResult.resistance);
-              if (window.PushSubscribe && window.PushSubscribe.syncToWorker) {
+              if (symbol === 'BTC' && window.PushSubscribe && window.PushSubscribe.syncToWorker) {
                 window.PushSubscribe.syncToWorker(symbol, srResult.support, srResult.resistance, last);
               }
             }
