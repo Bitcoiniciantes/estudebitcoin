@@ -83,8 +83,8 @@ function freshState(levelsKey, lastPrice = null) {
 
 async function readIndex(env) {
   const raw = await env.ALERTAS_KV.get(INDEX_KEY);
-  if (raw) return JSON.parse(raw);
-  return { alerts: [], subs: [] };
+  if (raw) return { index: JSON.parse(raw), isNew: false };
+  return { index: { alerts: [], subs: [] }, isNew: true };
 }
 
 async function writeIndex(env, index) {
@@ -92,7 +92,7 @@ async function writeIndex(env, index) {
 }
 
 async function addSubToIndex(env, subId) {
-  const index = await readIndex(env);
+  const { index } = await readIndex(env);
   if (!index.subs.includes(subId)) {
     index.subs.push(subId);
     await writeIndex(env, index);
@@ -100,7 +100,7 @@ async function addSubToIndex(env, subId) {
 }
 
 async function removeSubFromIndex(env, subId) {
-  const index = await readIndex(env);
+  const { index } = await readIndex(env);
   const i = index.subs.indexOf(subId);
   if (i !== -1) {
     index.subs.splice(i, 1);
@@ -109,7 +109,7 @@ async function removeSubFromIndex(env, subId) {
 }
 
 async function addAlertToIndex(env, alertId) {
-  const index = await readIndex(env);
+  const { index } = await readIndex(env);
   if (!index.alerts.includes(alertId)) {
     index.alerts.push(alertId);
     await writeIndex(env, index);
@@ -118,7 +118,7 @@ async function addAlertToIndex(env, alertId) {
 
 async function removeSubsFromIndex(env, subIds) {
   if (subIds.length === 0) return;
-  const index = await readIndex(env);
+  const { index } = await readIndex(env);
   let changed = false;
   for (const id of subIds) {
     const i = index.subs.indexOf(id);
@@ -365,17 +365,15 @@ function buildAlertPayload(symbol, directionType, level, priceAtEvent) {
 
 async function scheduledHandler(event, env) {
   // ── Ler índice (1 GET) ────────────────────────────────────────────
-  let index = await readIndex(env);
+  const { index, isNew } = await readIndex(env);
 
-  // ── Migração: se índice não existe, criar a partir de LIST ────────
-  if (index.alerts.length === 0 && index.subs.length === 0) {
-    console.log('[Cron] Índice vazio — verificando chaves legadas...');
+  // ── Migração: se índice NÃO EXISTE, criar a partir de LIST ────────
+  if (isNew) {
+    console.log('[Cron] Índice inexistente — criando a partir de LIST...');
     const alertList = await env.ALERTAS_KV.list({ prefix: 'alert:' });
     const subList = await env.ALERTAS_KV.list({ prefix: 'sub:' });
-    index = {
-      alerts: alertList.keys.map(k => k.name.replace('alert:', '')),
-      subs: subList.keys.map(k => k.name.replace('sub:', ''))
-    };
+    index.alerts = alertList.keys.map(k => k.name.replace('alert:', ''));
+    index.subs = subList.keys.map(k => k.name.replace('sub:', ''));
     await writeIndex(env, index);
     console.log('[Cron] Índice criado: ' + index.alerts.length + ' alertas, ' + index.subs.length + ' subs');
   }
@@ -406,9 +404,9 @@ async function scheduledHandler(event, env) {
   const statesRaw = await env.ALERTAS_KV.get(STATES_KEY);
   let allStates = statesRaw ? JSON.parse(statesRaw) : {};
 
-  // ── Migração: chaves antigas 'state:{id}' → cron:states ──────────
-  const legacyKeys = await env.ALERTAS_KV.list({ prefix: 'state:' });
-  if (legacyKeys.keys.length > 0) {
+  // ── Migração: se states NÃO EXISTE, consolidar chaves 'state:{id}' ─
+  if (statesRaw === null) {
+    const legacyKeys = await env.ALERTAS_KV.list({ prefix: 'state:' });
     for (const key of legacyKeys.keys) {
       const raw = await env.ALERTAS_KV.get(key.name);
       if (raw) {
@@ -417,13 +415,14 @@ async function scheduledHandler(event, env) {
       }
       await env.ALERTAS_KV.delete(key.name);
     }
-    console.log('[Cron] Migração: chaves legadas state:* consolidadas em cron:states');
+    if (legacyKeys.keys.length > 0) {
+      console.log('[Cron] Migração: ' + legacyKeys.keys.length + ' chaves state:* consolidadas em cron:states');
+    }
+    // Persistir resultado da migração (ou objeto vazio se sem legado)
+    await env.ALERTAS_KV.put(STATES_KEY, JSON.stringify(allStates));
   }
 
   // ── Snapshot de eventos ANTES do processamento ────────────────────
-  // Compara apenas campos de evento (triggered/pending/levelsKey) e
-  // lastPrice arredondado (~0.1%). Se nada mudou significativamente,
-  // NÃO grava no KV — economia de write.
   const eventSnapshot = {};
   for (const [id, state] of Object.entries(allStates)) {
     eventSnapshot[id] = {
@@ -557,7 +556,7 @@ async function scheduledHandler(event, env) {
   }
   await removeSubsFromIndex(env, uniqueDeadSubIds);
 
-  // ── Escrita condicional: comparar campos de evento + lastPrice ────
+  // ── Escrita condicional: só grava se campos de evento mudaram ─────
   let stateChanged = uniqueDeadSubIds.length > 0;
   if (!stateChanged) {
     for (const [id, state] of Object.entries(allStates)) {
@@ -568,13 +567,7 @@ async function scheduledHandler(event, env) {
       if (JSON.stringify(state.pendingResistance) !== JSON.stringify(prev.pr)) { stateChanged = true; break; }
       if (JSON.stringify(state.pendingSupport) !== JSON.stringify(prev.ps)) { stateChanged = true; break; }
       if (state.levelsKey !== prev.lk) { stateChanged = true; break; }
-      // lastPrice: só considera mudança se > 0.1%
-      if (prev.lp !== null && state.lastPrice !== null) {
-        const diff = Math.abs(state.lastPrice - prev.lp) / prev.lp;
-        if (diff > 0.001) { stateChanged = true; break; }
-      } else if (prev.lp !== state.lastPrice) {
-        stateChanged = true; break;
-      }
+      if (prev.lp === null && state.lastPrice !== null) { stateChanged = true; break; }
     }
     // Verificar alertas removidos
     if (!stateChanged) {
@@ -612,7 +605,7 @@ export default {
         return handleAlertsSync(request, env);
       }
       if (path === '/' && request.method === 'GET') {
-        return json({ service: 'alerta-worker', status: 'ok', version: '6.0.0' });
+        return json({ service: 'alerta-worker', status: 'ok', version: '6.1.0' });
       }
     } catch (err) {
       return json({ error: err.message }, 500);

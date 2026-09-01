@@ -1243,6 +1243,98 @@
 })();
 </script>
 
+<!-- CALCULADORA DE LIQUIDAÇÃO DCA -->
+<style id="calc-liquidacao-embed-style">
+  .calc-liquidacao-section { padding-top: 0; padding-bottom: 16px; }
+  .calc-liquidacao-card {
+    overflow: hidden;
+    border: 1px solid #d8d8d8;
+    border-radius: 20px;
+    background: #070a0f;
+    box-shadow: 0 10px 30px rgba(0,0,0,.08);
+  }
+  .calc-liquidacao-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 18px 22px;
+    background: #111;
+    color: #fff;
+  }
+  .calc-liquidacao-kicker {
+    margin: 0 0 5px;
+    color: #f7931a;
+    font: 700 11px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+    letter-spacing: .12em;
+  }
+  .calc-liquidacao-heading h2 { margin: 0 0 5px; font-size: clamp(20px, 3vw, 28px); }
+  .calc-liquidacao-heading p:not(.calc-liquidacao-kicker) { margin: 0; color: #a8a8a8; font-size: 13px; }
+  .calc-liquidacao-heading a {
+    flex: 0 0 auto;
+    padding: 9px 12px;
+    border: 1px solid rgba(247,147,26,.55);
+    border-radius: 9px;
+    color: #ffad42;
+    font-size: 11px;
+    font-weight: 800;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .calc-liquidacao-heading a:hover { border-color: #f7931a; color: #fff; }
+  .calc-liquidacao-frame {
+    display: block;
+    width: 100%;
+    min-height: 1320px;
+    height: 1320px;
+    border: 0;
+    background: #070a0f;
+  }
+  @media (max-width: 700px) {
+    .calc-liquidacao-heading { align-items: flex-start; flex-direction: column; padding: 16px; }
+    .calc-liquidacao-heading a { width: 100%; text-align: center; }
+    .calc-liquidacao-frame { min-height: 2050px; height: 2050px; }
+  }
+</style>
+<section class="container calc-liquidacao-section" aria-labelledby="calc-liquidacao-title">
+  <div class="calc-liquidacao-card">
+    <div class="calc-liquidacao-heading">
+      <div>
+        <p class="calc-liquidacao-kicker">FERRAMENTA EDUCATIVA</p>
+        <h2 id="calc-liquidacao-title">Simulador de Alavancagem</h2>
+        <p>Analise a posição real montada por aportes e cenários de preço do Bitcoin.</p>
+      </div>
+      <a href="calculadora-liquidacao-dca/?v=20260901-subtitulo" target="_blank" rel="noopener">ABRIR EM TELA CHEIA ↗</a>
+    </div>
+    <iframe
+      id="calcLiquidacaoFrame"
+      class="calc-liquidacao-frame"
+      src="calculadora-liquidacao-dca/?v=20260901-subtitulo"
+      title="Simulador de Alavancagem de Bitcoin"
+      loading="lazy"
+    ></iframe>
+  </div>
+</section>
+<script>
+(function () {
+  var frame = document.getElementById("calcLiquidacaoFrame");
+  if (!frame) return;
+  function resizeCalculator() {
+    try {
+      var doc = frame.contentDocument;
+      if (!doc) return;
+      var height = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
+      if (height >= 400 && height <= 10000) frame.style.height = Math.ceil(height + 8) + "px";
+    } catch (error) {}
+  }
+  frame.addEventListener("load", function () {
+    resizeCalculator();
+    window.setTimeout(resizeCalculator, 500);
+  });
+  window.addEventListener("resize", resizeCalculator);
+})();
+</script>
+
 <!-- FOOTER -->
 <footer class="container" style="margin-top:0;margin-bottom:24px;">
   <div style="background:#111;border-radius:20px;padding:36px 0 28px;text-align:center;">
