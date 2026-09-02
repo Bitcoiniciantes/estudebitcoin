@@ -145,15 +145,22 @@
           };
           // Calcular S/R dinâmico para todos os cryptos (suporte = menor low, resistência = maior high)
           if (window.DynamicSR && window.AlertEngine && klines.length >= 3) {
-            var candles = klines.map(function (row) {
-              return { high: Number(row[2]), low: Number(row[3]) };
-            });
-            var srResult = window.DynamicSR.calculateSR(candles);
-            if (srResult && window.PushSubscribe && window.PushSubscribe.isEnabled()) {
-              window.AlertEngine.unlockAudio();
-              window.AlertEngine.setAlertLevels(symbol, srResult.support, srResult.resistance);
-              if (symbol === 'BTC' && window.PushSubscribe && window.PushSubscribe.syncToWorker) {
-                window.PushSubscribe.syncToWorker(symbol, srResult.support, srResult.resistance, last);
+            // PATCH A: se DynamicSR está ativo para ESTE símbolo, o gráfico é a fonte de verdade
+            var srActive = window.DynamicSR.isActive() && window.DynamicSR.getSymbol() === symbol;
+            if (srActive) {
+              console.log('[SR TRACE] TICKER SKIPPED symbol=' + symbol + ' reason=GRAPH_ACTIVE');
+            } else {
+              var candles = klines.map(function (row) {
+                return { high: Number(row[2]), low: Number(row[3]) };
+              });
+              var srResult = window.DynamicSR.calculateSR(candles);
+              if (srResult) {
+                console.log('[SR TRACE] TICKER UPDATE symbol=' + symbol + ' support=' + srResult.support + ' resistance=' + srResult.resistance);
+                window.AlertEngine.unlockAudio();
+                window.AlertEngine.setAlertLevels(symbol, srResult.support, srResult.resistance);
+                if (symbol === 'BTC' && window.PushSubscribe && window.PushSubscribe.isEnabled() && window.PushSubscribe.syncToWorker) {
+                  window.PushSubscribe.syncToWorker(symbol, srResult.support, srResult.resistance, last);
+                }
               }
             }
           }
