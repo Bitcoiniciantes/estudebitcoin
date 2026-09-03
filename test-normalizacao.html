@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Teste de Normalização de Símbolos</title>
+</head>
+<body>
+  <h1>Teste de Normalização de Símbolos</h1>
+  <div id="resultado"></div>
+
+  <script src="assets/js/utils.js"></script>
+  <script src="assets/js/services/alertEngine.js"></script>
+  <script>
+    (function () {
+      var resultado = document.getElementById('resultado');
+      var testes = [
+        { input: 'BTC', esperado: 'BTC' },
+        { input: 'BTCUSDT', esperado: 'BTC' },
+        { input: 'btc', esperado: 'BTC' },
+        { input: 'btcusdt', esperado: 'BTC' },
+        { input: ' BTC ', esperado: 'BTC' },
+        { input: 'ETH', esperado: 'ETH' },
+        { input: 'ETHUSDT', esperado: 'ETH' },
+        { input: 'SOL', esperado: 'SOL' },
+        { input: 'SOLUSDT', esperado: 'SOL' }
+      ];
+
+      var html = '<h2>Testes de normalizeSymbol()</h2><ul>';
+      var erros = 0;
+
+      testes.forEach(function (teste) {
+        var resultado = window.BI.normalizeSymbol(teste.input);
+        var passou = resultado === teste.esperado;
+        if (!passou) erros++;
+        
+        html += '<li style="color: ' + (passou ? 'green' : 'red') + '">';
+        html += 'normalizeSymbol("' + teste.input + '") = "' + resultado + '" ';
+        html += passou ? '✓' : '✗ (esperado: "' + teste.esperado + '")';
+        html += '</li>';
+      });
+
+      html += '</ul>';
+
+      // Teste de AlertEngine com símbolos diferentes
+      html += '<h2>Testes de AlertEngine</h2><ul>';
+
+      window.AlertEngine.setAlertLevels('BTC', 10000, 20000, { source: 'GRAPH', timeframe: '1D' });
+      var levels1 = window.AlertEngine.getLevels('BTCUSDT');
+      
+      if (levels1 && levels1.support === 10000 && levels1.resistance === 20000 && levels1.source === 'GRAPH') {
+        html += '<li style="color: green">✓ BTC e BTCUSDT usam mesma chave</li>';
+      } else {
+        html += '<li style="color: red">✗ BTC e BTCUSDT NÃO usam mesma chave</li>';
+        erros++;
+      }
+
+      var hasUser1 = window.AlertEngine.hasUserDefinedLevels('btc');
+      var hasUser2 = window.AlertEngine.hasUserDefinedLevels('BTCUSDT');
+      
+      if (hasUser1 && hasUser2) {
+        html += '<li style="color: green">✓ hasUserDefinedLevels() funciona com btc e BTCUSDT</li>';
+      } else {
+        html += '<li style="color: red">✗ hasUserDefinedLevels() falhou</li>';
+        erros++;
+      }
+
+      // Teste de símbolos diferentes não coexistem
+      window.AlertEngine.setAlertLevels('ETH', 1000, 2000, { source: 'TICKER', timeframe: '1H' });
+      window.AlertEngine.setAlertLevels('ETHUSDT', 1500, 2500, { source: 'GRAPH', timeframe: '1D' });
+      
+      var ethLevels = window.AlertEngine.getLevels('ETH');
+      if (ethLevels && ethLevels.support === 1500 && ethLevels.source === 'GRAPH') {
+        html += '<li style="color: green">✓ ETHUSDT sobrescreveu ETH (mesma chave)</li>';
+      } else {
+        html += '<li style="color: red">✗ ETH e ETHUSDT coexistem como chaves diferentes</li>';
+        erros++;
+      }
+
+      html += '</ul>';
+      html += '<h2>Resultado Final: ' + (erros === 0 ? '<span style="color:green">PASS</span>' : '<span style="color:red">FAIL (' + erros + ' erros)</span>') + '</h2>';
+      
+      resultado.innerHTML = html;
+      
+      if (erros === 0) {
+        console.log('[TESTE] PASS - Normalização funcionando corretamente');
+      } else {
+        console.error('[TESTE] FAIL - ' + erros + ' testes falharam');
+      }
+    })();
+  </script>
+</body>
+</html>

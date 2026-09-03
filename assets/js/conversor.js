@@ -1271,9 +1271,13 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ── S/R Dinâmico ── */
   const srToggleBtn = document.getElementById('preev-sr-toggle');
   function getSRSymbol() {
-    if (externalAsset && externalAsset.kind === 'crypto') return externalAsset.symbol;
-    if (externalAsset && externalAsset.kind === 'stock') return null;
-    return selectLeft.value;
+    var rawSymbol;
+    if (externalAsset && externalAsset.kind === 'crypto') rawSymbol = externalAsset.symbol;
+    else if (externalAsset && externalAsset.kind === 'stock') return null;
+    else rawSymbol = selectLeft.value;
+    
+    // CORREÇÃO: Normalizar símbolo para garantir consistência
+    return window.BI && window.BI.normalizeSymbol ? window.BI.normalizeSymbol(rawSymbol) : rawSymbol;
   }
   if (srToggleBtn) srToggleBtn.addEventListener('click', () => {
     hideTooltip();

@@ -67,6 +67,9 @@ window.DynamicSR = (function () {
    * @returns {Object|null} - { support, resistance } ou null
    */
   function activate(symbol, candlesHistory, timeframe) {
+    // CORREÇÃO: Normalizar símbolo antes de usar
+    symbol = window.BI && window.BI.normalizeSymbol ? window.BI.normalizeSymbol(symbol) : symbol;
+    
     if (!symbol || !candlesHistory || !candlesHistory.length) return null;
 
     var result = calculateSR(candlesHistory);
@@ -132,6 +135,9 @@ window.DynamicSR = (function () {
    * Alterna estado ativo/inativo.
    */
   function toggle(symbol, candlesHistory, timeframe) {
+    // CORREÇÃO: Normalizar símbolo antes de usar
+    symbol = window.BI && window.BI.normalizeSymbol ? window.BI.normalizeSymbol(symbol) : symbol;
+    
     if (active && currentSymbol === symbol) {
       deactivate();
       return null;
@@ -228,6 +234,9 @@ window.DynamicSR = (function () {
    * Recalcula S/R para o novo ativo se estiver ativo.
    */
   function recalculate(symbol, candlesHistory, timeframe) {
+    // CORREÇÃO: Normalizar símbolo antes de usar
+    symbol = window.BI && window.BI.normalizeSymbol ? window.BI.normalizeSymbol(symbol) : symbol;
+    
     if (!active) return null;
     if (!symbol || !candlesHistory || candlesHistory.length < 2) {
       deactivate();

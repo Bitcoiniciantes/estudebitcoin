@@ -89,6 +89,22 @@ window.BI = (function () {
     obs.observe(el);
   }
 
+  /* ---------- Normalização de símbolos para S/R ---------- */
+  /**
+   * Normaliza símbolo para uso consistente no sistema de S/R e AlertEngine.
+   * Regras:
+   * - Remove espaços
+   * - Converte para uppercase
+   * - Remove sufixo USDT (BTC, BTCUSDT, eth, ethusdt → BTC, ETH)
+   * 
+   * OBJETIVO: BTC, BTCUSDT, btc, btcusdt representam o MESMO ativo lógico.
+   * UMA IDENTIDADE LÓGICA DE ATIVO = UMA CHAVE DE S/R.
+   */
+  function normalizeSymbol(symbol) {
+    if (!symbol || typeof symbol !== 'string') return '';
+    return symbol.trim().toUpperCase().replace(/USDT$/, '');
+  }
+
   return {
     formatUSD: formatUSD,
     formatBRL: formatBRL,
@@ -97,6 +113,7 @@ window.BI = (function () {
     fetchJSON: fetchJSON,
     loadScript: loadScript,
     loadScripts: loadScripts,
-    onVisible: onVisible
+    onVisible: onVisible,
+    normalizeSymbol: normalizeSymbol
   };
 })();

@@ -66,7 +66,53 @@ window.AlertEngine = (function () {
     this.audioUnlocked = true;
   };
 
+  /**
+   * Migra dados antigos com símbolos não-normalizados (ex: BTCUSDT → BTC).
+   * Consolida entradas duplicadas preservando autoridade USER_DEFINED.
+   */
+  AlertEngine.prototype.migrateSymbols = function () {
+    var normalize = window.BI && window.BI.normalizeSymbol ? window.BI.normalizeSymbol : function(s) { return s; };
+    var migrations = [];
+    var self = this;
+    
+    this.alerts.forEach(function (alert, key) {
+      var normalized = normalize(key);
+      if (normalized !== key) {
+        migrations.push({ old: key, new: normalized, alert: alert });
+      }
+    });
+    
+    migrations.forEach(function (migration) {
+      var existing = self.alerts.get(migration.new);
+      
+      // Se já existe registro normalizado, manter o com source=GRAPH (maior autoridade)
+      if (existing && existing.config) {
+        if (migration.alert.config.source === 'GRAPH' && existing.config.source !== 'GRAPH') {
+          // Antiga entrada tinha autoridade USER, substituir
+          self.alerts.set(migration.new, migration.alert);
+          console.log('[AlertEngine] Migração: substituindo ' + migration.new + ' com entrada GRAPH de ' + migration.old);
+        } else {
+          console.log('[AlertEngine] Migração: mantendo ' + migration.new + ' existente, descartando ' + migration.old);
+        }
+      } else {
+        // Não existe entrada normalizada, mover
+        self.alerts.set(migration.new, migration.alert);
+        console.log('[AlertEngine] Migração: movendo ' + migration.old + ' → ' + migration.new);
+      }
+      
+      // Remover entrada antiga
+      self.alerts.delete(migration.old);
+    });
+    
+    if (migrations.length > 0) {
+      console.log('[AlertEngine] Migração concluída: ' + migrations.length + ' símbolos normalizados');
+    }
+  };
+
   AlertEngine.prototype.setAlertLevels = function (symbol, support, resistance, metadata) {
+    // CORREÇÃO: Normalizar símbolo antes de usar como chave
+    symbol = window.BI && window.BI.normalizeSymbol ? window.BI.normalizeSymbol(symbol) : symbol;
+    
     if (!Number.isFinite(support) || !Number.isFinite(resistance)) return;
 
     metadata = metadata || {};
@@ -132,6 +178,9 @@ window.AlertEngine = (function () {
   };
 
   AlertEngine.prototype.onPriceUpdate = function (symbol, currentPrice) {
+    // CORREÇÃO: Normalizar símbolo antes de usar como chave
+    symbol = window.BI && window.BI.normalizeSymbol ? window.BI.normalizeSymbol(symbol) : symbol;
+    
     var alert = this.alerts.get(symbol);
 
     if (!alert || !alert.state || !alert.state.active) return;
@@ -220,6 +269,9 @@ window.AlertEngine = (function () {
   };
 
   AlertEngine.prototype.dismissVisualAlert = function (symbol) {
+    // CORREÇÃO: Normalizar símbolo antes de usar como chave
+    symbol = window.BI && window.BI.normalizeSymbol ? window.BI.normalizeSymbol(symbol) : symbol;
+    
     var alert = this.alerts.get(symbol);
     if (!alert || !alert.state) return;
 
@@ -237,6 +289,9 @@ window.AlertEngine = (function () {
    * Ticker não deve sobrescrever símbolos com autoridade USER_DEFINED.
    */
   AlertEngine.prototype.hasUserDefinedLevels = function (symbol) {
+    // CORREÇÃO: Normalizar símbolo antes de usar como chave
+    symbol = window.BI && window.BI.normalizeSymbol ? window.BI.normalizeSymbol(symbol) : symbol;
+    
     var alert = this.alerts.get(symbol);
     if (!alert || !alert.config) return false;
     return alert.config.source === 'GRAPH';
@@ -246,6 +301,9 @@ window.AlertEngine = (function () {
    * Retorna os níveis atuais do símbolo (para leitura).
    */
   AlertEngine.prototype.getLevels = function (symbol) {
+    // CORREÇÃO: Normalizar símbolo antes de usar como chave
+    symbol = window.BI && window.BI.normalizeSymbol ? window.BI.normalizeSymbol(symbol) : symbol;
+    
     var alert = this.alerts.get(symbol);
     if (!alert || !alert.config) return null;
     return {
@@ -257,11 +315,17 @@ window.AlertEngine = (function () {
   };
 
   AlertEngine.prototype.disable = function (symbol) {
+    // CORREÇÃO: Normalizar símbolo antes de usar como chave
+    symbol = window.BI && window.BI.normalizeSymbol ? window.BI.normalizeSymbol(symbol) : symbol;
+    
     this.alerts.delete(symbol);
     this.dismissVisualAlert(symbol);
   };
 
   AlertEngine.prototype.isEnabled = function (symbol) {
+    // CORREÇÃO: Normalizar símbolo antes de usar como chave
+    symbol = window.BI && window.BI.normalizeSymbol ? window.BI.normalizeSymbol(symbol) : symbol;
+    
     var alert = this.alerts.get(symbol);
     return !!(alert && alert.state && alert.state.active);
   };
@@ -292,3 +356,12 @@ function unlockAudioOnFirstInteraction() {
 }
 document.addEventListener('touchstart', unlockAudioOnFirstInteraction, { once: true });
 document.addEventListener('click', unlockAudioOnFirstInteraction, { once: true });
+
+// Executar migração de símbolos não-normalizados (uma única vez no carregamento)
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function () {
+    window.AlertEngine.migrateSymbols();
+  });
+} else {
+  window.AlertEngine.migrateSymbols();
+}

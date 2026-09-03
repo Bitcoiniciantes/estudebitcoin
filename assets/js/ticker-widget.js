@@ -145,13 +145,15 @@
           };
           // Calcular S/R dinâmico para todos os cryptos (suporte = menor low, resistência = maior high)
           if (window.DynamicSR && window.AlertEngine && klines.length >= 3) {
-            // CORREÇÃO 2: Verificar se símbolo possui níveis definidos pelo usuário
-            var hasUserLevels = window.AlertEngine.hasUserDefinedLevels(symbol);
+            // CORREÇÃO: Normalizar símbolo antes de verificar autoridade
+            var normalizedSymbol = window.BI && window.BI.normalizeSymbol ? window.BI.normalizeSymbol(symbol) : symbol;
+            var hasUserLevels = window.AlertEngine.hasUserDefinedLevels(normalizedSymbol);
             
             if (hasUserLevels) {
-              var userLevels = window.AlertEngine.getLevels(symbol);
+              var userLevels = window.AlertEngine.getLevels(normalizedSymbol);
               console.log('[SR-TRACE] TICKER SKIPPED', {
-                symbol: symbol,
+                symbol: normalizedSymbol,
+                originalSymbol: symbol,
                 reason: 'USER_DEFINED_LEVELS',
                 source: userLevels ? userLevels.source : 'unknown',
                 timeframe: userLevels ? userLevels.timeframe : 'unknown'
@@ -163,19 +165,20 @@
               var srResult = window.DynamicSR.calculateSR(candles);
               if (srResult) {
                 console.log('[SR-TRACE] TICKER UPDATE', {
-                  symbol: symbol,
+                  symbol: normalizedSymbol,
+                  originalSymbol: symbol,
                   support: srResult.support,
                   resistance: srResult.resistance,
                   source: 'TICKER',
                   timeframe: cfg.interval
                 });
                 window.AlertEngine.unlockAudio();
-                window.AlertEngine.setAlertLevels(symbol, srResult.support, srResult.resistance, {
+                window.AlertEngine.setAlertLevels(normalizedSymbol, srResult.support, srResult.resistance, {
                   source: 'TICKER',
                   timeframe: cfg.interval
                 });
-                if (symbol === 'BTC' && window.PushSubscribe && window.PushSubscribe.isEnabled() && window.PushSubscribe.syncToWorker) {
-                  window.PushSubscribe.syncToWorker(symbol, srResult.support, srResult.resistance, last);
+                if (normalizedSymbol === 'BTC' && window.PushSubscribe && window.PushSubscribe.isEnabled() && window.PushSubscribe.syncToWorker) {
+                  window.PushSubscribe.syncToWorker(normalizedSymbol, srResult.support, srResult.resistance, last);
                 }
               }
             }
