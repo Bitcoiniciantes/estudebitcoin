@@ -11,9 +11,11 @@
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `assets/js/services/alertEngine.js` | Singleton global `window.AlertEngine`. Crossover S/R, cooldown 120s, beep (Web Audio), vibrate, CustomEvents `PriceAlertTriggered` / `PriceAlertDismissed` |
-| `assets/js/ticker-widget.js` | Alimenta AlertEngine com precos ao vivo (a cada 10s). Busca candles, calcula S/R via `window.DynamicSR`, renderiza sino e flash visual |
-| `assets/js/chart/dynamicSR.js` | Calcula suporte/resistencia dinamicamente a partir de candles |
+| `assets/js/utils.js` | Utilidades compartilhadas incluindo `normalizeSymbol()` (trim + uppercase + remove USDT) |
+| `assets/js/services/alertEngine.js` | Singleton global `window.AlertEngine`. Crossover S/R, cooldown 120s, beep (Web Audio), vibrate, CustomEvents `PriceAlertTriggered` / `PriceAlertDismissed`. Autoridade persistente por símbolo (config.source: GRAPH/TICKER). Normalização de símbolos em todos os métodos. Migração automática de dados antigos. |
+| `assets/js/ticker-widget.js` | Alimenta AlertEngine com precos ao vivo via WebSocket Binance. Busca candles, calcula S/R via `window.DynamicSR`, renderiza sino e flash visual nos cards. Respeita autoridade USER_DEFINED (hasUserDefinedLevels). Normalização de símbolos. Push exclusivo para BTC. |
+| `assets/js/chart/dynamicSR.js` | Calcula suporte/resistencia dinamicamente a partir de candles. Marca source=GRAPH ao ativar/recalcular. Normalização de símbolos. |
+| `assets/js/conversor.js` | Gráfico de preços. getSRSymbol() retorna símbolo normalizado. |
 | `assets/js/push-config.js` | Exporta `window.PushConfig` com `VAPID_PUBLIC_KEY` e `WORKER_URL` |
 | `assets/js/push-subscribe.js` | Botao "Ativar alertas". `pushEnabled` = unica autoridade de ativacao/desativacao. Persiste em localStorage. `toggle()` liga/desliga. `subscribe()` cria push subscription + Worker ID. `unsubscribe()` chama `POST /unsubscribe?id=` no Worker. `syncToWorker()` sincroniza niveis S/R (throttle: dedup 0.1% + intervalo 5min por symbol). Exporta `window.PushSubscribe` |
 | `sw.js` | Service Worker: recebe push, mostra notificacao, `notificationclick` foca ou abre janela |
@@ -23,10 +25,10 @@
 ### Ordem de carregamento (index.html)
 
 ```
-1. config.js → utils.js
-2. services/alertEngine.js  (deve ser antes do ticker)
-3. chart/dynamicSR.js       (deve ser antes do ticker)
-4. ticker-widget.js          (consome AlertEngine + DynamicSR)
+1. config.js → utils.js  (utils.js exporta normalizeSymbol)
+2. services/alertEngine.js  (usa normalizeSymbol, deve ser antes do ticker)
+3. chart/dynamicSR.js       (usa normalizeSymbol, deve ser antes do ticker)
+4. ticker-widget.js          (usa normalizeSymbol, consome AlertEngine + DynamicSR)
 5. push-config.js            (depois do ticker)
 6. push-subscribe.js         (depois do config)
 7. navigator.serviceWorker.register('/sw.js')
@@ -223,3 +225,321 @@ node_modules/
 - UI de gestao de alertas (criar/editar/excluir)
 - Tipos de alerta alem de S/R (ex: % variacao, noticia)
 - Testes em Android/Desktop
+
+---
+
+## 5. Histórico de Correções (Set 2026)
+
+### Fase 7 — Normalização de Símbolos (2026-09-03)
+
+**Data:** 2026-09-03  
+**Commits:** `1dfca4b`, `a743b8c`
+
+#### Problema Encontrado
+BTC e BTCUSDT coexistiam como entidades diferentes no `AlertEngine.alerts` Map, causando falha na proteção contra sobrescrita do ticker.
+
+**Sintomas:**
+- Ticker configurava `BTC` com `source='TICKER'`
+- Gráfico configurava `BTCUSDT` com `source='GRAPH'`
+- `hasUserDefinedLevels('BTC')` retornava `false` porque registro estava em `'BTCUSDT'`
+- Ticker continuava sobrescrevendo níveis configurados pelo usuário
+
+#### Causa Raiz
+1. **Inconsistência de chaves:** Diferentes partes do sistema usavam `'BTC'` ou `'BTCUSDT'` sem normalização
+2. **Bug no setAlertLevels():** Linha 125-128 retornava cedo quando níveis eram idênticos (tolerância 0.1%), ANTES de verificar se `source` mudou de `TICKER` → `GRAPH`
+
+#### Correção Aplicada
+
+**1. Normalização Centralizada (`assets/js/utils.js`):**
+```javascript
+function normalizeSymbol(symbol) {
+  if (!symbol || typeof symbol !== 'string') return '';
+  return symbol.trim().toUpperCase().replace(/USDT$/, '');
+}
+```
+Exportada como `window.BI.normalizeSymbol()`.
+
+**2. Aplicada em AlertEngine (`assets/js/services/alertEngine.js`):**
+- `setAlertLevels(symbol, ...)` — normaliza symbol antes de usar como chave
+- `hasUserDefinedLevels(symbol)` — normaliza symbol
+- `getLevels(symbol)` — normaliza symbol
+- `onPriceUpdate(symbol, ...)` — normaliza symbol
+- `disable(symbol)` — normaliza symbol
+- `isEnabled(symbol)` — normaliza symbol
+- `dismissVisualAlert(symbol)` — normaliza symbol
+
+**3. Aplicada em DynamicSR (`assets/js/chart/dynamicSR.js`):**
+- `activate(symbol, ...)` — normaliza symbol
+- `recalculate(symbol, ...)` — normaliza symbol
+- `toggle(symbol, ...)` — normaliza symbol
+
+**4. Aplicada em Ticker (`assets/js/ticker-widget.js`):**
+- Normaliza symbol antes de `hasUserDefinedLevels()` e `setAlertLevels()`
+
+**5. Aplicada em Conversor (`assets/js/conversor.js`):**
+- `getSRSymbol()` retorna símbolo normalizado
+
+**6. Upgrade de Autoridade (`assets/js/services/alertEngine.js`):**
+```javascript
+// Antes: retornava cedo se níveis idênticos
+if (sameSupport && sameResistance) return;
+
+// Depois: permite upgrade TICKER→GRAPH
+if (sameSupport && sameResistance) {
+  var isAuthorityUpgrade = existing.config.source === 'TICKER' && source === 'GRAPH';
+  if (!isAuthorityUpgrade) {
+    return; // Só retorna se não for upgrade
+  }
+}
+```
+
+**7. Migração Automática (`assets/js/services/alertEngine.js`):**
+```javascript
+AlertEngine.prototype.migrateSymbols = function () {
+  // Consolida entradas antigas BTCUSDT → BTC
+  // Preserva source=GRAPH (maior autoridade)
+  // Executada automaticamente no DOMContentLoaded
+};
+```
+
+#### Arquivos Alterados
+- `assets/js/utils.js` (normalizeSymbol + export)
+- `assets/js/services/alertEngine.js` (normalização em 7 métodos + upgrade autoridade + migração)
+- `assets/js/chart/dynamicSR.js` (normalização em 3 métodos)
+- `assets/js/ticker-widget.js` (normalização antes de verificações)
+- `assets/js/conversor.js` (normalização em getSRSymbol)
+
+#### Comportamento Esperado
+- `BTC`, `BTCUSDT`, `btc`, `btcusdt` → todos normalizam para `'BTC'`
+- `AlertEngine.alerts.get('BTC')` retorna mesmo registro independente da variação
+- Ticker configura níveis com `source='TICKER'`
+- Gráfico faz upgrade para `source='GRAPH'` (mesmo com níveis idênticos)
+- `hasUserDefinedLevels('BTC')` retorna `true` após configuração pelo gráfico
+- Ticker respeita autoridade e pula atualização (log `TICKER SKIPPED`)
+
+#### Testes Realizados
+**Teste Crítico (test-validacao-sr.mjs):** ✅ PASS
+- BTC configurado pelo gráfico (source='GRAPH', timeframe='1H')
+- Aguardou 35s (7 ciclos ticker)
+- `TICKER SKIPPED` apareceu 7 vezes para BTC
+- `TICKER UPDATE` apareceu 0 vezes para BTC
+- Níveis permaneceram idênticos após trocar gráfico para ETH
+- source permaneceu 'GRAPH'
+
+**Teste Complementar (test-sol-ticker.mjs):** ✅ PASS
+- SOL (nunca configurado pelo gráfico)
+- Recebeu níveis TICKER automaticamente (source='TICKER')
+- Confirmação: ticker funciona para ativos não-configurados
+
+---
+
+### Fase 8 — Alertas dos Cards (2026-09-03)
+
+**Data:** 2026-09-03  
+**Commit:** `a2bee7b`
+
+#### Problema Encontrado
+Cards não emitiam som ao atingir S/R configurado pelo ticker porque `onPriceUpdate()` só era chamado se `PushSubscribe.isEnabled()` fosse `true`.
+
+**Sintoma:**
+```javascript
+// ticker-widget.js linha 248 (ANTES):
+if (isCrypto(symbol) && window.AlertEngine && window.PushSubscribe && window.PushSubscribe.isEnabled()) {
+  window.AlertEngine.onPriceUpdate(symbol, price);
+}
+```
+
+AlertEngine só recebia preços se Push estivesse ATIVADO, impedindo alertas locais funcionarem independentemente.
+
+#### Causa Raiz
+Dependência incorreta: alertas sonoros locais foram condicionados à ativação de Push por engano. Push e alertas locais são funcionalidades independentes.
+
+#### Correção Aplicada
+
+**Remoção de Dependência (`assets/js/ticker-widget.js` linha 248):**
+```javascript
+// DEPOIS:
+if (isCrypto(symbol) && window.AlertEngine) {
+  window.AlertEngine.onPriceUpdate(symbol, price);
+}
+```
+
+AlertEngine agora recebe preços SEMPRE, independente de Push.
+
+#### Arquivos Alterados
+- `assets/js/ticker-widget.js` (linha 248)
+
+#### Mecanismo de Áudio (já existente, não alterado)
+
+**Web Audio API (`assets/js/services/alertEngine.js`):**
+```javascript
+function playBeep(self) {
+  var ctx = getAudioCtx(self);
+  // ...
+  osc.type = 'sine';
+  osc.frequency.value = 880;  // 880Hz (nota Lá)
+  gain.gain.setValueAtTime(0.3, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.3);
+}
+```
+
+**Desbloqueio Automático:**
+```javascript
+function unlockAudioOnFirstInteraction() {
+  window.AlertEngine.unlockAudio();
+  // Remove listeners após primeiro toque
+}
+document.addEventListener('touchstart', unlockAudioOnFirstInteraction, { once: true });
+document.addEventListener('click', unlockAudioOnFirstInteraction, { once: true });
+```
+
+**Cooldown:** 2 minutos por símbolo/direção (evita spam)
+
+**Vibração Mobile:** 200ms quando alerta dispara
+
+#### Comportamento Esperado
+
+**Fluxo Completo:**
+1. WebSocket Binance → `updateLivePrice(symbol, price)`
+2. `AlertEngine.onPriceUpdate(symbol, price)` [AGORA SEM DEPENDÊNCIA DE PUSH]
+3. Detecção de cruzamento S/R (`armedSupport`/`armedResistance`)
+4. `AlertEngine.trigger(symbol, direction, price, level)`
+5. `playBeep()` + `navigator.vibrate()` [SE cooldown OK]
+6. `CustomEvent('PriceAlertTriggered', { symbol, direction, price, level })`
+7. `ticker-widget.js` → `applyAlertVisual(symbol, true, direction)`
+8. Card recebe classe `alert-triggered` + sino animado + label S/R
+
+**Separação Push vs SOM:**
+- **SOM:** TODOS os ativos (BTC, ETH, SOL, LINK, etc.) via `AlertEngine.trigger()`
+- **Push:** EXCLUSIVO BTC (linha 177-179 ticker-widget.js):
+  ```javascript
+  if (normalizedSymbol === 'BTC' && window.PushSubscribe && window.PushSubscribe.isEnabled() && window.PushSubscribe.syncToWorker) {
+    window.PushSubscribe.syncToWorker(normalizedSymbol, srResult.support, srResult.resistance, last);
+  }
+  ```
+
+#### Testes Realizados
+
+**Teste Automatizado (test-alertas-cards.mjs):** ✅ INFRAESTRUTURA CONFIRMADA
+- Aplicação aberta
+- Áudio desbloqueado (click na página)
+- ETH níveis TICKER configurados (support: 2356.41, resistance: 2429)
+- Simulação de cruzamento support/resistance via JavaScript
+- BTC níveis GRAPH configurados
+- `onPriceUpdate()` confirmado funcionar sem Push
+
+**Teste Manual:** ✅ SOM CONFIRMADO
+- Usuário relatou: "eu ouvi o áudio de SOL"
+- Confirmação: alerta sonoro funciona em cruzamento real de S/R
+
+**Status de Validação:**
+- ⏳ **PENDENTE:** Teste formal de Support (cruzamento real via WebSocket)
+- ⏳ **PENDENTE:** Teste formal de Resistance (cruzamento real via WebSocket)
+- ⏳ **PENDENTE:** BTC SOM (cruzamento real via WebSocket)
+- ⏳ **PENDENTE:** BTC PUSH (cruzamento real via WebSocket)
+- ✅ **CONFIRMADO:** Outros ativos Push = ZERO (código: Push só em linha 177 para BTC)
+- ✅ **CONFIRMADO:** SOL SOM funciona (relato do usuário)
+
+---
+
+## 6. Regras Funcionais Finais
+
+### Autoridade de S/R
+
+| Cenário | Comportamento |
+|---------|---------------|
+| Ativo nunca configurado pelo gráfico | Ticker configura S/R com `source='TICKER'` |
+| Usuário ativa S/R no gráfico | DynamicSR configura S/R com `source='GRAPH'` |
+| Ticker tenta atualizar ativo com `source='GRAPH'` | `hasUserDefinedLevels()` retorna `true` → `TICKER SKIPPED` |
+| Usuário troca gráfico para outro ativo | S/R do ativo anterior permanece protegido (`source='GRAPH'`) |
+| Níveis TICKER e GRAPH idênticos | Permite upgrade `TICKER→GRAPH` (atualiza source) |
+
+### Normalização de Símbolos
+
+| Input | Output |
+|-------|--------|
+| `'BTC'` | `'BTC'` |
+| `'BTCUSDT'` | `'BTC'` |
+| `'btc'` | `'BTC'` |
+| `'btcusdt'` | `'BTC'` |
+| `' BTC '` | `'BTC'` |
+| `'ETH'`, `'ETHUSDT'`, `'eth'`, `'ethusdt'` | `'ETH'` |
+
+**Regra:** `trim()` + `toUpperCase()` + `replace(/USDT$/, '')`
+
+**Aplicação:** TODOS os métodos de AlertEngine, DynamicSR, ticker-widget, conversor.
+
+### Alertas Sonoros (Cards)
+
+| Ativo | SOM ao atingir S/R | Push ao atingir S/R |
+|-------|-------------------|---------------------|
+| BTC | ✅ SIM | ✅ SIM (se Push ativado) |
+| ETH | ✅ SIM | ❌ NÃO |
+| SOL | ✅ SIM | ❌ NÃO |
+| LINK | ✅ SIM | ❌ NÃO |
+| RENDER | ✅ SIM | ❌ NÃO |
+| AVAX | ✅ SIM | ❌ NÃO |
+| PAXG | ✅ SIM | ❌ NÃO |
+| USDT-BRL | ✅ SIM | ❌ NÃO |
+
+**Mecanismo:**
+- SOM: `AlertEngine.trigger()` → `playBeep()` (Web Audio 880Hz, 0.3s)
+- Push: `ticker-widget.js` linha 177-179, condicional `symbol === 'BTC'`
+- Cooldown: 2min por símbolo/direção
+- Rearme: automático quando preço volta pra dentro da faixa
+- Visual: card recebe classe `alert-triggered` + sino animado + label S/R
+
+### Separação de Responsabilidades
+
+| Componente | Responsabilidade |
+|------------|------------------|
+| `AlertEngine` | Motor de alertas local (crossover, som, vibração, eventos) |
+| `DynamicSR` | Cálculo de S/R do gráfico, marca `source='GRAPH'` |
+| `ticker-widget` | Alimenta AlertEngine com preços, calcula S/R ticker (`source='TICKER'`), visual dos cards |
+| `push-subscribe` | Sincroniza níveis BTC com Worker (Push exclusivo) |
+| `Worker Cron` | Alertas em background (PWA fechado), Push para subscriptions |
+
+### Identidade Lógica
+
+**UMA IDENTIDADE LÓGICA DE ATIVO = UMA CHAVE DE S/R**
+
+`BTC` e `BTCUSDT` **NUNCA** coexistem como ativos diferentes dentro do motor de S/R.
+
+---
+
+## 7. Auditoria P0 — Alertas Falsos de BTC (EM ANDAMENTO — 2026-09-03)
+
+> Regra da auditoria: **provar QUEM dispara e com quais dados antes de corrigir.** Não alterar normalização, autoridade GRAPH>TICKER, cooldown/histerese, timeframe ou candles enquanto a cadeia causal não for provada com ocorrência real. Não declarar causa raiz sem evidência.
+
+### Instrumentação (commits)
+- `65cf7ba` — logs `[BTC ALERT TRACE]` em ticker-widget (PREÇO RECEBIDO) e alertEngine (INICIALIZAÇÃO / VERIFICAÇÃO / DISPARO TENTADO para TODOS os ativos).
+- `3d67ed5` — ring buffer `window.__BTC_TRACE__` (2000 eventos) + `window.__TRACE_DUMP__()` (JSON completo, sem truncamento do console). Uso após incidente: `copy(__TRACE_DUMP__())`.
+
+### Sintomas (ocorrência 2026-09-02 23:24–23:32 BRT)
+- 23:24 "cruzou R" → apitou; 2º cruzamento 23:24 → bloqueado (cooldown OK); 23:28 "cruzou R" → apitou "sininho"; até 23:32 nenhum push no mobile.
+
+### Evidências encontradas (arquivo → linha)
+1. Preço client íntegro: mesma variável WS→`onPriceUpdate` (ticker-widget.js L240–265). Cat. A sem evidência.
+2. **Rearm SEM histerese no client:** `currentPrice < config.resistance` rearms direto (alertEngine.js L249–261), sem banda `*(1−pct)`. Instrumentação documenta 0.15% mas o código não aplica.
+3. `setAlertLevels` reseta `armed=true` + estado a cada mudança de nível (alertEngine.js L158–167).
+4. Cooldown client real = 120000ms por símbolo/direção (alertEngine.js L304).
+5. **Níveis GRAPH nunca chegam ao Worker:** `syncToWorker()` só é chamado no branch TICKER (ticker-widget.js L180–182); DynamicSR GRAPH (dynamicSR.js L116/L281) não sincroniza. Com BTC GRAPH, o `alert:BTC` do Worker fica congelado no último nível TICKER.
+6. Worker do repo (v6.1.0) rearms sem banda (index.js L500–505) e **não tem cooldown timer** (só flag triggered).
+7. **Worker deployado ≠ repo:** health responde `version 7.0.0` (repo = 6.1.0). Deploys 2026-08-31, fonte do v7 fora do repo.
+8. **KV produção VAZIO:** `ALERTAS_KV` (`67cf3ab4…`) com 0 chaves (sem `alert:BTC`/`cron:index`/`cron:states`/subs). Probe `/subscribe` retornou `ok:true` sem persistir nada (3 namespaces da conta, todos vazios) ⇒ **push no mobile impossível hoje**.
+
+### Análise da janela 23:28:12–23:29:33 UTC
+- Único `DISPARO TENTADO`: **PAXG resistance 02:28:22.046Z (=23:28:22 BRT)**. BTC: zero disparos apesar de cruzar R≈77.559 (02:28:32: 77550.8→77560 etc.) ⇒ nível R do motor ≠ nível exibido no gráfico naquele instante (indício Cat. B) OU estado impedia.
+- "Sininho" das 23:28 tem correspondência objetiva no DISPARO de PAXG → hipótese de atribuição errada de ativo (som global, usuário vendo gráfico BTC).
+
+### Classificação parcial (sem causa raiz final)
+- A descartado na janela · B candidato forte (motor≠gráfico; sync GRAPH→Worker inexistente) · D defeito estático provado (rearm sem banda client+worker) · F não ocorreu (push impossível — KV vazio) · G possível (PAXG 23:28:22).
+
+### Pendências
+1. Capturar próxima ocorrência com `copy(__TRACE_DUMP__())` + anotar qual card acendeu.
+2. Obter fonte do worker v7.0.0 (quem deployou em 2026-08-31) e seu storage.
+3. Detalhes completos em `AUDITORIA_P0_ALERTAS_FALSOS_BTC.md`.
+
+
