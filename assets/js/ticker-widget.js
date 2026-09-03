@@ -244,7 +244,8 @@
       if (quoteData[symbol]) quoteData[symbol].volume = volume;
     }
     // Fase C: alimentar motor de alertas S/R Dinâmico (apenas criptos)
-    if (isCrypto(symbol) && window.AlertEngine && window.PushSubscribe && window.PushSubscribe.isEnabled()) {
+    // CORREÇÃO: AlertEngine deve funcionar INDEPENDENTE de Push
+    if (isCrypto(symbol) && window.AlertEngine) {
       window.AlertEngine.onPriceUpdate(symbol, price);
     }
     if (activeTab !== "crypto") return;
