@@ -145,19 +145,35 @@
           };
           // Calcular S/R dinâmico para todos os cryptos (suporte = menor low, resistência = maior high)
           if (window.DynamicSR && window.AlertEngine && klines.length >= 3) {
-            // PATCH A: se DynamicSR está ativo para ESTE símbolo, o gráfico é a fonte de verdade
-            var srActive = window.DynamicSR.isActive() && window.DynamicSR.getSymbol() === symbol;
-            if (srActive) {
-              console.log('[SR TRACE] TICKER SKIPPED symbol=' + symbol + ' reason=GRAPH_ACTIVE');
+            // CORREÇÃO 2: Verificar se símbolo possui níveis definidos pelo usuário
+            var hasUserLevels = window.AlertEngine.hasUserDefinedLevels(symbol);
+            
+            if (hasUserLevels) {
+              var userLevels = window.AlertEngine.getLevels(symbol);
+              console.log('[SR-TRACE] TICKER SKIPPED', {
+                symbol: symbol,
+                reason: 'USER_DEFINED_LEVELS',
+                source: userLevels ? userLevels.source : 'unknown',
+                timeframe: userLevels ? userLevels.timeframe : 'unknown'
+              });
             } else {
               var candles = klines.map(function (row) {
                 return { high: Number(row[2]), low: Number(row[3]) };
               });
               var srResult = window.DynamicSR.calculateSR(candles);
               if (srResult) {
-                console.log('[SR TRACE] TICKER UPDATE symbol=' + symbol + ' support=' + srResult.support + ' resistance=' + srResult.resistance);
+                console.log('[SR-TRACE] TICKER UPDATE', {
+                  symbol: symbol,
+                  support: srResult.support,
+                  resistance: srResult.resistance,
+                  source: 'TICKER',
+                  timeframe: cfg.interval
+                });
                 window.AlertEngine.unlockAudio();
-                window.AlertEngine.setAlertLevels(symbol, srResult.support, srResult.resistance);
+                window.AlertEngine.setAlertLevels(symbol, srResult.support, srResult.resistance, {
+                  source: 'TICKER',
+                  timeframe: cfg.interval
+                });
                 if (symbol === 'BTC' && window.PushSubscribe && window.PushSubscribe.isEnabled() && window.PushSubscribe.syncToWorker) {
                   window.PushSubscribe.syncToWorker(symbol, srResult.support, srResult.resistance, last);
                 }
@@ -377,6 +393,19 @@
     var detail = event.detail;
     if (detail && detail.symbol) {
       applyAlertVisual(detail.symbol, false);
+    }
+  });
+
+  // CORREÇÃO 6: Handler permanente do sino
+  grid.addEventListener("click", function (event) {
+    var bellEl = event.target.closest(".tq-bell");
+    if (bellEl) {
+      event.stopPropagation(); // Evitar clique no card pai
+      var symbol = bellEl.getAttribute("data-bell");
+      if (window.AlertEngine && window.AlertEngine.dismissVisualAlert) {
+        window.AlertEngine.dismissVisualAlert(symbol);
+      }
+      return;
     }
   });
 

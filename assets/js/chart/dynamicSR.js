@@ -97,15 +97,23 @@ window.DynamicSR = (function () {
       SUPORTE: result.support
     });
 
-    // Desbloquear áudio
-    if (window.PushSubscribe && window.PushSubscribe.isEnabled()) {
-      window.AlertEngine.unlockAudio();
-    }
+    console.log('[SR-TRACE] GRAPH activate', {
+      source: 'GRAPH',
+      symbol: symbol,
+      support: result.support,
+      resistance: result.resistance,
+      timeframe: timeframe,
+      timestamp: Date.now()
+    });
 
-    // Registrar no motor de alertas (só se push ativo)
-    if (window.PushSubscribe && window.PushSubscribe.isEnabled()) {
-      window.AlertEngine.setAlertLevels(symbol, result.support, result.resistance);
-    }
+    // Desbloquear áudio
+    window.AlertEngine.unlockAudio();
+
+    // CORREÇÃO 4: Registrar no motor de alertas com source=GRAPH
+    window.AlertEngine.setAlertLevels(symbol, result.support, result.resistance, {
+      source: 'GRAPH',
+      timeframe: timeframe
+    });
 
     return { support: result.support, resistance: result.resistance };
   }
@@ -249,9 +257,22 @@ window.DynamicSR = (function () {
       SUPORTE: result.support
     });
 
-    if (window.PushSubscribe && window.PushSubscribe.isEnabled()) {
+    console.log('[SR-TRACE] GRAPH recalculate', {
+      source: 'GRAPH',
+      symbol: symbol,
+      support: result.support,
+      resistance: result.resistance,
+      timeframe: timeframe,
+      timestamp: Date.now()
+    });
+
+    if (window.AlertEngine) {
       window.AlertEngine.unlockAudio();
-      window.AlertEngine.setAlertLevels(symbol, result.support, result.resistance);
+      // CORREÇÃO 4: Registrar no motor de alertas com source=GRAPH
+      window.AlertEngine.setAlertLevels(symbol, result.support, result.resistance, {
+        source: 'GRAPH',
+        timeframe: timeframe
+      });
     }
     return { support: result.support, resistance: result.resistance };
   }

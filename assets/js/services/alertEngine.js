@@ -66,28 +66,65 @@ window.AlertEngine = (function () {
     this.audioUnlocked = true;
   };
 
-  AlertEngine.prototype.setAlertLevels = function (symbol, support, resistance) {
+  AlertEngine.prototype.setAlertLevels = function (symbol, support, resistance, metadata) {
     if (!Number.isFinite(support) || !Number.isFinite(resistance)) return;
 
-    // Se já existe alerta com mesmos níveis, não resetar estado
+    metadata = metadata || {};
+    var source = metadata.source || 'UNKNOWN';
+    var timeframe = metadata.timeframe || null;
+
     var existing = this.alerts.get(symbol);
-    if (existing && existing.active) {
-      var sameSupport = Math.abs(existing.support - support) < support * 0.001;
-      var sameResistance = Math.abs(existing.resistance - resistance) < resistance * 0.001;
+
+    // Se já existe alerta com mesmos níveis (tolerância 0.1%), não alterar
+    if (existing && existing.config) {
+      var sameSupport = Math.abs(existing.config.support - support) < support * 0.001;
+      var sameResistance = Math.abs(existing.config.resistance - resistance) < resistance * 0.001;
       if (sameSupport && sameResistance) return;
     }
 
-    this.alerts.set(symbol, {
+    console.log('[SR-TRACE] ALERT_ENGINE setAlertLevels', {
+      symbol: symbol,
       support: support,
       resistance: resistance,
-      active: true,
-      supportTriggered: false,
-      resistanceTriggered: false,
-      armedSupport: true,
-      armedResistance: true,
-      lastPrice: existing ? existing.lastPrice : null,
-      visualAlert: false
+      source: source,
+      timeframe: timeframe,
+      timestamp: Date.now()
     });
+
+    // Separar configuração de estado runtime
+    var newAlert = {
+      config: {
+        support: support,
+        resistance: resistance,
+        source: source,
+        timeframe: timeframe,
+        updatedAt: Date.now()
+      },
+      state: {
+        active: true,
+        lastPrice: existing && existing.state ? existing.state.lastPrice : null,
+        resistanceTriggered: false,
+        supportTriggered: false,
+        armedSupport: true,
+        armedResistance: true,
+        visualAlert: existing && existing.state ? existing.state.visualAlert : false
+      }
+    };
+
+    // Preservar visualAlert se níveis mudaram mas alerta ainda está ativo
+    // (atualização legítima não deve destruir estado visual)
+    if (existing && existing.state && existing.state.visualAlert) {
+      // Se a divergência for grande (>5%), consideramos uma reconfiguração completa
+      var largeChange = existing.config && (
+        Math.abs(existing.config.support - support) > support * 0.05 ||
+        Math.abs(existing.config.resistance - resistance) > resistance * 0.05
+      );
+      if (!largeChange) {
+        newAlert.state.visualAlert = true;
+      }
+    }
+
+    this.alerts.set(symbol, newAlert);
 
     if (!this.lastSoundAt[symbol]) {
       this.lastSoundAt[symbol] = { resistance: 0, support: 0 };
@@ -95,55 +132,57 @@ window.AlertEngine = (function () {
   };
 
   AlertEngine.prototype.onPriceUpdate = function (symbol, currentPrice) {
-    if (!this.isPushEnabled()) return;
     var alert = this.alerts.get(symbol);
 
-    if (!alert || !alert.active) return;
+    if (!alert || !alert.state || !alert.state.active) return;
     if (!Number.isFinite(currentPrice)) return;
 
+    var state = alert.state;
+    var config = alert.config;
+
     // Proteção contra disparo imediato (Seção 9)
-    if (alert.lastPrice === null) {
-      alert.lastPrice = currentPrice;
+    if (state.lastPrice === null) {
+      state.lastPrice = currentPrice;
       return;
     }
 
-    var previousPrice = alert.lastPrice;
+    var previousPrice = state.lastPrice;
 
     // Rearme (Seção 8 & 10) + desligar alerta visual quando preço se afasta
-    if (currentPrice < alert.resistance) {
-      if (!alert.armedResistance && alert.visualAlert) {
+    if (currentPrice < config.resistance) {
+      if (!state.armedResistance && state.visualAlert) {
         this.dismissVisualAlert(symbol);
       }
-      alert.armedResistance = true;
+      state.armedResistance = true;
     }
-    if (currentPrice > alert.support) {
-      if (!alert.armedSupport && alert.visualAlert) {
+    if (currentPrice > config.support) {
+      if (!state.armedSupport && state.visualAlert) {
         this.dismissVisualAlert(symbol);
       }
-      alert.armedSupport = true;
+      state.armedSupport = true;
     }
 
     // Rompimento de resistência
     if (
-      alert.armedResistance &&
-      previousPrice < alert.resistance &&
-      currentPrice >= alert.resistance
+      state.armedResistance &&
+      previousPrice < config.resistance &&
+      currentPrice >= config.resistance
     ) {
-      alert.armedResistance = false;
-      this.trigger(symbol, 'resistance', currentPrice, alert.resistance);
+      state.armedResistance = false;
+      this.trigger(symbol, 'resistance', currentPrice, config.resistance);
     }
 
     // Rompimento de suporte
     if (
-      alert.armedSupport &&
-      previousPrice > alert.support &&
-      currentPrice <= alert.support
+      state.armedSupport &&
+      previousPrice > config.support &&
+      currentPrice <= config.support
     ) {
-      alert.armedSupport = false;
-      this.trigger(symbol, 'support', currentPrice, alert.support);
+      state.armedSupport = false;
+      this.trigger(symbol, 'support', currentPrice, config.support);
     }
 
-    alert.lastPrice = currentPrice;
+    state.lastPrice = currentPrice;
   };
 
   AlertEngine.prototype.updateArmingState = function (alert, currentPrice) {
@@ -152,11 +191,10 @@ window.AlertEngine = (function () {
   };
 
   AlertEngine.prototype.trigger = function (symbol, direction, price, level) {
-    if (!this.isPushEnabled()) return;
     var alert = this.alerts.get(symbol);
-    if (!alert) return;
+    if (!alert || !alert.state) return;
 
-    alert.visualAlert = true;
+    alert.state.visualAlert = true;
 
     // Cooldown de 2min por símbolo/direção
     var now = Date.now();
@@ -183,15 +221,39 @@ window.AlertEngine = (function () {
 
   AlertEngine.prototype.dismissVisualAlert = function (symbol) {
     var alert = this.alerts.get(symbol);
-    if (!alert) return;
+    if (!alert || !alert.state) return;
 
-    alert.visualAlert = false;
+    alert.state.visualAlert = false;
 
     window.dispatchEvent(
       new CustomEvent('PriceAlertDismissed', {
         detail: { symbol: symbol }
       })
     );
+  };
+
+  /**
+   * Verifica se o símbolo possui níveis definidos pelo usuário (source=GRAPH).
+   * Ticker não deve sobrescrever símbolos com autoridade USER_DEFINED.
+   */
+  AlertEngine.prototype.hasUserDefinedLevels = function (symbol) {
+    var alert = this.alerts.get(symbol);
+    if (!alert || !alert.config) return false;
+    return alert.config.source === 'GRAPH';
+  };
+
+  /**
+   * Retorna os níveis atuais do símbolo (para leitura).
+   */
+  AlertEngine.prototype.getLevels = function (symbol) {
+    var alert = this.alerts.get(symbol);
+    if (!alert || !alert.config) return null;
+    return {
+      support: alert.config.support,
+      resistance: alert.config.resistance,
+      source: alert.config.source,
+      timeframe: alert.config.timeframe
+    };
   };
 
   AlertEngine.prototype.disable = function (symbol) {
@@ -201,16 +263,22 @@ window.AlertEngine = (function () {
 
   AlertEngine.prototype.isEnabled = function (symbol) {
     var alert = this.alerts.get(symbol);
-    return !!(alert && alert.active);
+    return !!(alert && alert.state && alert.state.active);
   };
 
   AlertEngine.prototype.isPushEnabled = function () {
     return !!(window.PushSubscribe && window.PushSubscribe.isEnabled());
   };
 
+  /**
+   * CORREÇÃO 5: disableAll() NÃO deve limpar alertas locais.
+   * Push OFF deve desativar apenas entrega Push/Worker.
+   * AlertEngine local permanece funcional.
+   */
   AlertEngine.prototype.disableAll = function () {
-    this.alerts.clear();
-    this.lastSoundAt = {};
+    // NÃO fazer: this.alerts.clear()
+    // Alertas locais permanecem ativos independentemente do Push
+    console.log('[AlertEngine] disableAll() chamado - alertas locais preservados');
   };
 
   return new AlertEngine();
