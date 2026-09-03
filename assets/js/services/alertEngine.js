@@ -7,6 +7,31 @@
 window.AlertEngine = (function () {
   'use strict';
 
+  // ==================== INSTRUMENTAÇÃO P0 — RING BUFFER ====================
+  // Buffer circular de eventos da auditoria. NÃO altera lógica funcional.
+  // Após um incidente, no console do navegador:
+  //   copy(__TRACE_DUMP__())
+  // e cole o JSON completo (sem truncamento como no console).
+  window.__BTC_TRACE__ = window.__BTC_TRACE__ || [];
+  function auditPush(entry) {
+    try {
+      var copy = {};
+      for (var k in entry) {
+        if (Object.prototype.hasOwnProperty.call(entry, k)) copy[k] = entry[k];
+      }
+      copy.__t = new Date().toISOString();
+      window.__BTC_TRACE__.push(copy);
+      if (window.__BTC_TRACE__.length > 2000) {
+        window.__BTC_TRACE__.splice(0, window.__BTC_TRACE__.length - 2000);
+      }
+    } catch (e) { /* observabilidade nunca pode quebrar o fluxo */ }
+  }
+  window.__AUDIT_PUSH__ = auditPush;
+  window.__TRACE_DUMP__ = function () {
+    try { return JSON.stringify(window.__BTC_TRACE__, null, 2); } catch (e) { return '[]'; }
+  };
+  // ==================== FIM INSTRUMENTAÇÃO ====================
+
   function AlertEngine() {
     this.alerts = new Map();
     this.lastSoundAt = {};
@@ -146,6 +171,18 @@ window.AlertEngine = (function () {
       timestamp: Date.now()
     });
 
+    if (symbol === 'BTC') {
+      auditPush({
+        kind: 'NIVEIS',
+        symbol: symbol,
+        support: support,
+        resistance: resistance,
+        source: source,
+        timeframe: timeframe,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Separar configuração de estado runtime
     var newAlert = {
       config: {
@@ -203,7 +240,8 @@ window.AlertEngine = (function () {
       state.lastPrice = currentPrice;
       // ==================== INSTRUMENTAÇÃO P0 ====================
       if (symbol === 'BTC') {
-        console.log('[BTC ALERT TRACE] INICIALIZAÇÃO', {
+        var initEntry = {
+          kind: 'INICIALIZACAO',
           symbol: symbol,
           source: 'CLIENT_ALERT_ENGINE',
           initial_price: currentPrice,
@@ -211,7 +249,9 @@ window.AlertEngine = (function () {
           resistance: config.resistance,
           config_source: config.source,
           timestamp: new Date().toISOString()
-        });
+        };
+        console.log('[BTC ALERT TRACE] INICIALIZAÇÃO', initEntry);
+        auditPush(initEntry);
       }
       // ==================== FIM INSTRUMENTAÇÃO ====================
       return;
@@ -221,28 +261,31 @@ window.AlertEngine = (function () {
 
     // ==================== INSTRUMENTAÇÃO P0 ====================
     if (symbol === 'BTC') {
-      console.log('[BTC ALERT TRACE] VERIFICAÇÃO DE CRUZAMENTO', {
+      var crossEntry = {
+        kind: 'VERIFICACAO',
         symbol: symbol,
         source: 'CLIENT_ALERT_ENGINE',
         timestamp: new Date().toISOString(),
-        
+
         // Preços
         price_previous: previousPrice,
         price_current: currentPrice,
-        
+
         // Níveis
         support: config.support,
         resistance: config.resistance,
         config_source: config.source,
-        
+
         // Estado
         armed_support: state.armedSupport,
         armed_resistance: state.armedResistance,
-        
+
         // Condições de cruzamento
         support_cross_candidate: previousPrice > config.support && currentPrice <= config.support,
         resistance_cross_candidate: previousPrice < config.resistance && currentPrice >= config.resistance
-      });
+      };
+      console.log('[BTC ALERT TRACE] VERIFICAÇÃO DE CRUZAMENTO', crossEntry);
+      auditPush(crossEntry);
     }
     // ==================== FIM INSTRUMENTAÇÃO ====================
 
@@ -310,42 +353,47 @@ window.AlertEngine = (function () {
       var traceId = 'BTC-' + Date.now();
       var alertConfig = alert.config;
       var alertState = alert.state;
-      
-      console.log('[BTC ALERT TRACE] DISPARO TENTADO', {
+
+      var triggerEntry = {
         traceId: traceId,
+        kind: 'DISPARO_TENTADO',
         source: 'CLIENT_ALERT_ENGINE',
         symbol: symbol,
         direction: direction,
         timestamp: new Date().toISOString(),
-        
+
         // Dados de preço
         price_current: price,
         price_previous: alertState.lastPrice,
-        
+
         // Níveis
         support_level: alertConfig.support,
         resistance_level: alertConfig.resistance,
         config_source: alertConfig.source,
-        
+
         // Estado antes
         triggered_before_support: alertState.supportTriggered,
         triggered_before_resistance: alertState.resistanceTriggered,
         armed_support: alertState.armedSupport,
         armed_resistance: alertState.armedResistance,
-        
+
         // Cooldown
         last_triggered_at: new Date(last).toISOString(),
         now: new Date(now).toISOString(),
         elapsed_ms: elapsedMs,
         cooldown_ms: cooldownMs,
         cooldown_blocked: cooldownBlocked,
-        
+
         // Decisão
         will_play_sound: !cooldownBlocked,
-        
-        // Histerese
-        hysteresis_pct: 0.0015
-      });
+
+        // Histerese (documentada; código real rearms sem banda — ver onPriceUpdate)
+        hysteresis_pct: 0.0015,
+        rearm_band_resistance: alertConfig.resistance * (1 - 0.0015),
+        rearm_band_support: alertConfig.support * (1 + 0.0015)
+      };
+      console.log('[BTC ALERT TRACE] DISPARO TENTADO', triggerEntry);
+      auditPush(triggerEntry);
     }
     // ==================== FIM INSTRUMENTAÇÃO ====================
 

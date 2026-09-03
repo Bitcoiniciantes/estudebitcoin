@@ -246,7 +246,8 @@
     
     // ==================== INSTRUMENTAÇÃO P0 ====================
     if (symbol === 'BTC') {
-      console.log('[BTC ALERT TRACE] PREÇO RECEBIDO DO TICKER', {
+      var tickerEntry = {
+        kind: 'TICKER_PRICE',
         symbol: symbol,
         source: 'TICKER_WEBSOCKET',
         price: price,
@@ -254,7 +255,9 @@
         timestamp: new Date().toISOString(),
         isCrypto: isCrypto(symbol),
         alertEngineAvailable: !!window.AlertEngine
-      });
+      };
+      console.log('[BTC ALERT TRACE] PREÇO RECEBIDO DO TICKER', tickerEntry);
+      if (window.__AUDIT_PUSH__) window.__AUDIT_PUSH__(tickerEntry);
     }
     // ==================== FIM INSTRUMENTAÇÃO ====================
     
