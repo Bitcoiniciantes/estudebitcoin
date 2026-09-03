@@ -121,11 +121,20 @@ window.AlertEngine = (function () {
 
     var existing = this.alerts.get(symbol);
 
-    // Se já existe alerta com mesmos níveis (tolerância 0.1%), não alterar
+    // Se já existe alerta com mesmos níveis (tolerância 0.1%), verificar se source mudou
     if (existing && existing.config) {
       var sameSupport = Math.abs(existing.config.support - support) < support * 0.001;
       var sameResistance = Math.abs(existing.config.resistance - resistance) < resistance * 0.001;
-      if (sameSupport && sameResistance) return;
+      
+      // CORREÇÃO: NÃO retornar cedo se source mudar de TICKER→GRAPH (upgrade de autoridade)
+      if (sameSupport && sameResistance) {
+        var isAuthorityUpgrade = existing.config.source === 'TICKER' && source === 'GRAPH';
+        if (!isAuthorityUpgrade) {
+          // Níveis idênticos e sem upgrade de autoridade → não alterar
+          return;
+        }
+        // Se for upgrade de autoridade, continuar para atualizar source
+      }
     }
 
     console.log('[SR-TRACE] ALERT_ENGINE setAlertLevels', {
