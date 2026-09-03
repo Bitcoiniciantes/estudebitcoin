@@ -201,10 +201,50 @@ window.AlertEngine = (function () {
     // Proteção contra disparo imediato (Seção 9)
     if (state.lastPrice === null) {
       state.lastPrice = currentPrice;
+      // ==================== INSTRUMENTAÇÃO P0 ====================
+      if (symbol === 'BTC') {
+        console.log('[BTC ALERT TRACE] INICIALIZAÇÃO', {
+          symbol: symbol,
+          source: 'CLIENT_ALERT_ENGINE',
+          initial_price: currentPrice,
+          support: config.support,
+          resistance: config.resistance,
+          config_source: config.source,
+          timestamp: new Date().toISOString()
+        });
+      }
+      // ==================== FIM INSTRUMENTAÇÃO ====================
       return;
     }
 
     var previousPrice = state.lastPrice;
+
+    // ==================== INSTRUMENTAÇÃO P0 ====================
+    if (symbol === 'BTC') {
+      console.log('[BTC ALERT TRACE] VERIFICAÇÃO DE CRUZAMENTO', {
+        symbol: symbol,
+        source: 'CLIENT_ALERT_ENGINE',
+        timestamp: new Date().toISOString(),
+        
+        // Preços
+        price_previous: previousPrice,
+        price_current: currentPrice,
+        
+        // Níveis
+        support: config.support,
+        resistance: config.resistance,
+        config_source: config.source,
+        
+        // Estado
+        armed_support: state.armedSupport,
+        armed_resistance: state.armedResistance,
+        
+        // Condições de cruzamento
+        support_cross_candidate: previousPrice > config.support && currentPrice <= config.support,
+        resistance_cross_candidate: previousPrice < config.resistance && currentPrice >= config.resistance
+      });
+    }
+    // ==================== FIM INSTRUMENTAÇÃO ====================
 
     // Rearme (Seção 8 & 10) + desligar alerta visual quando preço se afasta
     if (currentPrice < config.resistance) {
@@ -260,7 +300,66 @@ window.AlertEngine = (function () {
       this.lastSoundAt[symbol] = {};
     }
     var last = this.lastSoundAt[symbol][direction] || 0;
-    if (now - last >= 120000) {
+    var elapsedMs = now - last;
+    var cooldownMs = 120000; // 2 minutos
+    var cooldownBlocked = elapsedMs < cooldownMs;
+
+    // ==================== INSTRUMENTAÇÃO P0 ====================
+    // Rastrear TODOS os disparos de BTC para auditoria
+    if (symbol === 'BTC' || true) { // Log para TODOS os ativos durante auditoria
+      var traceId = 'BTC-' + Date.now();
+      var alertConfig = alert.config;
+      var alertState = alert.state;
+      
+      console.log('[BTC ALERT TRACE] DISPARO TENTADO', {
+        traceId: traceId,
+        source: 'CLIENT_ALERT_ENGINE',
+        symbol: symbol,
+        direction: direction,
+        timestamp: new Date().toISOString(),
+        
+        // Dados de preço
+        price_current: price,
+        price_previous: alertState.lastPrice,
+        
+        // Níveis
+        support_level: alertConfig.support,
+        resistance_level: alertConfig.resistance,
+        config_source: alertConfig.source,
+        
+        // Estado antes
+        triggered_before_support: alertState.supportTriggered,
+        triggered_before_resistance: alertState.resistanceTriggered,
+        armed_support: alertState.armedSupport,
+        armed_resistance: alertState.armedResistance,
+        
+        // Cooldown
+        last_triggered_at: new Date(last).toISOString(),
+        now: new Date(now).toISOString(),
+        elapsed_ms: elapsedMs,
+        cooldown_ms: cooldownMs,
+        cooldown_blocked: cooldownBlocked,
+        
+        // Decisão
+        will_play_sound: !cooldownBlocked,
+        
+        // Histerese
+        hysteresis_pct: 0.0015
+      });
+    }
+    // ==================== FIM INSTRUMENTAÇÃO ====================
+
+    if (cooldownBlocked) {
+      console.log('[BTC ALERT TRACE] BLOQUEADO POR COOLDOWN', {
+        symbol: symbol,
+        direction: direction,
+        elapsed_ms: elapsedMs,
+        cooldown_ms: cooldownMs
+      });
+      return;
+    }
+
+    if (!cooldownBlocked) {
       playBeep(this);
       // Feedback tátil no mobile (silencioso em desktop, que ignora navigator.vibrate)
       if (navigator.vibrate) {

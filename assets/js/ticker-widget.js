@@ -243,6 +243,21 @@
       liveVolume[symbol] = volume;
       if (quoteData[symbol]) quoteData[symbol].volume = volume;
     }
+    
+    // ==================== INSTRUMENTAÇÃO P0 ====================
+    if (symbol === 'BTC') {
+      console.log('[BTC ALERT TRACE] PREÇO RECEBIDO DO TICKER', {
+        symbol: symbol,
+        source: 'TICKER_WEBSOCKET',
+        price: price,
+        volume: volume,
+        timestamp: new Date().toISOString(),
+        isCrypto: isCrypto(symbol),
+        alertEngineAvailable: !!window.AlertEngine
+      });
+    }
+    // ==================== FIM INSTRUMENTAÇÃO ====================
+    
     // Fase C: alimentar motor de alertas S/R Dinâmico (apenas criptos)
     // CORREÇÃO: AlertEngine deve funcionar INDEPENDENTE de Push
     if (isCrypto(symbol) && window.AlertEngine) {
