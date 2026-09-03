@@ -146,10 +146,18 @@ window.AlertEngine = (function () {
 
     var existing = this.alerts.get(symbol);
 
-    // Se já existe alerta com mesmos níveis (tolerância 0.1%), verificar se source mudou
+    // Se já existe alerta com mesmos níveis, verificar se source mudou.
+    // P0 (congelamento de nível GRAPH): para atualização GRAPH→GRAPH a tolerância
+    // de "mesmos níveis" cai de 0.1% para 1e-4 relativo (mínimo técnico), para que
+    // uma mudança GRAPH legítima (ex.: R 77.546,9 → 77.559, delta 12,1 < 77,6)
+    // NÃO seja descartada e o motor não fique congelado num nível stale enquanto o
+    // gráfico desenha o nível novo. Demais casos (ex.: TICKER→TICKER no refresh de
+    // 5s) mantêm o dedup de 0.1% original.
     if (existing && existing.config) {
-      var sameSupport = Math.abs(existing.config.support - support) < support * 0.001;
-      var sameResistance = Math.abs(existing.config.resistance - resistance) < resistance * 0.001;
+      var graphToGraph = existing.config.source === 'GRAPH' && source === 'GRAPH';
+      var epsilon = graphToGraph ? 1e-4 : 0.001;
+      var sameSupport = Math.abs(existing.config.support - support) < support * epsilon;
+      var sameResistance = Math.abs(existing.config.resistance - resistance) < resistance * epsilon;
       
       // CORREÇÃO: NÃO retornar cedo se source mudar de TICKER→GRAPH (upgrade de autoridade)
       if (sameSupport && sameResistance) {
