@@ -1349,12 +1349,15 @@
   .re-cell { background: #181818; border: 1px solid #262626; border-radius: 12px; padding: 10px 12px; }
   .re-cell small { display: block; font-size: 11px; color: #a8a8a8; margin-bottom: 2px; }
   .re-cell strong { font-size: 15px; }
+  .re-cell.re-danger { border-color: #9a424b; background: linear-gradient(135deg, #731d264d, #0c1118 72%); }
+  .re-cell.re-danger small, .re-cell.re-danger strong { color: #ff9ca3; }
   #re-estado[data-estado="SEGURO"] { color: #54b85a; }
   #re-estado[data-estado="ATENCAO"] { color: #f5a623; }
   #re-estado[data-estado="CRITICO"] { color: #e5484d; }
   #re-estado[data-estado="LIQUIDACAO"] { color: #fff; background: #e5484d; border-radius: 8px; padding: 2px 10px; }
   #re-estado[data-estado="LIQUIDACAO_INATINGIVEL"] { color: #7dd3fc; }
   #re-erro { display: none; background: #2a1414; border: 1px solid #e5484d; border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
+  .re-foot { margin: 12px 0 0; color: #8a8a8a; font-size: 11px; line-height: 1.5; }
 </style>
 <section class="container re-section" aria-labelledby="re-title">
   <div class="re-card" id="re-painel">
@@ -1364,27 +1367,28 @@
     <div class="re-grid">
       <div class="re-field"><label>Ativo (ticker)</label><select id="re-simbolo"><option>BTC</option><option>ETH</option><option>SOL</option><option>LINK</option><option>AVAX</option><option>RENDER</option><option>PAXG</option></select></div>
       <div class="re-field"><label>Lado</label><select id="re-lado"><option>LONG</option><option>SHORT</option></select></div>
-      <div class="re-field"><label>Saldo (USD)</label><input id="re-saldo" type="number" value="30000" min="0" step="any"></div>
-      <div class="re-field"><label>Alavancagem</label><input id="re-alavancagem" type="number" value="10" min="1" step="any"></div>
-      <div class="re-field"><label>Preço de entrada (USD)</label><input id="re-preco-entrada" type="number" value="60000" min="0" step="any"></div>
-      <div class="re-field"><label>Valor da posição (USD)</label><input id="re-valor" type="number" value="60000" min="0" step="any"></div>
+      <div class="re-field"><label>Saldo (USD)</label><input id="re-saldo" type="number" value="3000" min="0" step="any"></div>
+      <div class="re-field"><label>Alavancagem</label><input id="re-alavancagem" type="number" value="5" min="1" step="any"></div>
+      <div class="re-field"><label>Preço de entrada (USD)</label><input id="re-preco-entrada" type="number" value="52000" min="0" step="any"></div>
+      <div class="re-field"><label>Valor da posição (USD)</label><input id="re-valor" type="number" value="15000" min="0" step="any"></div>
       <div class="re-field"><label>MMR (decimal, ex. 0.005)</label><input id="re-mmr" type="number" value="0" min="0" step="any"></div>
       <div class="re-field"><label>Funding acumulado (USD)</label><input id="re-funding" type="number" value="0" min="0" step="any"></div>
     </div>
     <div id="re-erro" role="alert"></div>
     <div class="re-out">
       <div class="re-cell"><small>Preço atual (ticker)</small><strong id="re-preco-atual">—</strong></div>
+      <div class="re-cell re-danger"><small>Preço de liquidação</small><strong id="re-plq">—</strong></div>
       <div class="re-cell"><small>Quantidade do ativo</small><strong id="re-qtd">—</strong></div>
       <div class="re-cell"><small>Preço médio</small><strong id="re-pmedio">—</strong></div>
       <div class="re-cell"><small>Margem retida</small><strong id="re-margem">—</strong></div>
       <div class="re-cell"><small>Margem livre</small><strong id="re-livre">—</strong></div>
       <div class="re-cell"><small>PnL não realizado</small><strong id="re-pnl">—</strong></div>
-      <div class="re-cell"><small>Equity atual</small><strong id="re-equity">—</strong></div>
-      <div class="re-cell"><small>Preço de liquidação</small><strong id="re-plq">—</strong></div>
+      <div class="re-cell"><small>Patrimônio</small><strong id="re-equity">—</strong></div>
       <div class="re-cell"><small>Distância até liquidação</small><strong id="re-dist">—</strong></div>
-      <div class="re-cell"><small>Resultado da equity</small><strong id="re-res">—</strong></div>
+      <div class="re-cell"><small>Resultado atual</small><strong id="re-res">—</strong></div>
       <div class="re-cell"><small>Estado de risco</small><strong id="re-estado">—</strong></div>
     </div>
+    <p class="re-foot">Atenção: Toda a margem foi utilizada para chegar no preço de liquidação (Margem Cruzada). Não utilize a margem livre para novas posições.</p>
   </div>
 </section>
 

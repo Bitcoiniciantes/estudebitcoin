@@ -96,13 +96,13 @@
       var el = document.getElementById(id);
       return el && el.value ? String(el.value) : fallback;
     }
-    var precoEntrada = val("re-preco-entrada", 60000);
-    var valor = val("re-valor", 60000);
+    var precoEntrada = val("re-preco-entrada", 52000);
+    var valor = val("re-valor", 15000);
     return {
       simbolo: str("re-simbolo", "BTC"),
       moedaConta: "USD",
-      saldoCorretora: val("re-saldo", 30000),
-      alavancagem: val("re-alavancagem", 10),
+      saldoCorretora: val("re-saldo", 3000),
+      alavancagem: val("re-alavancagem", 5),
       ordens: [{ moeda: "USD", preco: precoEntrada, valor: valor }],
       fundingCustoAcumulado: val("re-funding", 0),
       mmr: val("re-mmr", 0),
@@ -128,7 +128,7 @@
       errBox.style.display = "none";
       errBox.textContent = "";
     }
-    setText("re-qtd", num(vm.quantidadeAtivo, 6));
+    setText("re-qtd", num(vm.quantidadeAtivo, 8));
     setText("re-pmedio", fmtUsd(vm.precoMedio));
     setText("re-margem", fmtUsd(vm.margemRetida));
     setText("re-livre", fmtUsd(vm.margemLivre));
@@ -144,8 +144,7 @@
     var resEl = document.getElementById("re-res");
     if (resEl) {
       var v = vm.resultadoEquityPercentual;
-      var rotulo = v > 0 ? "ganho" : v < 0 ? "perda líquida" : "neutro";
-      resEl.textContent = (v > 0 ? "+" : "") + num(v, 2) + "% (" + rotulo + ")";
+      resEl.textContent = (v > 0 ? "+" : "") + num(v, 2) + "%";
       resEl.style.color = v > 0 ? "#54b85a" : v < 0 ? "#e5484d" : "#a8a8a8";
     }
     var estEl = document.getElementById("re-estado");
