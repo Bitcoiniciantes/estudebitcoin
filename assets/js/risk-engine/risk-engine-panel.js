@@ -67,6 +67,19 @@
     };
   }
 
+  function parseMoeda(texto) {
+    // Aceita "3.000,00" (pontos de milhar + vírgula) ou "3000.12" (ponto decimal):
+    // com vírgula, pontos são milhar; sem vírgula, parse direto.
+    var s = String(texto == null ? "" : texto).trim();
+    if (s.indexOf(",") !== -1) s = s.replace(/\./g, "").replace(",", ".");
+    var n = parseFloat(s);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function fmtMoedaInput(n) {
+    return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
   function num(value, digits) {
     if (typeof value !== "number" || !Number.isFinite(value)) return "—";
     return value.toLocaleString("pt-BR", {
@@ -89,8 +102,12 @@
     function val(id, fallback) {
       var el = document.getElementById(id);
       if (!el) return fallback;
-      var n = parseFloat(String(el.value).replace(",", "."));
-      return Number.isFinite(n) ? n : fallback;
+      // Campos monetários (type=text) usam parseMoeda ("3.000,00");
+      // numéricos (alavancagem/MMR) usam parse direto.
+      var n = /^(re-saldo|re-preco-entrada|re-valor|re-funding)$/.test(id)
+        ? parseMoeda(el.value)
+        : parseFloat(String(el.value).replace(",", "."));
+      return n !== null && Number.isFinite(n) ? n : fallback;
     }
     function str(id, fallback) {
       var el = document.getElementById(id);
@@ -169,6 +186,19 @@
      "re-valor", "re-funding", "re-mmr"].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener("input", reconfigurar);
+    });
+
+    // Moeda com 2 casas: ao confirmar o campo (blur/Enter), normaliza a
+    // exibição para 2 decimais. Só nos inputs monetários — MMR e alavancagem
+    // ficam intocados (ex.: mmr 0.005 não pode ser cortado).
+    ["re-saldo", "re-preco-entrada", "re-valor", "re-funding"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("change", function () {
+        var n = parseMoeda(el.value);
+        if (n !== null) el.value = fmtMoedaInput(n);
+        reconfigurar();
+      });
     });
 
     adapter.onResult(function (resultado) {
