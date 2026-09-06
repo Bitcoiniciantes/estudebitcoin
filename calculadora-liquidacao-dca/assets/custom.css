@@ -1,0 +1,53 @@
+/* Override visual — Simulador de Alavancagem
+   1) Bullets (summary-cards) 20% menores
+   2) Número BTCUSDT em laranja
+   3) Bordas mais legíveis nos cards pretos */
+
+/* 1) Bullets ~20% menores */
+.summary-grid {
+  gap: 8px;
+}
+.summary-card {
+  min-height: 96px; /* 120px - 20% */
+  padding: 13px; /* 16px - ~20% */
+}
+.summary-card > span,
+.summary-card > small {
+  font-size: 10px; /* 12px - ~20% */
+}
+.summary-card strong {
+  margin: 10px 0 5px;
+  font-size: clamp(14px, 3.2vw, 19px); /* clamp(18px,4vw,24px) - 20% */
+}
+
+/* 2) Número do bullet BTCUSDT em laranja */
+.market-box strong {
+  color: #f7931a;
+}
+
+/* 3) Bordas mais legíveis nos cards pretos */
+.market-box,
+.summary-card,
+.panel,
+.formula-box,
+.position-details {
+  border-color: #3d4f68;
+}
+.summary-card {
+  border-width: 1.5px;
+}
+.panel {
+  border-width: 1.5px;
+}
+.field input,
+.order-row input {
+  border-color: #3d4f68;
+}
+th,
+td {
+  border-bottom-color: #33445e;
+}
+.toggle-row,
+.formula-box div {
+  border-top-color: #33445e;
+}
