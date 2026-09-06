@@ -1335,6 +1335,59 @@
 })();
 </script>
 
+<!-- POSIÇÃO AO VIVO — RISK ENGINE (camada nova; bundle legado intocado) -->
+<style id="risk-engine-panel-style">
+  .re-section { padding-top: 0; padding-bottom: 16px; }
+  .re-card { background: #111; border: 1px solid #222; border-radius: 20px; padding: 20px; color: #eee; }
+  .re-card h2 { margin: 0 0 4px; font-size: clamp(20px, 3vw, 28px); }
+  .re-kicker { margin: 0; color: #F7931A; font-size: 12px; letter-spacing: .12em; font-weight: 700; }
+  .re-sub { margin: 0 0 14px; color: #a8a8a8; font-size: 13px; }
+  .re-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .re-field label { display: block; font-size: 11px; color: #a8a8a8; margin-bottom: 4px; }
+  .re-field input, .re-field select { width: 100%; background: #1b1b1b; border: 1px solid #333; border-radius: 10px; color: #fff; padding: 8px 10px; font-size: 14px; }
+  .re-out { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .re-cell { background: #181818; border: 1px solid #262626; border-radius: 12px; padding: 10px 12px; }
+  .re-cell small { display: block; font-size: 11px; color: #a8a8a8; margin-bottom: 2px; }
+  .re-cell strong { font-size: 15px; }
+  #re-estado[data-estado="SEGURO"] { color: #54b85a; }
+  #re-estado[data-estado="ATENCAO"] { color: #f5a623; }
+  #re-estado[data-estado="CRITICO"] { color: #e5484d; }
+  #re-estado[data-estado="LIQUIDACAO"] { color: #fff; background: #e5484d; border-radius: 8px; padding: 2px 10px; }
+  #re-estado[data-estado="LIQUIDACAO_INATINGIVEL"] { color: #7dd3fc; }
+  #re-erro { display: none; background: #2a1414; border: 1px solid #e5484d; border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
+</style>
+<section class="container re-section" aria-labelledby="re-title">
+  <div class="re-card" id="re-painel">
+    <p class="re-kicker">RISCO EM TEMPO REAL</p>
+    <h2 id="re-title">Posição ao Vivo — Risk Engine</h2>
+    <p class="re-sub">Preço ao vivo do ticker acima → cálculo local, sem rede. Eduque-se: simulação com o modelo Quantfury do projeto.</p>
+    <div class="re-grid">
+      <div class="re-field"><label>Ativo (ticker)</label><select id="re-simbolo"><option>BTC</option><option>ETH</option><option>SOL</option><option>LINK</option><option>AVAX</option><option>RENDER</option><option>PAXG</option></select></div>
+      <div class="re-field"><label>Lado</label><select id="re-lado"><option>LONG</option><option>SHORT</option></select></div>
+      <div class="re-field"><label>Saldo (USD)</label><input id="re-saldo" type="number" value="30000" min="0" step="any"></div>
+      <div class="re-field"><label>Alavancagem</label><input id="re-alavancagem" type="number" value="10" min="1" step="any"></div>
+      <div class="re-field"><label>Preço de entrada (USD)</label><input id="re-preco-entrada" type="number" value="60000" min="0" step="any"></div>
+      <div class="re-field"><label>Valor da posição (USD)</label><input id="re-valor" type="number" value="60000" min="0" step="any"></div>
+      <div class="re-field"><label>MMR (decimal, ex. 0.005)</label><input id="re-mmr" type="number" value="0" min="0" step="any"></div>
+      <div class="re-field"><label>Funding acumulado (USD)</label><input id="re-funding" type="number" value="0" min="0" step="any"></div>
+    </div>
+    <div id="re-erro" role="alert"></div>
+    <div class="re-out">
+      <div class="re-cell"><small>Preço atual (ticker)</small><strong id="re-preco-atual">—</strong></div>
+      <div class="re-cell"><small>Quantidade do ativo</small><strong id="re-qtd">—</strong></div>
+      <div class="re-cell"><small>Preço médio</small><strong id="re-pmedio">—</strong></div>
+      <div class="re-cell"><small>Margem retida</small><strong id="re-margem">—</strong></div>
+      <div class="re-cell"><small>Margem livre</small><strong id="re-livre">—</strong></div>
+      <div class="re-cell"><small>PnL não realizado</small><strong id="re-pnl">—</strong></div>
+      <div class="re-cell"><small>Equity atual</small><strong id="re-equity">—</strong></div>
+      <div class="re-cell"><small>Preço de liquidação</small><strong id="re-plq">—</strong></div>
+      <div class="re-cell"><small>Distância até liquidação</small><strong id="re-dist">—</strong></div>
+      <div class="re-cell"><small>Resultado da equity</small><strong id="re-res">—</strong></div>
+      <div class="re-cell"><small>Estado de risco</small><strong id="re-estado">—</strong></div>
+    </div>
+  </div>
+</section>
+
 <!-- FOOTER -->
 <footer class="container" style="margin-top:0;margin-bottom:24px;">
   <div style="background:#111;border-radius:20px;padding:36px 0 28px;text-align:center;">
@@ -1443,6 +1496,9 @@
 <!-- Scripts -->
 <script src="assets/js/config.js"></script>
 <script src="assets/js/utils.js"></script>
+<script src="assets/js/risk-engine/risk-engine.js"></script>
+<script src="assets/js/risk-engine/risk-engine-adapter.js"></script>
+<script src="assets/js/risk-engine/risk-engine-panel.js"></script>
 <script src="assets/js/services/alertEngine.js"></script>
 <script src="assets/js/chart/dynamicSR.js"></script>
 <script defer src="assets/js/main.js?v=20260729-2"></script>

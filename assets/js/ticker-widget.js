@@ -239,6 +239,15 @@
 
   function updateLivePrice(symbol, price, volume) {
     livePrices[symbol] = price;
+    // INTEGRAÇÃO RISK ENGINE (aditivo, sem efeito sobre o ticker): expõe cada
+    // tick via evento para o adapter (risk-engine-adapter.js), que encaminha
+    // o preço ao RiskEngine.calcularRisco(). Justificativa: nenhum mecanismo
+    // existente expõe o preço em tempo real (livePrices é closure privada) e
+    // é proibido criar segundo WebSocket/polling/fetch só para o Risk Engine.
+    // Mesmo padrão de CustomEvent já usado neste arquivo (load-asset).
+    try {
+      window.dispatchEvent(new CustomEvent("estudebitcoin:ticker-price", { detail: { symbol: symbol, price: price } }));
+    } catch (broadcastError) { /* broadcast opcional, nunca quebra o ticker */ }
     if (typeof volume === "number" && Number.isFinite(volume)) {
       liveVolume[symbol] = volume;
       if (quoteData[symbol]) quoteData[symbol].volume = volume;
