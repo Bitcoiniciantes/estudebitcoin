@@ -1315,7 +1315,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 20px;
-    padding: 18px 22px;
+    padding: 18px 22px 10px;
     background: #111;
     color: #fff;
   }
@@ -1348,7 +1348,7 @@
     background: #070a0f;
   }
   @media (max-width: 700px) {
-    .calc-liquidacao-heading { align-items: flex-start; flex-direction: column; padding: 16px; }
+    .calc-liquidacao-heading { align-items: flex-start; flex-direction: column; padding: 16px 16px 10px; }
     .calc-liquidacao-heading a { width: 100%; text-align: center; }
     .calc-liquidacao-frame { min-height: 2050px; height: 2050px; }
   }
@@ -1361,7 +1361,6 @@
         <h2 id="calc-liquidacao-title">Simulador de Alavancagem</h2>
         <p>Analise a posição real montada por aportes e cenários de preço do Bitcoin.</p>
       </div>
-      <a href="calculadora-liquidacao-dca/?v=20260901-subtitulo" target="_blank" rel="noopener">ABRIR EM TELA CHEIA ↗</a>
     </div>
     <iframe
       id="calcLiquidacaoFrame"
@@ -1384,9 +1383,36 @@
       if (height >= 400 && height <= 10000) frame.style.height = Math.ceil(height + 8) + "px";
     } catch (error) {}
   }
+  // Compacta visualmente o simulador legado (só densidade, sem mexer no bundle):
+  // injeta CSS no iframe same-origin para achatar os bullets/cards.
+  function compactCalculator() {
+    try {
+      var doc = frame.contentDocument;
+      if (!doc || doc.getElementById("compact-calc")) return;
+      var style = doc.createElement("style");
+      style.id = "compact-calc";
+      style.textContent = ".app-shell{padding-top:12px!important}" +
+        ".summary-card{min-height:0!important;padding:10px 12px!important}" +
+        ".summary-card strong{margin:6px 0 2px!important;font-size:clamp(15px,3vw,19px)!important}" +
+        ".summary-grid{gap:8px!important;margin-bottom:12px!important}" +
+        ".content-grid{gap:12px!important;margin-bottom:12px!important}" +
+        ".header{gap:12px!important;margin-bottom:12px!important}" +
+        ".header h1{font-size:clamp(17px,3vw,26px)!important}" +
+        ".header .eyebrow{font-size:8px!important;margin-bottom:4px!important}" +
+        ".panel-header{margin-bottom:12px!important}" +
+        ".form-grid{gap:8px!important}" +
+        ".order-row{margin-bottom:6px!important}" +
+        ".formula-box{margin-top:12px!important}" +
+        ".market-box{min-width:170px!important;padding:10px 12px!important}" +
+        ".market-box span,.market-box small{font-size:12px!important}" +
+        ".market-box strong{font-size:19px!important}";
+      (doc.head || doc.documentElement).appendChild(style);
+    } catch (error) {}
+  }
   frame.addEventListener("load", function () {
+    compactCalculator();
     resizeCalculator();
-    window.setTimeout(resizeCalculator, 500);
+    window.setTimeout(function () { compactCalculator(); resizeCalculator(); }, 500);
   });
   window.addEventListener("resize", resizeCalculator);
 })();
