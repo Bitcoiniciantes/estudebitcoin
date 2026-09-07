@@ -91,6 +91,7 @@
   }
   function changeClass(change) {
     if (change === null || !Number.isFinite(change)) return "flat";
+    if (change >= 5) return "up5";
     if (change > 3) return "up3";
     if (change >= 0) return "up1";
     if (change <= -5) return "down5";
