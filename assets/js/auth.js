@@ -25,6 +25,80 @@
   var LS_PREFIX = 'eb_panel_';
   var PANELS = ['risk', 'sim'];
   var PUSH_DEBOUNCE_MS = 2500;
+  var LS_KEY_LEGACY = LS_PREFIX + 'risk'; // 'eb_panel_risk' (slot único legado)
+  var LS_LAST_ASSET = 'eb_last_risk_asset';
+  var RISK_ASSETS_FALLBACK = ['BTC', 'ETH', 'SOL', 'LINK', 'AVAX', 'RENDER', 'PAXG'];
+
+  /* ---------- Identidade do ativo (multi-ativo) ----------
+   * currentAssetId é SOMENTE estado da UI. Operações assíncronas (pull/push)
+   * recebem o asset explicitamente e NUNCA leem essa global dentro de
+   * .then()/.catch()/timers — ver pullOneRiskAsset() e schedulePush(). */
+  var currentAssetId = null;
+
+  function canonAssetId(v) {
+    try {
+      if (global.BI && global.BI.normalizeSymbol) return global.BI.normalizeSymbol(v) || null;
+    } catch (e) { /* fallback abaixo */ }
+    var s = String(v == null ? '' : v).trim().toUpperCase().replace(/USDT$/, '');
+    return s || null;
+  }
+
+  // Fonte de verdade: <select id="re-simbolo">. Lida no momento do uso
+  // (pull/sync), nunca cacheada no parse — indexsemalavancagem.html nem tem
+  // o select, e um cache quebraria silenciosamente com defer/reordenação.
+  function getRiskAssets() {
+    try {
+      var sel = global.document ? document.getElementById('re-simbolo') : null;
+      if (sel && sel.options && sel.options.length) {
+        var out = [];
+        for (var i = 0; i < sel.options.length; i++) {
+          var v = canonAssetId(sel.options[i].value || sel.options[i].text);
+          if (v && out.indexOf(v) === -1) out.push(v);
+        }
+        if (out.length) return out;
+      }
+    } catch (e) { /* fallback abaixo */ }
+    return RISK_ASSETS_FALLBACK.slice();
+  }
+
+  // Resolve o asset efetivo para o painel 'risk'. Para 'sim' retorna null
+  // (painel ativo-agnóstico, chave única preservada).
+  function resolveRiskAsset(panel, asset) {
+    if (panel !== 'risk') return null;
+    return canonAssetId(asset || currentAssetId);
+  }
+
+  /* ---------- Migração do slot único legado (localStorage) ----------
+   * eb_panel_risk → eb_panel_risk_{assetId}. Idempotente, preserva o mais
+   * recente, remove o legado só após copiar. Roda no parse do script
+   * (top-level), pois risk-engine-panel.js carrega ANTES de auth.js e seu
+   * bind() (DOMContentLoaded) pode rodar antes do boot() daqui. */
+  function migrateLegacyRisk() {
+    try {
+      if (!global.localStorage) return;
+      var raw = global.localStorage.getItem(LS_KEY_LEGACY);
+      if (!raw) return; // sem dados legados
+      var obj = JSON.parse(raw);
+      if (!obj || typeof obj !== 'object' || !obj.params || typeof obj.params !== 'object') {
+        try { global.localStorage.removeItem(LS_KEY_LEGACY); } catch (e) {}
+        return; // formato inválido, limpa
+      }
+      var assetId = canonAssetId(obj.params.simbolo) || 'BTC';
+      obj.params.simbolo = assetId;
+      var newKey = LS_PREFIX + 'risk_' + assetId;
+      var existing = null;
+      try { existing = JSON.parse(global.localStorage.getItem(newKey) || 'null'); } catch (e) {}
+      if (!existing || !existing.updatedAt || !obj.updatedAt ||
+          !(String(existing.updatedAt) > String(obj.updatedAt))) {
+        try {
+          global.localStorage.setItem(newKey, JSON.stringify({
+            params: obj.params, updatedAt: obj.updatedAt || new Date().toISOString()
+          }));
+        } catch (e) { return; }
+      }
+      try { global.localStorage.removeItem(LS_KEY_LEGACY); } catch (e) {}
+    } catch (e) { /* best-effort, nunca quebra a página */ }
+  }
 
   /* ---------- Config (projeto do mural; sem chaves novas) ---------- */
   function getCfg() {
@@ -109,7 +183,12 @@
 
   function auth() { return fbApp.auth(); }
   function db() { return fbApp.database(); }
-  function panelRef(uid, panel) { return db().ref('users/' + uid + '/panels/' + panel); }
+  function panelRef(uid, panel, asset) {
+    var path = 'users/' + uid + '/panels/' + panel;
+    var a = resolveRiskAsset(panel, asset);
+    if (a) path += '/' + a;
+    return db().ref(path);
+  }
 
   /* ---------- Auth ---------- */
   function afterUser(fu) {
@@ -223,23 +302,29 @@
   }
 
   /* ---------- PanelSync (local + nuvem) ---------- */
-  function lsKey(panel) { return LS_PREFIX + panel; }
+  function lsKey(panel, asset) {
+    var a = resolveRiskAsset(panel, asset);
+    if (a) return LS_PREFIX + panel + '_' + a;
+    return LS_PREFIX + panel;
+  }
 
-  function saveLocal(panel, params) {
+  function saveLocal(panel, params, asset) {
     if (PANELS.indexOf(panel) === -1) return false;
+    var a = resolveRiskAsset(panel, asset);
     try {
-      global.localStorage.setItem(lsKey(panel), JSON.stringify({
+      global.localStorage.setItem(lsKey(panel, a), JSON.stringify({
         params: params || null,
         updatedAt: new Date().toISOString()
       }));
-      schedulePush(panel);
+      schedulePush(panel, a);
       return true;
     } catch (e) { return false; }
   }
 
-  function loadLocal(panel) {
+  function loadLocal(panel, asset) {
     try {
-      var raw = global.localStorage.getItem(lsKey(panel));
+      var a = resolveRiskAsset(panel, asset);
+      var raw = global.localStorage.getItem(lsKey(panel, a));
       if (!raw) return null;
       var obj = JSON.parse(raw);
       if (!obj || typeof obj !== 'object') return null;
@@ -253,30 +338,67 @@
     return String(a) > String(b);
   }
 
+  // Debounce INDEPENDENTE por ativo: pushTimers['risk:BTC'], ['risk:ETH'], ...
+  // Um save de BTC nunca cancela o push pendente de ETH.
   var pushTimers = {};
-  function schedulePush(panel) {
+  function schedulePush(panel, asset) {
     if (!currentUser || !currentUser.verified) return; // anônimo/não verificado: só local
-    if (pushTimers[panel]) global.clearTimeout(pushTimers[panel]);
-    pushTimers[panel] = global.setTimeout(function () {
-      pushTimers[panel] = null;
-      pushPanel(panel).catch(function () { /* retry no próximo save/login */ });
+    var a = resolveRiskAsset(panel, asset);
+    var timerKey = panel + (a ? ':' + a : '');
+    if (pushTimers[timerKey]) global.clearTimeout(pushTimers[timerKey]);
+    pushTimers[timerKey] = global.setTimeout(function () {
+      pushTimers[timerKey] = null;
+      pushPanel(panel, a).catch(function () { /* retry no próximo save/login */ });
     }, PUSH_DEBOUNCE_MS);
   }
 
-  function pushPanel(panel) {
-    var local = loadLocal(panel);
+  function pushPanel(panel, asset) {
+    var a = resolveRiskAsset(panel, asset);
+    var local = loadLocal(panel, a);
     if (!local || !local.params) return Promise.resolve(false);
     if (!fbApp || !currentUser) return Promise.resolve(false);
-    return panelRef(currentUser.id, panel).set({
+    return panelRef(currentUser.id, panel, a).set({
       params: local.params,
       updatedAt: local.updatedAt || new Date().toISOString()
     }).then(function () { return true; });
+  }
+
+  /* Pull de UM asset do painel risk. ref+key são computados em escopo local
+   * ANTES do .then() — o callback assíncrono NUNCA lê currentAssetId, que
+   * pode ter mudado enquanto a resposta trafegava (race do Bug 1). */
+  function pullOneRiskAsset(uid, assetId) {
+    var a = canonAssetId(assetId);
+    if (!a) return Promise.resolve(null);
+    var ref = panelRef(uid, 'risk', a);
+    var key = lsKey('risk', a);
+    return ref.once('value').then(function (snap) {
+      var row = snap.val();
+      if (!row || !row.params) return null;
+      var local = loadLocal('risk', a);
+      if (newer(row.updatedAt, local && local.updatedAt)) {
+        try {
+          global.localStorage.setItem(key, JSON.stringify({
+            params: row.params, updatedAt: row.updatedAt
+          }));
+        } catch (e) { /* segue emitindo para a UI */ }
+        emit('estudebitcoin:panel-pull', {
+          panel: 'risk', asset: a, params: row.params, updatedAt: row.updatedAt
+        });
+        return 'risk:' + a;
+      }
+      return null;
+    }, function () { return null; });
   }
 
   function pullPanels() {
     if (!fbApp || !currentUser) return Promise.resolve({});
     var uid = currentUser.id;
     var jobs = PANELS.map(function (panel) {
+      if (panel === 'risk') {
+        return Promise.all(getRiskAssets().map(function (a) {
+          return pullOneRiskAsset(uid, a);
+        }));
+      }
       return panelRef(uid, panel).once('value').then(function (snap) {
         var row = snap.val();
         if (!row || !row.params) return null;
@@ -297,38 +419,103 @@
     });
     return Promise.all(jobs).then(function (done) {
       var applied = {};
-      done.forEach(function (p) { if (p) applied[p] = true; });
+      done.forEach(function (group) {
+        (Array.isArray(group) ? group : [group]).forEach(function (p) {
+          if (p) applied[p] = true;
+        });
+      });
       return applied;
     });
   }
 
-  function syncOnLogin() {
-    return pullPanels().then(function () {
-      var jobs = PANELS.map(function (panel) {
-        var local = loadLocal(panel);
-        if (!local || !local.params || !fbApp || !currentUser) {
-          return Promise.resolve(false);
+  /* Migração RTDB do slot único legado.
+   * CRÍTICO: `users/{uid}/panels/risk` é PAI de `risk/{asset}`. NUNCA fazer
+   * riskRef.remove() — apagaria os filhos já migrados a cada login (Bug 3).
+   * Nulifica SÓ os campos legados via update({params:null, updatedAt:null}). */
+  function migrateLegacyCloudRisk(uid) {
+    if (!fbApp || !uid) return Promise.resolve(null);
+    var riskRef = db().ref('users/' + uid + '/panels/risk');
+    return riskRef.once('value').then(function (snap) {
+      var row = snap.val();
+      if (!row || !row.params || typeof row.params !== 'object') return null;
+      var assetId = canonAssetId(row.params.simbolo) || 'BTC';
+      var childRef = db().ref('users/' + uid + '/panels/risk/' + assetId);
+      return childRef.once('value').then(function (childSnap) {
+        var existing = childSnap.val();
+        var write = Promise.resolve(false);
+        if (!existing || !existing.updatedAt || !row.updatedAt ||
+            !(String(existing.updatedAt) > String(row.updatedAt))) {
+          row.params.simbolo = assetId;
+          write = childRef.set({ params: row.params, updatedAt: row.updatedAt });
         }
-        return panelRef(currentUser.id, panel).once('value').then(function (snap) {
-          var row = snap.val();
-          var cloudTs = (row && row.updatedAt) || null;
-          if (newer(local.updatedAt, cloudTs)) return pushPanel(panel);
-          return false;
-        }, function () { return false; });
+        return write.then(function () {
+          return riskRef.update({ params: null, updatedAt: null });
+        });
+      });
+    }).catch(function () { return null; /* best-effort */ });
+  }
+
+  function syncOnLogin() {
+    if (!fbApp || !currentUser) return Promise.resolve([]);
+    var uid = currentUser.id;
+    return migrateLegacyCloudRisk(uid).then(function () {
+      return pullPanels();
+    }).then(function () {
+      var jobs = [];
+      PANELS.forEach(function (panel) {
+        if (panel === 'risk') {
+          getRiskAssets().forEach(function (a) {
+            jobs.push(pushPanel(panel, a).catch(function () { return false; }));
+          });
+        } else {
+          var local = loadLocal(panel);
+          if (!local || !local.params) {
+            jobs.push(Promise.resolve(false));
+            return;
+          }
+          jobs.push(panelRef(uid, panel).once('value').then(function (snap) {
+            var row = snap.val();
+            var cloudTs = (row && row.updatedAt) || null;
+            if (newer(local.updatedAt, cloudTs)) return pushPanel(panel);
+            return false;
+          }, function () { return false; }));
+        }
       });
       return Promise.all(jobs);
     });
   }
 
+  function setCurrentAsset(assetId) { currentAssetId = canonAssetId(assetId); }
+  function getCurrentAsset() { return currentAssetId; }
+  function saveLastAsset(assetId) {
+    try { global.localStorage.setItem(LS_LAST_ASSET, canonAssetId(assetId) || ''); } catch (e) {}
+  }
+  function loadLastAsset() {
+    try { return canonAssetId(global.localStorage.getItem(LS_LAST_ASSET)); }
+    catch (e) { return null; }
+  }
+
   var PanelSync = {
     PANELS: PANELS.slice(),
+    LS_KEY_LEGACY: LS_KEY_LEGACY,
     saveLocal: saveLocal,
     loadLocal: loadLocal,
     pushPanel: pushPanel,
     pullPanels: pullPanels,
     syncOnLogin: syncOnLogin,
-    schedulePush: schedulePush
+    schedulePush: schedulePush,
+    setCurrentAsset: setCurrentAsset,
+    getCurrentAsset: getCurrentAsset,
+    saveLastAsset: saveLastAsset,
+    loadLastAsset: loadLastAsset,
+    getRiskAssets: getRiskAssets,
+    migrateLegacyCloudRisk: migrateLegacyCloudRisk
   };
+
+  // Migração do slot único legado ANTES de qualquer DOMContentLoaded:
+  // risk-engine-panel.js carrega antes de auth.js e seu bind() pode rodar
+  // antes do boot() daqui. Top-level do IIFE = parse do script = garantido.
+  try { migrateLegacyRisk(); } catch (e) { /* best-effort */ }
 
   /* ---------- Modal ---------- */
   function $(id) { return global.document ? document.getElementById(id) : null; }

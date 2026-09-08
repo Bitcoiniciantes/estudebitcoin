@@ -105,6 +105,36 @@
    *   sem window.PanelSync, o painel funciona exatamente como antes. */
   var RISK_PANEL = 'risk';
 
+  /* ---------- Identidade do ativo (multi-ativo) ----------
+   * Única leitura canonizada do #re-simbolo. Usada nos 4 pontos:
+   * restore, change, boot e pull. Espelha normalizeSymbol (utils.js). */
+  function getCurrentAssetId() {
+    try {
+      var el = (typeof document !== 'undefined' && document.getElementById)
+        ? document.getElementById('re-simbolo') : null;
+      var v = el && el.value ? String(el.value) : '';
+      if (host && host.BI && host.BI.normalizeSymbol) {
+        return host.BI.normalizeSymbol(v) || 'BTC';
+      }
+      return v.trim().toUpperCase().replace(/USDT$/, '') || 'BTC';
+    } catch (e) { return 'BTC'; }
+  }
+
+  // Defaults espelhando os fallbacks de readParams(). Usados quando o novo
+  // ativo não tem estado salvo — o form nunca herda valores do ativo anterior.
+  function defaultRiskParams(asset) {
+    return {
+      simbolo: asset || 'BTC',
+      moedaConta: 'USD',
+      saldoCorretora: 3000,
+      alavancagem: 5,
+      ordens: [{ moeda: 'USD', preco: 52000, valor: 15000 }],
+      fundingCustoAcumulado: 0,
+      mmr: 0,
+      lado: 'LONG'
+    };
+  }
+
   function finiteOr(value, fallback) {
     return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
   }
@@ -153,19 +183,84 @@
     } catch (e) { return false; }
   }
 
-  function persistRiskParams() {
+  /* Persiste sob o asset rastreado — NUNCA troca a identidade.
+   * Durante a troca BTC→ETH, o select já mostra ETH mas os campos ainda são
+   * de BTC: escrever sob o tracked (BTC) evita contaminar a chave de ETH. */
+  function persistRiskParams(assetOverride) {
     try {
+      var params = readParams();
+      var current = assetOverride
+        || (host.PanelSync && host.PanelSync.getCurrentAsset && host.PanelSync.getCurrentAsset())
+        || params.simbolo || 'BTC';
+      current = String(current).toUpperCase();
+      params.simbolo = current;
       if (host.PanelSync && host.PanelSync.saveLocal) {
-        host.PanelSync.saveLocal(RISK_PANEL, readParams());
+        host.PanelSync.saveLocal(RISK_PANEL, params, current);
       }
     } catch (e) { /* persistência opcional: nunca quebra o painel */ }
   }
 
+  // Segunda linha de defesa da migração (a primeira é migrateLegacyRisk() no
+  // parse de auth.js): se a chave legada ainda existir, migra e remove.
+  // Espelha migrateLegacyRisk(): legado sem simbolo cai em BTC, nunca é perdido.
+  function restoreLegacyIfAvailable() {
+    try {
+      var store = (host && host.localStorage) ||
+        (typeof localStorage !== 'undefined' ? localStorage : null);
+      if (!store) return;
+      var raw = store.getItem('eb_panel_risk');
+      if (!raw) return;
+      var obj = JSON.parse(raw);
+      if (obj && obj.params && typeof obj.params === 'object') {
+        var legacyAsset = getCurrentAssetId();
+        try {
+          if (host && host.BI && host.BI.normalizeSymbol) {
+            legacyAsset = host.BI.normalizeSymbol(obj.params.simbolo) || 'BTC';
+          } else {
+            legacyAsset = String(obj.params.simbolo == null ? '' : obj.params.simbolo)
+              .trim().toUpperCase().replace(/USDT$/, '') || 'BTC';
+          }
+        } catch (e) { legacyAsset = 'BTC'; }
+        obj.params.simbolo = legacyAsset;
+        if (host.PanelSync && host.PanelSync.setCurrentAsset) {
+          host.PanelSync.setCurrentAsset(legacyAsset);
+        }
+        if (host.PanelSync && host.PanelSync.saveLocal) {
+          host.PanelSync.saveLocal(RISK_PANEL, obj.params, legacyAsset);
+        }
+        applyRiskParams(obj.params);
+      }
+      try { store.removeItem('eb_panel_risk'); } catch (e) {}
+    } catch (e) { /* legado é best-effort */ }
+  }
+
   function restoreRiskParams() {
     try {
+      // Boot: o último asset usado reposiciona o select antes de ler.
+      var bootAsset = host.PanelSync && host.PanelSync.loadLastAsset
+        ? host.PanelSync.loadLastAsset() : null;
+      if (bootAsset) setSelect('re-simbolo', bootAsset);
+      var currentSymbol = getCurrentAssetId();
+      if (host.PanelSync && host.PanelSync.setCurrentAsset) {
+        host.PanelSync.setCurrentAsset(currentSymbol);
+      }
+      restoreLegacyIfAvailable();
+      // Reler: a função acima pode ter trocado DOM + identidade (legado de
+      // outro ativo). Reusar a variável capturada antes carrega a chave errada
+      // por cima do que acabou de ser migrado.
+      currentSymbol = getCurrentAssetId();
+      if (host.PanelSync && host.PanelSync.setCurrentAsset) {
+        host.PanelSync.setCurrentAsset(currentSymbol);
+      }
       if (host.PanelSync && host.PanelSync.loadLocal) {
-        var saved = host.PanelSync.loadLocal(RISK_PANEL);
-        if (saved && saved.params) applyRiskParams(saved.params);
+        var saved = host.PanelSync.loadLocal(RISK_PANEL, currentSymbol);
+        if (saved && saved.params) {
+          applyRiskParams(saved.params);
+          // Garante tracked == form após o apply (legado ou chave nova).
+          if (host.PanelSync.setCurrentAsset) {
+            host.PanelSync.setCurrentAsset(getCurrentAssetId());
+          }
+        }
       }
     } catch (e) { /* segue com os padrões */ }
   }
@@ -261,6 +356,38 @@
       if (el) el.addEventListener("input", reconfigurar);
     });
 
+    /* Troca de ativo — ordem ESTRITA (nunca inferir identidade do form):
+     * 1) salva o ANTERIOR (persist usa o tracked, ainda intacto);
+     * 2) troca a identidade — ÚNICO ponto de troca fora de boot/pull;
+     * 3) carrega o NOVO (ou defaults isolados, nunca valores do anterior);
+     * 4) reconfigura (persiste o novo + atualiza o adapter).
+     * Nota: <select> modernos disparam `input` ANTES de `change` na mesma
+     * interação; o `input` escreve sob a identidade ainda antiga (save do
+     * anterior, idempotente com o passo 1) — não remover nem "unificar". */
+    var simboloEl = document.getElementById("re-simbolo");
+    if (simboloEl) {
+      simboloEl.addEventListener("change", function () {
+        var newAsset = getCurrentAssetId(); // select JÁ mudou — este é o NOVO
+        var prevAsset = (host.PanelSync && host.PanelSync.getCurrentAsset &&
+          host.PanelSync.getCurrentAsset()) || newAsset;
+        persistRiskParams(prevAsset);
+        if (host.PanelSync && host.PanelSync.setCurrentAsset) {
+          host.PanelSync.setCurrentAsset(newAsset);
+        }
+        if (host.PanelSync && host.PanelSync.saveLastAsset) {
+          host.PanelSync.saveLastAsset(newAsset);
+        }
+        var saved = (host.PanelSync && host.PanelSync.loadLocal)
+          ? host.PanelSync.loadLocal(RISK_PANEL, newAsset) : null;
+        if (saved && saved.params) {
+          applyRiskParams(saved.params);
+        } else {
+          applyRiskParams(defaultRiskParams(newAsset));
+        }
+        reconfigurar();
+      });
+    }
+
     // Moeda com 2 casas: ao confirmar o campo (blur/Enter), normaliza a
     // exibição para 2 decimais. Só nos inputs monetários — MMR e alavancagem
     // ficam intocados (ex.: mmr 0.005 não pode ser cortado).
@@ -279,19 +406,28 @@
     });
 
     // Pull da nuvem (login): aplica params sincronizados sem recarregar a página.
+    // Pull de asset inativo é ignorado — nunca sobrescreve o form de outro ativo.
     try {
       if (host.addEventListener) {
         host.addEventListener('estudebitcoin:panel-pull', function (ev) {
           var d = ev && ev.detail;
-          if (d && d.panel === RISK_PANEL && d.params) {
-            applyRiskParams(d.params);
-            reconfigurar();
+          if (!d || d.panel !== RISK_PANEL || !d.params) return;
+          var currentAsset = getCurrentAssetId();
+          var pullAsset = d.asset || d.params.simbolo || null;
+          if (pullAsset && pullAsset !== currentAsset) return;
+          if (host.PanelSync && host.PanelSync.setCurrentAsset) {
+            host.PanelSync.setCurrentAsset(pullAsset || currentAsset);
           }
+          applyRiskParams(d.params);
+          reconfigurar();
         });
       }
     } catch (e) { /* listener opcional */ }
 
     restoreRiskParams();
+    if (host.PanelSync && host.PanelSync.saveLastAsset) {
+      host.PanelSync.saveLastAsset(getCurrentAssetId());
+    }
     adapter.configure(readParams());
     adapter.attach();
     render(null, null);
