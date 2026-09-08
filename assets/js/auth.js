@@ -471,8 +471,19 @@
       var jobs = [];
       PANELS.forEach(function (panel) {
         if (panel === 'risk') {
+          // Mesma semântica do ramo 'sim': empurra SOMENTE se o local for
+          // mais novo que a nuvem. Sem isso, todo login/reload reescrevia
+          // (conteúdo idêntico) e re-disparava panel-push-success à toa.
           getRiskAssets().forEach(function (a) {
-            jobs.push(pushPanel(panel, a).catch(function () { return false; }));
+            jobs.push(panelRef(uid, panel, a).once('value').then(function (snap) {
+              var row = snap.val();
+              var cloudTs = (row && row.updatedAt) || null;
+              var local = loadLocal(panel, a);
+              if (local && local.params && newer(local.updatedAt, cloudTs)) {
+                return pushPanel(panel, a);
+              }
+              return false;
+            }, function () { return false; }));
           });
         } else {
           var local = loadLocal(panel);
