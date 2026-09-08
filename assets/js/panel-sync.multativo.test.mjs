@@ -33,12 +33,17 @@ const cloud = {};
 const pushCalls = [];
 const updateCalls = [];
 const removeCalls = [];
+let forceSetFailure = false; // injeção de falha p/ teste de erro no push
 function fakeRef(p) {
   const snap = () => ({ val: () => (p in cloud ? JSON.parse(JSON.stringify(cloud[p])) : null) });
   return {
     _path: p,
     once: () => Promise.resolve(snap()),
     set: (v) => {
+      if (forceSetFailure) {
+        forceSetFailure = false;
+        return Promise.reject(new Error("RTDB indisponível"));
+      }
       cloud[p] = JSON.parse(JSON.stringify(v));
       pushCalls.push(p);
       return Promise.resolve();
@@ -300,6 +305,49 @@ describe("migração RTDB (Bug 3 — comportamental)", () => {
     assert.equal(JSON.stringify(cloud[base]), before);
     assert.equal(removeCalls.length, 0);
     assert.equal(updateCalls.length, 0);
+  });
+});
+
+describe("eventos de push (feedback de nuvem)", () => {
+  before(async () => {
+    await EstudeAuth.signInGoogle();
+    // Deixa o syncOnLogin flutuante do sign-in concluir antes dos testes.
+    await new Promise((r) => setTimeout(r, 100));
+  });
+
+  // Só eventos de push (exclui panel-pull); RENDER/PAXG são virgens neste
+  // arquivo — nenhum timer flutuante de testes anteriores os toca.
+  function pushEventsSince(n0, asset) {
+    return dispatched.slice(n0).filter((e) =>
+      e.detail && e.detail.panel === "risk" &&
+      String(e.type).indexOf("estudebitcoin:panel-push-") === 0 &&
+      (!asset || e.detail.asset === asset));
+  }
+  function evtsToKinds(evs) {
+    return evs.map((e) => String(e.type).replace("estudebitcoin:panel-push-", ""));
+  }
+
+  it("pushPanel emite start → success com {panel, asset}", async () => {
+    PanelSync.saveLocal("risk", riskParams("RENDER", 100), "RENDER");
+    const n0 = dispatched.length;
+    const ok = await PanelSync.pushPanel("risk", "RENDER");
+    assert.equal(ok, true);
+    const evs = pushEventsSince(n0, "RENDER");
+    assert.deepEqual(evtsToKinds(evs), ["start", "success"]);
+    assert.deepEqual(evs[0].detail, { panel: "risk", asset: "RENDER" });
+    assert.deepEqual(evs[1].detail, { panel: "risk", asset: "RENDER" });
+  });
+
+  it("pushPanel com set() rejeitado emite start → error e propaga o erro", async () => {
+    PanelSync.saveLocal("risk", riskParams("PAXG", 200), "PAXG");
+    delete cloud[rpath("PAXG")];
+    forceSetFailure = true;
+    const n0 = dispatched.length;
+    await assert.rejects(PanelSync.pushPanel("risk", "PAXG"), /RTDB indisponível/);
+    const evs = pushEventsSince(n0, "PAXG");
+    assert.deepEqual(evtsToKinds(evs), ["start", "error"]);
+    assert.deepEqual(evs[1].detail, { panel: "risk", asset: "PAXG" });
+    assert.ok(!(rpath("PAXG") in cloud), "nada foi gravado");
   });
 });
 

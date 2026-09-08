@@ -1348,6 +1348,7 @@
   #re-estado[data-estado="LIQUIDACAO"] { color: #fff; background: #e5484d; border-radius: 8px; padding: 2px 10px; }
   #re-estado[data-estado="LIQUIDACAO_INATINGIVEL"] { color: #7dd3fc; }
   #re-erro { display: none; background: #2a1414; border: 1px solid #e5484d; border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
+  .re-status-container { text-align: right; font-size: 11px; color: #888; margin-top: 8px; height: 14px; }
   .re-foot { margin: 12px 0 0; color: #8a8a8a; font-size: 11px; line-height: 1.5; }
 </style>
 <section class="container re-section" aria-labelledby="re-title">
@@ -1364,6 +1365,9 @@
       <div class="re-field"><label>Valor da posição (USD)</label><input id="re-valor" type="text" inputmode="decimal" value="15.000,00"></div>
       <div class="re-field"><label>MMR (decimal, ex. 0.005)</label><input id="re-mmr" type="number" value="0" min="0" step="any"></div>
       <div class="re-field"><label>Funding acumulado (USD)</label><input id="re-funding" type="text" inputmode="decimal" value="0,00"></div>
+    </div>
+    <div class="re-status-container">
+      <span id="re-save-status"></span>
     </div>
     <div id="re-erro" role="alert"></div>
     <div class="re-out">

@@ -32,9 +32,10 @@ const ASSETS = ["BTC", "ETH", "SOL", "LINK", "AVAX", "RENDER", "PAXG"];
 /* ---------- Fakes ---------- */
 
 function makeField(value) {
-  return {
+  const f = {
     value: value !== undefined ? value : "",
-    textContent: "",
+    _text: "",
+    _sets: [], // histórico de textContent (p/ provar limpeza de status)
     style: {},
     options: [],
     _listeners: {},
@@ -46,6 +47,12 @@ function makeField(value) {
       (this._listeners[t] || []).forEach((fn) => fn.call(this, arg));
     },
   };
+  Object.defineProperty(f, "textContent", {
+    get() { return this._text; },
+    set(v) { this._text = v; this._sets.push(v); },
+    configurable: true,
+  });
+  return f;
 }
 
 function makeDocument(initial) {
@@ -318,6 +325,64 @@ describe("migração legada local (segunda linha de defesa)", () => {
     assert.equal(btc.saldoCorretora, 2500);
     assert.equal(doc._fields["re-simbolo"].value, "BTC");
     assert.equal(ls._m.has("eb_panel_risk"), false, "legado removido");
+  });
+});
+
+describe("status de persistência (feedback visual)", () => {
+  function statusOf(doc) {
+    return doc._fields["re-save-status"].textContent;
+  }
+
+  it("save local carimba 'Salvo neste navegador'", () => {
+    const { doc } = loadPanel({});
+    doc._fields["re-saldo"].value = "5001";
+    doc._fields["re-saldo"].fire("input");
+    assert.match(statusOf(doc), /^Salvo neste navegador às \d{2}:\d{2}:\d{2}$/);
+  });
+
+  it("push-start → 'Sincronizando'; push-success → 'Sincronizado'", () => {
+    const { doc, hostListeners } = loadPanel({});
+    hostListeners["estudebitcoin:panel-push-start"]({ detail: { panel: "risk", asset: "BTC" } });
+    assert.equal(statusOf(doc), "Sincronizando nuvem...");
+    hostListeners["estudebitcoin:panel-push-success"]({ detail: { panel: "risk", asset: "BTC" } });
+    assert.match(statusOf(doc), /^Sincronizado na nuvem às \d{2}:\d{2}:\d{2}$/);
+    hostListeners["estudebitcoin:panel-push-error"]({ detail: { panel: "risk", asset: "BTC" } });
+    assert.match(statusOf(doc), /^Falha na sincronização às \d{2}:\d{2}:\d{2}$/);
+  });
+
+  it("success atrasado de BTC não altera o status com ETH ativo", () => {
+    const store = new Map([
+      ["risk:BTC", { simbolo: "BTC", moedaConta: "USD", saldoCorretora: 5000, alavancagem: 10, ordens: [{ moeda: "USD", preco: 60000, valor: 60000 }], fundingCustoAcumulado: 0, mmr: 0, lado: "LONG" }],
+      ["__last", "BTC"],
+    ]);
+    const { doc, hostListeners } = loadPanel({ store });
+    const sel = doc._fields["re-simbolo"];
+    sel.value = "ETH";
+    sel.fire("change");
+    const ethStatus = statusOf(doc);
+    assert.match(ethStatus, /^Salvo neste navegador às /);
+    hostListeners["estudebitcoin:panel-push-success"]({ detail: { panel: "risk", asset: "BTC" } });
+    hostListeners["estudebitcoin:panel-push-start"]({ detail: { panel: "risk", asset: "BTC" } });
+    assert.equal(statusOf(doc), ethStatus, "status de ETH intacto");
+  });
+
+  it("troca de ativo limpa imediatamente o status anterior", () => {
+    const store = new Map([
+      ["risk:BTC", { simbolo: "BTC", moedaConta: "USD", saldoCorretora: 5000, alavancagem: 10, ordens: [{ moeda: "USD", preco: 60000, valor: 60000 }], fundingCustoAcumulado: 0, mmr: 0, lado: "LONG" }],
+      ["__last", "BTC"],
+    ]);
+    const { doc } = loadPanel({ store });
+    doc._fields["re-saldo"].value = "5001";
+    doc._fields["re-saldo"].fire("input");
+    const sets = doc._fields["re-save-status"]._sets;
+    const before = sets.length;
+    assert.match(sets[before - 1], /^Salvo neste navegador às /);
+    const sel = doc._fields["re-simbolo"];
+    sel.value = "ETH";
+    sel.fire("change");
+    const after = doc._fields["re-save-status"]._sets.slice(before);
+    assert.ok(after.includes(""), "limpeza síncrona antes de qualquer re-carimbo");
+    assert.match(after[after.length - 1], /^Salvo neste navegador às /);
   });
 });
 

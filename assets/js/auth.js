@@ -357,10 +357,17 @@
     var local = loadLocal(panel, a);
     if (!local || !local.params) return Promise.resolve(false);
     if (!fbApp || !currentUser) return Promise.resolve(false);
+    emit('estudebitcoin:panel-push-start', { panel: panel, asset: a });
     return panelRef(currentUser.id, panel, a).set({
       params: local.params,
       updatedAt: local.updatedAt || new Date().toISOString()
-    }).then(function () { return true; });
+    }).then(function () {
+      emit('estudebitcoin:panel-push-success', { panel: panel, asset: a });
+      return true;
+    }, function (err) {
+      emit('estudebitcoin:panel-push-error', { panel: panel, asset: a });
+      throw err;
+    });
   }
 
   /* Pull de UM asset do painel risk. ref+key são computados em escopo local

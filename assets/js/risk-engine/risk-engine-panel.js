@@ -98,6 +98,26 @@
     if (el) el.textContent = text;
   }
 
+  /* ---------- Status de persistência (feedback visual, sem botão) ----------
+   * Texto reflete só o que é determinístico no painel: save local (retorno
+   * de saveLocal) e eventos de push vindos do PanelSync. Nuvem nunca é
+   * inferida de estado de autenticação. */
+  function updateSaveStatus(texto) {
+    var el = (typeof document !== 'undefined' && document.getElementById)
+      ? document.getElementById('re-save-status') : null;
+    if (el) el.textContent = texto;
+  }
+
+  function getTimeString() {
+    try {
+      return new Date().toLocaleTimeString('pt-BR', { hour12: false });
+    } catch (e) {
+      var d = new Date();
+      var p = function (n) { return (n < 10 ? '0' : '') + n; };
+      return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    }
+  }
+
   /* ---------- Persistência (Etapa 1 local + Etapa 3 nuvem via PanelSync) ----------
    * - Anônimo: salva/restaura em localStorage (nunca perde no reload).
    * - Logado: PanelSync empurra para a nuvem (debounce interno) e aplica o
@@ -188,14 +208,20 @@
    * de BTC: escrever sob o tracked (BTC) evita contaminar a chave de ETH. */
   function persistRiskParams(assetOverride) {
     try {
+      var hasSync = !!(host.PanelSync && host.PanelSync.saveLocal);
+      if (hasSync) updateSaveStatus("Salvando...");
       var params = readParams();
       var current = assetOverride
         || (host.PanelSync && host.PanelSync.getCurrentAsset && host.PanelSync.getCurrentAsset())
         || params.simbolo || 'BTC';
       current = String(current).toUpperCase();
       params.simbolo = current;
-      if (host.PanelSync && host.PanelSync.saveLocal) {
-        host.PanelSync.saveLocal(RISK_PANEL, params, current);
+      if (hasSync) {
+        if (host.PanelSync.saveLocal(RISK_PANEL, params, current)) {
+          updateSaveStatus("Salvo neste navegador às " + getTimeString());
+        } else {
+          updateSaveStatus("Não foi possível salvar neste navegador");
+        }
       }
     } catch (e) { /* persistência opcional: nunca quebra o painel */ }
   }
@@ -236,6 +262,7 @@
 
   function restoreRiskParams() {
     try {
+      updateSaveStatus("");
       // Boot: o último asset usado reposiciona o select antes de ler.
       var bootAsset = host.PanelSync && host.PanelSync.loadLastAsset
         ? host.PanelSync.loadLastAsset() : null;
@@ -367,6 +394,7 @@
     var simboloEl = document.getElementById("re-simbolo");
     if (simboloEl) {
       simboloEl.addEventListener("change", function () {
+        updateSaveStatus(""); // limpa o carimbo do ativo anterior imediatamente
         var newAsset = getCurrentAssetId(); // select JÁ mudou — este é o NOVO
         var prevAsset = (host.PanelSync && host.PanelSync.getCurrentAsset &&
           host.PanelSync.getCurrentAsset()) || newAsset;
@@ -421,8 +449,28 @@
           applyRiskParams(d.params);
           reconfigurar();
         });
+        // Feedback de push (nuvem): só o asset ativo consome. Success atrasado
+        // de outro asset é ignorado — nunca reescreve o status do ativo atual.
+        host.addEventListener('estudebitcoin:panel-push-start', function (ev) {
+          var d = ev && ev.detail;
+          if (!d || d.panel !== RISK_PANEL) return;
+          if (d.asset !== getCurrentAssetId()) return;
+          updateSaveStatus("Sincronizando nuvem...");
+        });
+        host.addEventListener('estudebitcoin:panel-push-success', function (ev) {
+          var d = ev && ev.detail;
+          if (!d || d.panel !== RISK_PANEL) return;
+          if (d.asset !== getCurrentAssetId()) return;
+          updateSaveStatus("Sincronizado na nuvem às " + getTimeString());
+        });
+        host.addEventListener('estudebitcoin:panel-push-error', function (ev) {
+          var d = ev && ev.detail;
+          if (!d || d.panel !== RISK_PANEL) return;
+          if (d.asset !== getCurrentAssetId()) return;
+          updateSaveStatus("Falha na sincronização às " + getTimeString());
+        });
       }
-    } catch (e) { /* listener opcional */ }
+    } catch (e) { /* listeners opcionais */ }
 
     restoreRiskParams();
     if (host.PanelSync && host.PanelSync.saveLastAsset) {
