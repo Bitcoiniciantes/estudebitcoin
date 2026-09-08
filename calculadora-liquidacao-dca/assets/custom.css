@@ -1,7 +1,13 @@
 /* Override visual — Simulador de Alavancagem
    1) Bullets (summary-cards) 20% menores
    2) Número BTCUSDT em laranja
-   3) Bordas mais legíveis nos cards pretos */
+   3) Bordas mais legíveis nos cards pretos
+   4) Todo o app 10% menor (fontes + espaçamentos proporcionais) */
+
+/* 4) Escala global 0.9 — reduz fontes em 10% de forma uniforme */
+.app-shell {
+  zoom: 0.9;
+}
 
 /* 1) Bullets ~20% menores */
 .summary-grid {
