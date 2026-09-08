@@ -41,12 +41,6 @@
   font-size: 0.55rem;
   font-weight: 900;
 }
-.eb-login-name {
-  max-width: 90px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* ---- Overlay + card (modelo aprovado) ---- */
 .eb-login-overlay {
@@ -270,5 +264,4 @@
     height: 12px;
     font-size: 0.45rem;
   }
-  .eb-login-name { max-width: 45px; }
 }

@@ -404,10 +404,6 @@
       av.className = 'eb-login-avatar';
       av.textContent = initial;
       btn.appendChild(av);
-      var tx = document.createElement('span');
-      tx.className = 'eb-login-name';
-      tx.textContent = name.split(' ')[0].slice(0, 3).toUpperCase();
-      btn.appendChild(tx);
       btn.setAttribute('aria-label', 'Minha conta (' + name + ')');
     } else {
       btn.textContent = 'Entrar';
