@@ -95,7 +95,15 @@ function makePanelSync(store) {
       const a = asset || this._current;
       calls.push(["save", panel, params && params.simbolo, a]);
       store.set(panel + ":" + a, JSON.parse(JSON.stringify(params)));
+      this.schedulePush(panel, a); // espelha auth.js: save agenda push
       return true;
+    },
+    schedulePush(panel, asset) {
+      calls.push(["schedule", panel, asset || this._current]);
+    },
+    pushPanel(panel, asset) {
+      calls.push(["push", panel, asset || this._current]);
+      return false;
     },
     loadLocal(panel, asset) {
       const a = asset || this._current;
@@ -195,25 +203,26 @@ describe("boot / restore", () => {
 });
 
 describe("troca de ativo (Bug 2)", () => {
-  it("BTC→ETH virgem: salva BTC, reseta form, não contamina ETH", () => {
+  it("BTC→ETH virgem: NADA é salvo; form com defaults, sem contaminação", () => {
     const store = new Map([
       ["risk:BTC", { simbolo: "BTC", moedaConta: "USD", saldoCorretora: 5000, alavancagem: 10, ordens: [{ moeda: "USD", preco: 60000, valor: 60000 }], fundingCustoAcumulado: 0, mmr: 0, lado: "LONG" }],
       ["__last", "BTC"],
     ]);
     const { doc, panelSync, adapter } = loadPanel({ store });
     const sel = doc._fields["re-simbolo"];
+    const n0 = panelSync.calls.length;
     sel.value = "ETH";
     sel.fire("change");
+    // ZERO persistência na troca: nenhum save/schedule/push foi emitido.
+    assert.deepEqual(panelSync.calls.slice(n0), []);
     // Anterior preservado sob a chave do anterior:
     assert.equal(savedOf(store, "BTC").saldoCorretora, 5000);
-    // Novo ativo isolado: form com defaults, nunca valores de BTC:
+    // Novo ativo isolado: form com defaults, nunca valores de BTC;
+    // nenhuma chave ETH criada:
     assert.equal(doc._fields["re-saldo"].value, "3.000,00");
     assert.equal(doc._fields["re-alavancagem"].value, "5");
-    const ethSaved = savedOf(store, "ETH");
-    assert.ok(ethSaved, "ETH foi persistido ao trocar");
-    assert.equal(ethSaved.simbolo, "ETH");
-    assert.equal(ethSaved.saldoCorretora, 3000);
-    // Adapter agora filtra ETH; identidade rastreada = ETH:
+    assert.equal(store.has("risk:ETH"), false, "troca não cria estado");
+    // Adapter agora filtra ETH; identidade rastreada = ETH; seleção salva:
     assert.equal(adapter.configured[adapter.configured.length - 1].simbolo, "ETH");
     assert.equal(panelSync._current, "ETH");
     assert.equal(store.get("__last"), "ETH");
@@ -240,20 +249,23 @@ describe("troca de ativo (Bug 2)", () => {
     assert.equal(savedOf(store, "ETH").saldoCorretora, 7000);
   });
 
-  it("input-antes-change: só o anterior é salvo, o novo não é criado", () => {
+  it("input no select não persiste mais (só change trata a troca)", () => {
     const store = new Map([
       ["risk:BTC", { simbolo: "BTC", moedaConta: "USD", saldoCorretora: 5000, alavancagem: 10, ordens: [{ moeda: "USD", preco: 60000, valor: 60000 }], fundingCustoAcumulado: 0, mmr: 0, lado: "LONG" }],
       ["__last", "BTC"],
     ]);
     const { doc, panelSync } = loadPanel({ store });
     const sel = doc._fields["re-simbolo"];
+    const n0 = panelSync.calls.length;
     sel.value = "ETH"; // select já mudou, campos ainda são de BTC
-    sel.fire("input"); // reconfigurar() — como o browser dispara antes do change
+    sel.fire("input"); // browser pode disparar antes do change: deve ser no-op
+    assert.deepEqual(panelSync.calls.slice(n0), [], "input no select não persiste");
     assert.equal(store.has("risk:ETH"), false, "input não pode criar a chave do novo ativo");
     assert.equal(savedOf(store, "BTC").saldoCorretora, 5000);
     assert.equal(panelSync._current, "BTC", "identidade intacta após input");
     sel.fire("change");
     assert.equal(doc._fields["re-saldo"].value, "3.000,00", "change reseta para defaults");
+    assert.deepEqual(panelSync.calls.slice(n0), [], "change também não persiste");
   });
 });
 
@@ -359,11 +371,11 @@ describe("status de persistência (feedback visual)", () => {
     const sel = doc._fields["re-simbolo"];
     sel.value = "ETH";
     sel.fire("change");
-    const ethStatus = statusOf(doc);
-    assert.match(ethStatus, /^Salvo neste navegador às /);
+    // Troca não persiste: status foi limpo e nada o re-carimbou.
+    assert.equal(statusOf(doc), "");
     hostListeners["estudebitcoin:panel-push-success"]({ detail: { panel: "risk", asset: "BTC" } });
     hostListeners["estudebitcoin:panel-push-start"]({ detail: { panel: "risk", asset: "BTC" } });
-    assert.equal(statusOf(doc), ethStatus, "status de ETH intacto");
+    assert.equal(statusOf(doc), "", "status intacto (vazio) apesar dos eventos de BTC");
   });
 
   it("troca de ativo limpa imediatamente o status anterior", () => {
@@ -381,8 +393,78 @@ describe("status de persistência (feedback visual)", () => {
     sel.value = "ETH";
     sel.fire("change");
     const after = doc._fields["re-save-status"]._sets.slice(before);
-    assert.ok(after.includes(""), "limpeza síncrona antes de qualquer re-carimbo");
-    assert.match(after[after.length - 1], /^Salvo neste navegador às /);
+    assert.ok(after.includes(""), "limpeza síncrona no início do change");
+    assert.equal(after[after.length - 1], "", "nada re-carimba: troca não persiste");
+  });
+});
+
+describe("troca sem alteração (zero persistência)", () => {
+  function btcEthStore() {
+    return new Map([
+      ["risk:BTC", { simbolo: "BTC", moedaConta: "USD", saldoCorretora: 5000, alavancagem: 10, ordens: [{ moeda: "USD", preco: 60000, valor: 60000 }], fundingCustoAcumulado: 0, mmr: 0, lado: "LONG" }],
+      ["risk:ETH", { simbolo: "ETH", moedaConta: "USD", saldoCorretora: 7000, alavancagem: 3, ordens: [{ moeda: "USD", preco: 2400, valor: 7000 }], fundingCustoAcumulado: 0, mmr: 0, lado: "SHORT" }],
+      ["__last", "BTC"],
+    ]);
+  }
+  function kinds(ps, n0) {
+    return ps.calls.slice(n0).map((c) => c[0]);
+  }
+  function snapshot(store) {
+    return JSON.stringify([...store].filter(([k]) => k !== "__last"));
+  }
+
+  it("T1 — BTC→ETH sem alteração: zero save/schedule/push, ETH restaurado", () => {
+    const store = btcEthStore();
+    const { doc, panelSync, adapter } = loadPanel({ store });
+    const before = snapshot(store);
+    const n0 = panelSync.calls.length;
+    const sel = doc._fields["re-simbolo"];
+    sel.value = "ETH";
+    sel.fire("change");
+    assert.deepEqual(kinds(panelSync, n0), [], "nenhum save/schedule/push na troca");
+    assert.equal(snapshot(store), before, "nenhum parâmetro tocado (só __last)");
+    assert.equal(doc._fields["re-saldo"].value, "7.000,00", "form de ETH restaurado");
+    assert.equal(doc._fields["re-lado"].value, "SHORT");
+    assert.equal(adapter.configured[adapter.configured.length - 1].simbolo, "ETH");
+    assert.equal(panelSync._current, "ETH");
+  });
+
+  it("T2 — ETH→BTC sem alteração: zero save/schedule/push, BTC preservado", () => {
+    const store = btcEthStore();
+    store.set("__last", "ETH");
+    const { doc, panelSync, adapter } = loadPanel({ store });
+    assert.equal(doc._fields["re-simbolo"].value, "ETH");
+    const before = snapshot(store);
+    const n0 = panelSync.calls.length;
+    const sel = doc._fields["re-simbolo"];
+    sel.value = "BTC";
+    sel.fire("change");
+    assert.deepEqual(kinds(panelSync, n0), [], "nenhum save/schedule/push no retorno");
+    assert.equal(snapshot(store), before, "estado BTC preservado byte a byte");
+    assert.equal(doc._fields["re-saldo"].value, "5.000,00");
+    assert.equal(adapter.configured[adapter.configured.length - 1].simbolo, "BTC");
+  });
+
+  it("T3 — alteração real continua salvando (1 save + 1 schedule)", () => {
+    const store = btcEthStore();
+    const { doc, panelSync } = loadPanel({ store });
+    const n0 = panelSync.calls.length;
+    doc._fields["re-saldo"].value = "5001";
+    doc._fields["re-saldo"].fire("input");
+    assert.deepEqual(kinds(panelSync, n0), ["save", "schedule"]);
+    assert.equal(JSON.parse(JSON.stringify(store.get("risk:BTC"))).saldoCorretora, 5001);
+  });
+
+  it("T4 — seleção continua persistindo (saveLastAsset ≠ saveLocal)", () => {
+    const store = btcEthStore();
+    const { doc, panelSync } = loadPanel({ store });
+    const n0 = panelSync.calls.length;
+    const sel = doc._fields["re-simbolo"];
+    sel.value = "ETH";
+    sel.fire("change");
+    assert.deepEqual(kinds(panelSync, n0), [], "troca não chama saveLocal/schedule/pushPanel");
+    assert.equal(store.get("__last"), "ETH", "mas a seleção foi registrada");
+    assert.equal(panelSync._current, "ETH");
   });
 });
 

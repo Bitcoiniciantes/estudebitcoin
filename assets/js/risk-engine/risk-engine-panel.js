@@ -370,35 +370,37 @@
     if (!document.getElementById("re-painel")) return false;
     var adapter = host.RiskEngineAdapter;
 
-    function reconfigurar() {
+    /* Configuração visual do adapter (SEM persistência). Usada pela troca
+     * de ativo: trocar ≠ alterar — nenhum saveLocal/push pode sair daqui. */
+    function configureAdapter() {
       adapter.configure(readParams());
-      persistRiskParams();
       var last = adapter.getLastPrice();
       if (typeof last === "number") render(buildViewModel(adapter.updateRiskPrice(last)), last);
     }
 
-    ["re-simbolo", "re-lado", "re-saldo", "re-alavancagem", "re-preco-entrada",
+    function reconfigurar() {
+      configureAdapter();
+      persistRiskParams();
+    }
+
+    /* `re-simbolo` NÃO está na lista: o `change` abaixo cobre o <select>
+     * por mouse e teclado sozinho. Incluí-lo aqui persistia na troca. */
+    ["re-lado", "re-saldo", "re-alavancagem", "re-preco-entrada",
      "re-valor", "re-funding", "re-mmr"].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener("input", reconfigurar);
     });
 
-    /* Troca de ativo — ordem ESTRITA (nunca inferir identidade do form):
-     * 1) salva o ANTERIOR (persist usa o tracked, ainda intacto);
-     * 2) troca a identidade — ÚNICO ponto de troca fora de boot/pull;
-     * 3) carrega o NOVO (ou defaults isolados, nunca valores do anterior);
-     * 4) reconfigura (persiste o novo + atualiza o adapter).
-     * Nota: <select> modernos disparam `input` ANTES de `change` na mesma
-     * interação; o `input` escreve sob a identidade ainda antiga (save do
-     * anterior, idempotente com o passo 1) — não remover nem "unificar". */
+    /* Troca de ativo — ZERO persistência de parâmetros:
+     * 1) identifica o novo asset; 2) troca a identidade; 3) registra a
+     * seleção (saveLastAsset ≠ saveLocal); 4) carrega o novo (salvo ou
+     * defaults); 5) configureAdapter() (sem persist).
+     * Trocar sem editar não salva, não agenda push, não toca updatedAt. */
     var simboloEl = document.getElementById("re-simbolo");
     if (simboloEl) {
       simboloEl.addEventListener("change", function () {
         updateSaveStatus(""); // limpa o carimbo do ativo anterior imediatamente
         var newAsset = getCurrentAssetId(); // select JÁ mudou — este é o NOVO
-        var prevAsset = (host.PanelSync && host.PanelSync.getCurrentAsset &&
-          host.PanelSync.getCurrentAsset()) || newAsset;
-        persistRiskParams(prevAsset);
         if (host.PanelSync && host.PanelSync.setCurrentAsset) {
           host.PanelSync.setCurrentAsset(newAsset);
         }
@@ -412,7 +414,7 @@
         } else {
           applyRiskParams(defaultRiskParams(newAsset));
         }
-        reconfigurar();
+        configureAdapter();
       });
     }
 
