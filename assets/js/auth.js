@@ -578,7 +578,7 @@
           if (!fb) return;
           // Conclui login por redirect (mobile/PWA) e acompanha a sessão.
           fb.auth().getRedirectResult().catch(function () { /* sem redirect pendente */ });
-          fb.auth().onAuthStateChange(function (fu) { afterUser(fu); });
+          fb.auth().onAuthStateChanged(function (fu) { afterUser(fu); });
         }).catch(function () { /* silencioso */ });
       }
     } catch (e) { /* login opcional: nunca quebra a página */ }
