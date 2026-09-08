@@ -98,6 +98,78 @@
     if (el) el.textContent = text;
   }
 
+  /* ---------- Persistência (Etapa 1 local + Etapa 3 nuvem via PanelSync) ----------
+   * - Anônimo: salva/restaura em localStorage (nunca perde no reload).
+   * - Logado: PanelSync empurra para a nuvem (debounce interno) e aplica o
+   *   pull via evento 'estudebitcoin:panel-pull'. Login continua opcional:
+   *   sem window.PanelSync, o painel funciona exatamente como antes. */
+  var RISK_PANEL = 'risk';
+
+  function finiteOr(value, fallback) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  }
+
+  function setSelect(id, value) {
+    var el = document.getElementById(id);
+    if (!el || value == null) return;
+    var v = String(value);
+    for (var i = 0; i < el.options.length; i++) {
+      if (el.options[i].value === v || el.options[i].text === v) {
+        el.value = el.options[i].value;
+        return;
+      }
+    }
+  }
+
+  function setMoney(id, value) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var n = finiteOr(value, null);
+    if (n !== null) el.value = fmtMoedaInput(n);
+  }
+
+  function setNumber(id, value) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var n = finiteOr(value, null);
+    if (n !== null) el.value = String(n);
+  }
+
+  function applyRiskParams(p) {
+    if (!p || typeof p !== 'object') return false;
+    try {
+      setSelect('re-simbolo', p.simbolo);
+      setSelect('re-lado', p.lado);
+      setMoney('re-saldo', p.saldoCorretora);
+      setNumber('re-alavancagem', p.alavancagem);
+      var ordem = p.ordens && p.ordens[0];
+      if (ordem) {
+        setMoney('re-preco-entrada', ordem.preco);
+        setMoney('re-valor', ordem.valor);
+      }
+      setMoney('re-funding', p.fundingCustoAcumulado);
+      setNumber('re-mmr', p.mmr);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function persistRiskParams() {
+    try {
+      if (host.PanelSync && host.PanelSync.saveLocal) {
+        host.PanelSync.saveLocal(RISK_PANEL, readParams());
+      }
+    } catch (e) { /* persistência opcional: nunca quebra o painel */ }
+  }
+
+  function restoreRiskParams() {
+    try {
+      if (host.PanelSync && host.PanelSync.loadLocal) {
+        var saved = host.PanelSync.loadLocal(RISK_PANEL);
+        if (saved && saved.params) applyRiskParams(saved.params);
+      }
+    } catch (e) { /* segue com os padrões */ }
+  }
+
   function readParams() {
     function val(id, fallback) {
       var el = document.getElementById(id);
@@ -178,6 +250,7 @@
 
     function reconfigurar() {
       adapter.configure(readParams());
+      persistRiskParams();
       var last = adapter.getLastPrice();
       if (typeof last === "number") render(buildViewModel(adapter.updateRiskPrice(last)), last);
     }
@@ -205,6 +278,20 @@
       render(buildViewModel(resultado), adapter.getLastPrice());
     });
 
+    // Pull da nuvem (login): aplica params sincronizados sem recarregar a página.
+    try {
+      if (host.addEventListener) {
+        host.addEventListener('estudebitcoin:panel-pull', function (ev) {
+          var d = ev && ev.detail;
+          if (d && d.panel === RISK_PANEL && d.params) {
+            applyRiskParams(d.params);
+            reconfigurar();
+          }
+        });
+      }
+    } catch (e) { /* listener opcional */ }
+
+    restoreRiskParams();
     adapter.configure(readParams());
     adapter.attach();
     render(null, null);

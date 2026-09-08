@@ -19,6 +19,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/main.css?v=2" />
   <link rel="stylesheet" href="assets/css/widgets.css?v=17" />
+  <link rel="stylesheet" href="assets/css/login.css?v=1" />
 
   <style>
     body { background: #ffffff; color: #1a1a1a; scroll-behavior: smooth; padding-top: 52px; }
@@ -488,6 +489,7 @@
   </a>
   <div class="dash-actions">
     <a class="dash-termometro-link" href="https://termometros.pages.dev/" target="_blank" rel="noopener">Termômetro</a>
+    <button type="button" class="dash-login-btn" id="eb-login-btn" aria-label="Entrar">Entrar</button>
     <div class="dash-menu">
     <button type="button" class="dash-menu-btn" id="dashMenuBtn" aria-expanded="false" aria-controls="dashMenuDrop">MENU</button>
     <div class="dash-menu-dropdown" id="dashMenuDrop">
@@ -513,6 +515,83 @@
 </div>
 </div>
 </header>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- LOGIN (opcional — salva simulações na nuvem) -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="eb-login-overlay" id="eb-login-overlay" hidden>
+  <div class="eb-login-card" role="dialog" aria-modal="true" aria-labelledby="eb-login-title">
+    <button type="button" class="eb-login-close" data-close="1" aria-label="Fechar">&times;</button>
+    <div class="eb-login-brand"><span class="eb-login-logo" aria-hidden="true">₿</span>EstudeBitcoin</div>
+
+    <!-- ENTRAR -->
+    <div id="eb-login-view-login">
+      <h2 id="eb-login-title">Entrar no EstudeBitcoin</h2>
+      <p class="eb-login-sub">Salve suas simulações e abra em qualquer aparelho.</p>
+      <button type="button" class="eb-login-google" id="eb-login-google">
+        <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.9-.1-1.5-.3-2.3H12v4.5h6.5c-.1 1.1-.8 2.7-2.4 3.8l-.1.1 3.5 2.7.2.1c2.2-2 3.8-5 3.8-8.9z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.8-2.9c-1 .7-2.4 1.2-4.1 1.2-3.1 0-5.8-2.1-6.8-5l-.1.1-3.6 2.8v.1C3.5 21.3 7.5 24 12 24z"/><path fill="#FBBC05" d="M5.2 14.4c-.2-.7-.4-1.5-.4-2.4s.1-1.7.4-2.4l-.1-.1-3.6-2.8-.1.1C.5 8.6 0 10.2 0 12s.5 3.4 1.4 4.9l3.8-2.5z"/><path fill="#EA4335" d="M12 4.7c1.8 0 3 .8 3.7 1.4l3.3-3.2C17.9 1.1 15.2 0 12 0 7.5 0 3.5 2.7 1.4 6.7l3.8 2.9c1-2.8 3.7-4.9 6.8-4.9z"/></svg>
+        Continuar com Google
+      </button>
+      <div class="eb-login-divisor">ou</div>
+      <form id="eb-login-form-login" autocomplete="on">
+        <label for="eb-login-form-login-email">E-mail</label>
+        <input type="email" id="eb-login-form-login-email" placeholder="voce@email.com" required />
+        <label for="eb-login-form-login-pass">Senha</label>
+        <input type="password" id="eb-login-form-login-pass" placeholder="••••••••" required />
+        <button type="submit" class="eb-login-primary" id="eb-login-submit">Entrar</button>
+      </form>
+      <div class="eb-login-links">
+        <a href="#" id="eb-login-to-reset">Esqueci a senha</a>
+        <span class="eb-login-sep">·</span>
+        <a href="#" id="eb-login-to-signup">Criar uma conta</a>
+      </div>
+    </div>
+
+    <!-- CRIAR CONTA -->
+    <div id="eb-login-view-signup" hidden>
+      <h2>Criar uma conta</h2>
+      <p class="eb-login-sub">Enviamos um link de confirmação para o seu e-mail.</p>
+      <form id="eb-login-form-signup" autocomplete="on">
+        <label for="eb-login-form-signup-email">E-mail</label>
+        <input type="email" id="eb-login-form-signup-email" placeholder="voce@email.com" required />
+        <label for="eb-login-form-signup-pass">Senha (6+ caracteres)</label>
+        <input type="password" id="eb-login-form-signup-pass" placeholder="••••••••" minlength="6" required />
+        <button type="submit" class="eb-login-primary" id="eb-login-signup">Criar conta</button>
+      </form>
+      <div class="eb-login-links"><a href="#" id="eb-login-to-login">Já tenho conta</a></div>
+    </div>
+
+    <!-- ESQUECI A SENHA -->
+    <div id="eb-login-view-reset" hidden>
+      <h2>Redefinir senha</h2>
+      <p class="eb-login-sub">Enviamos um link de redefinição para o seu e-mail.</p>
+      <form id="eb-login-form-reset">
+        <label for="eb-login-form-reset-email">E-mail</label>
+        <input type="email" id="eb-login-form-reset-email" placeholder="voce@email.com" required />
+        <button type="submit" class="eb-login-primary" id="eb-login-reset">Enviar link</button>
+      </form>
+      <div class="eb-login-links"><a href="#" id="eb-login-back-login">Voltar</a></div>
+    </div>
+
+    <!-- AVISO: VERIFICAR E-MAIL -->
+    <div id="eb-login-view-verify" hidden>
+      <h2>Verifique seu e-mail</h2>
+      <p class="eb-login-sub" id="eb-login-verify-text">Enviamos um link de confirmação. Clique nele e depois entre normalmente.</p>
+      <div class="eb-login-links"><a href="#" id="eb-login-to-login2">Voltar ao login</a></div>
+    </div>
+
+    <!-- CONTA LOGADA -->
+    <div id="eb-login-view-account" hidden>
+      <h2>Minha conta</h2>
+      <span class="eb-login-sync-ok">✓ Simulações sincronizadas na nuvem</span>
+      <span class="eb-login-account-email" id="eb-login-account-email"></span>
+      <button type="button" class="eb-login-secondary" id="eb-login-logout">Sair</button>
+      <button type="button" class="eb-login-danger" id="eb-login-delete">Apagar minhas simulações salvas</button>
+    </div>
+
+    <div class="eb-login-error" id="eb-login-error" role="alert"></div>
+  </div>
+</div>
 
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- WIDGET GRID -->
@@ -1454,6 +1533,7 @@
 <!-- Push Notifications -->
 <script src="assets/js/push-config.js"></script>
 <script src="assets/js/push-subscribe.js"></script>
+<script src="assets/js/auth.js?v=1"></script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(function () {});

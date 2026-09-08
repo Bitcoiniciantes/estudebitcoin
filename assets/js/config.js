@@ -28,7 +28,9 @@ window.BI_CONFIG = {
     corsProxy: 'https://api.allorigins.win/get?url='
   },
 
-  // Firebase (Mural de Sentimentos)
+  // Firebase (Mural de Sentimentos + Login opcional + sync de painéis).
+  // Login usa o MESMO projeto do mural: nenhuma chave nova. Os provedores
+  // (Google, e-mail/senha) são ativados no console do Firebase.
   firebase: {
     apiKey: 'AIzaSyDssItjo_Ctfdlnqrf2KD5QmvH21h-sS3Y',
     authDomain: 'mural-bitcoiniciantes.firebaseapp.com',
@@ -58,6 +60,7 @@ window.BI_CONFIG = {
   cdn: {
     chartjs: 'https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js',
     firebaseApp: 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',
+    firebaseAuth: 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js',
     firebaseDb: 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js'
   }
 };

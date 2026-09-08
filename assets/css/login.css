@@ -1,0 +1,258 @@
+/* =====================================================================
+   EstudeBitcoin — Login (botão no topo + modal "Entrar no EstudeBitcoin")
+   Modelo aprovado: card claro, botão primário laranja da marca (#F7931A).
+   ===================================================================== */
+
+/* ---- Botão Entrar no cabeçalho (mesma linguagem do MENU) ---- */
+.dash-login-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ffad42;
+  background: linear-gradient(135deg, rgba(247,147,26,0.18), rgba(247,147,26,0.07));
+  padding: 7px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(247,147,26,0.45);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.22);
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s, background 0.2s;
+  user-select: none;
+  font-family: inherit;
+}
+.dash-login-btn:hover {
+  transform: translateY(-1px);
+  color: #fff;
+  border-color: #F7931A;
+  background: linear-gradient(135deg, rgba(247,147,26,0.32), rgba(247,147,26,0.12));
+}
+.eb-login-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #F7931A;
+  color: #111;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+.eb-login-name {
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Overlay + card (modelo aprovado) ---- */
+.eb-login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(4, 7, 11, 0.72);
+  backdrop-filter: blur(3px);
+}
+.eb-login-overlay[hidden] { display: none; }
+.eb-login-card {
+  position: relative;
+  width: min(400px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: #fff;
+  color: #14181f;
+  border-radius: 18px;
+  padding: 28px 26px 24px;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.5);
+  font-family: inherit;
+}
+.eb-login-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: 0;
+  background: transparent;
+  color: #9aa1ad;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.eb-login-close:hover { color: #14181f; }
+.eb-login-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 18px;
+  font-weight: 900;
+  font-size: 1.02rem;
+  letter-spacing: -0.01em;
+}
+.eb-login-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #F7931A;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 900;
+}
+.eb-login-card h2 {
+  margin: 0 0 6px;
+  font-size: 1.45rem;
+  letter-spacing: -0.02em;
+}
+.eb-login-sub {
+  margin: 0 0 18px;
+  color: #6b7280;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.eb-login-card label {
+  display: block;
+  margin: 12px 0 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #23272f;
+}
+.eb-login-card input[type="email"],
+.eb-login-card input[type="password"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 13px;
+  border: 1px solid #dfe3ea;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  color: #14181f;
+  background: #fff;
+}
+.eb-login-card input:focus {
+  outline: 0;
+  border-color: #F7931A;
+  box-shadow: 0 0 0 3px rgba(247,147,26,0.18);
+}
+.eb-login-primary {
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: #F7931A;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+.eb-login-primary:hover:not(:disabled) { background: #e07f0a; }
+.eb-login-primary:disabled { opacity: 0.65; cursor: wait; }
+.eb-login-google {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #dfe3ea;
+  border-radius: 10px;
+  background: #fff;
+  color: #23272f;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+.eb-login-google:hover:not(:disabled) { border-color: #b9c0cc; background: #f7f8fa; }
+.eb-login-google:disabled { opacity: 0.65; cursor: wait; }
+.eb-login-divisor {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 4px;
+  color: #9aa1ad;
+  font-size: 0.78rem;
+}
+.eb-login-divisor::before,
+.eb-login-divisor::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e7eaf0;
+}
+.eb-login-links {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 0.85rem;
+}
+.eb-login-links a {
+  color: #F7931A;
+  font-weight: 700;
+  text-decoration: none;
+}
+.eb-login-links a:hover { text-decoration: underline; }
+.eb-login-links .eb-login-sep { color: #c6ccd6; margin: 0 8px; }
+.eb-login-error {
+  display: none;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fdecec;
+  border: 1px solid #f3b7b7;
+  color: #b42323;
+  font-size: 0.83rem;
+  line-height: 1.4;
+}
+.eb-login-account-email {
+  display: block;
+  margin: 4px 0 6px;
+  padding: 10px 12px;
+  background: #f4f6f9;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  word-break: break-all;
+}
+.eb-login-sync-ok {
+  display: block;
+  margin-bottom: 12px;
+  color: #1c7a3d;
+  font-size: 0.83rem;
+  font-weight: 700;
+}
+.eb-login-secondary {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #dfe3ea;
+  border-radius: 10px;
+  background: #fff;
+  color: #23272f;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.eb-login-danger {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #b42323;
+  font-size: 0.83rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.eb-login-danger:hover { text-decoration: underline; }
