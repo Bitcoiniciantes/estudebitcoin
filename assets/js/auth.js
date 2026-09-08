@@ -367,8 +367,8 @@
     var m = String((err && err.message) || err || '');
     if (code === 'auth/email-not-verified') return 'NOT_VERIFIED';
     if (/invalid-credential|wrong-password|user-not-found|invalid-email/i.test(code + ' ' + m) ||
-        /invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos.';
-    if (/email-already-in-use|already registered/i.test(code + ' ' + m)) return 'Este e-mail já tem conta. Tente entrar.';
+        /invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos. Esqueceu? Use "Esqueci a senha".';
+    if (/email-already-in-use|already registered/i.test(code + ' ' + m)) return 'Este e-mail já tem conta. Entre com sua senha ou clique em "Esqueci a senha".';
     if (/weak-password|weak|short|length/i.test(code + ' ' + m)) return 'Use uma senha com 6+ caracteres.';
     if (/too-many-requests|rate limit|too many/i.test(code + ' ' + m)) return 'Muitas tentativas. Aguarde um pouco.';
     if (/network-request-failed|network/i.test(code)) return 'Sem conexão. Verifique a internet e tente de novo.';
