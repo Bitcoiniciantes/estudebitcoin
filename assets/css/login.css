@@ -7,15 +7,15 @@
 .dash-login-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.72rem;
+  gap: 6px;
+  font-size: 0.5rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #ffad42;
   background: linear-gradient(135deg, rgba(247,147,26,0.18), rgba(247,147,26,0.07));
-  padding: 7px 14px;
-  border-radius: 10px;
+  padding: 5px 10px;
+  border-radius: 8px;
   border: 1px solid rgba(247,147,26,0.45);
   box-shadow: 0 6px 18px rgba(0,0,0,0.22);
   cursor: pointer;
@@ -33,12 +33,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: #F7931A;
-  color: #111;
-  font-size: 0.68rem;
+  color: #fff;
+  font-size: 0.55rem;
   font-weight: 900;
 }
 .eb-login-name {
@@ -256,3 +256,19 @@
   font-family: inherit;
 }
 .eb-login-danger:hover { text-decoration: underline; }
+
+/* ---- Mobile: ENTRAR 30% menor (cabeçalho compacto) ---- */
+@media (max-width: 640px) {
+  .dash-login-btn {
+    gap: 5px;
+    padding: 4px 8px;
+    font-size: 0.42rem;
+    border-radius: 7px;
+  }
+  .eb-login-avatar {
+    width: 12px;
+    height: 12px;
+    font-size: 0.45rem;
+  }
+  .eb-login-name { max-width: 45px; }
+}
