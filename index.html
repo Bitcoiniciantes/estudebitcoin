@@ -1146,6 +1146,17 @@
   <div id="widget-etf-sosovalue"></div>
 </section>
 
+<section class="container" style="padding-top:0; padding-bottom:10px;" aria-labelledby="top-news-title">
+  <div class="dark-card" style="display:flex;flex-direction:column;height:auto;" id="top-news-section">
+    <div style="background:transparent;border:none;padding:0;display:flex;flex-direction:column;flex:1;">
+      <h2 class="preev__title" id="top-news-title">Not+¡cias Relevantes</h2>
+      <ol id="top-news" style="margin:0;padding-left:22px;display:grid;gap:8px;"></ol>
+      <p id="top-news-status" role="status" aria-live="polite" style="opacity:.7;font-size:13px;margin:10px 0 0;">Carregando not+¡ciasÔÇª</p>
+      <p id="top-news-meta" style="opacity:.7;font-size:13px;margin:10px 0 0;"></p>
+    </div>
+  </div>
+</section>
+
 <section id="strategy-tesouraria" class="container" style="padding-top:0; padding-bottom:10px;">
   <div id="strategy-root"></div>
 </section>
@@ -1634,6 +1645,83 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(function () {});
   }
+</script>
+<script>
+(function () {
+  // URL p+¦blica do Worker de not+¡cias (news-worker/, Worker separado).
+  var TOP_NEWS_URL = 'https://estudebitcoin-top-news.bitcoiniciantes.workers.dev/api/top-news';
+
+  var list = document.getElementById('top-news');
+  var status = document.getElementById('top-news-status');
+  var meta = document.getElementById('top-news-meta');
+
+  if (!list) return;
+
+  // True ap+¦s a primeira renderiza+º+úo com itens v+ílidos.
+  var hasRenderedList = false;
+
+  function render(items, updatedAt) {
+    // Substitui a lista SOMENTE com payload v+ílido e n+úo-vazio.
+    // Nada aqui apaga conte+¦do em caso de falha (ver catch abaixo).
+    while (list.firstChild) list.removeChild(list.firstChild);
+
+    items.slice(0, 10).forEach(function (item) {
+      if (!item || typeof item.title !== 'string' || !/^https?:\/\//i.test(item.url || '')) return;
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.href = item.url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = item.title;
+      li.appendChild(a);
+      if (item.source) {
+        var src = document.createElement('span');
+        src.setAttribute('style', 'opacity:.65;font-size:13px;');
+        src.textContent = ' ÔÇö ' + item.source;
+        li.appendChild(src);
+      }
+      list.appendChild(li);
+    });
+
+    if (!list.children.length) throw new Error('nenhum item v+ílido');
+
+    hasRenderedList = true;
+    if (status) status.textContent = '';
+    if (meta && updatedAt) {
+      var d = new Date(updatedAt);
+      meta.textContent = isNaN(d) ? '' : 'Atualizado em ' + d.toLocaleString('pt-BR');
+    }
+  }
+
+  function loadTopNews() {
+    fetch(TOP_NEWS_URL, { cache: 'no-store' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        if (!data || data.ok !== true || !Array.isArray(data.items) || !data.items.length) {
+          throw new Error('payload vazio ou inv+ílido');
+        }
+        render(data.items, data.updatedAt);
+      })
+      .catch(function () {
+        // REGRA EXPL+ìCITA (-º16 do top10noticias.md): falha no fetch
+        // NUNCA apaga a lista anterior. Se j+í existe um TOP 10
+        // renderizado, ele permanece intacto e s+¦ exibimos um aviso
+        // discreto. A mensagem de indispon+¡vel aparece apenas quando
+        // nenhuma lista foi exibida ainda.
+        if (!status) return;
+        if (!hasRenderedList) {
+          status.textContent = 'Not+¡cias temporariamente indispon+¡veis.';
+        } else {
+          status.textContent = 'N+úo foi poss+¡vel atualizar. Exibindo o TOP 10 anterior.';
+        }
+      });
+  }
+
+  loadTopNews();
+})();
 </script>
 
 </body>
