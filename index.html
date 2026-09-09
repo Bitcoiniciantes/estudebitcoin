@@ -1149,9 +1149,9 @@
 <section class="container" style="padding-top:0; padding-bottom:10px;" aria-labelledby="top-news-title">
   <div class="dark-card" style="display:flex;flex-direction:column;height:auto;" id="top-news-section">
     <div style="background:transparent;border:none;padding:0;display:flex;flex-direction:column;flex:1;">
-      <h2 class="preev__title" id="top-news-title">Not+°cias Relevantes</h2>
+      <h2 class="preev__title" id="top-news-title">Not√≠cias Relevantes</h2>
       <ol id="top-news" style="margin:0;padding-left:22px;display:grid;gap:8px;"></ol>
-      <p id="top-news-status" role="status" aria-live="polite" style="opacity:.7;font-size:13px;margin:10px 0 0;">Carregando not+°cias‘«™</p>
+      <p id="top-news-status" role="status" aria-live="polite" style="opacity:.7;font-size:13px;margin:10px 0 0;">Carregando not√≠cias‚Ä¶</p>
       <p id="top-news-meta" style="opacity:.7;font-size:13px;margin:10px 0 0;"></p>
     </div>
   </div>
@@ -1366,7 +1366,7 @@
   <div class="re-card" id="re-painel">
     <p class="re-kicker">RISCO EM TEMPO REAL</p>
     <h2 id="re-title">Posi√ß√£o ao Vivo ‚Äî Risk Engine</h2>
-    <p class="re-sub">Pre√ßo ao vivo do ticker acima ‚Üí c√°lculo local, sem rede. Eduque-se: simula√ß√£o com o modelo Quantfury do projeto.</p>
+    <p class="re-sub">Atualizado em tempo real. Simula√ß√£o modelo Quantifury.</p>
     <div class="re-grid">
       <div class="re-field"><label>Ativo (ticker)</label><select id="re-simbolo"><option>BTC</option><option>ETH</option><option>SOL</option><option>LINK</option><option>AVAX</option><option>RENDER</option><option>PAXG</option></select></div>
       <div class="re-field"><label>Lado</label><select id="re-lado"><option>LONG</option><option>SHORT</option></select></div>
@@ -1648,7 +1648,7 @@
 </script>
 <script>
 (function () {
-  // URL p+¶blica do Worker de not+°cias (news-worker/, Worker separado).
+  // URL p√∫blica do Worker de not√≠cias (news-worker/, Worker separado).
   var TOP_NEWS_URL = 'https://estudebitcoin-top-news.bitcoiniciantes.workers.dev/api/top-news';
 
   var list = document.getElementById('top-news');
@@ -1657,12 +1657,12 @@
 
   if (!list) return;
 
-  // True ap+¶s a primeira renderiza+∫+˙o com itens v+Ìlidos.
+  // True ap√≥s a primeira renderiza√ß√£o com itens v√°lidos.
   var hasRenderedList = false;
 
   function render(items, updatedAt) {
-    // Substitui a lista SOMENTE com payload v+Ìlido e n+˙o-vazio.
-    // Nada aqui apaga conte+¶do em caso de falha (ver catch abaixo).
+    // Substitui a lista SOMENTE com payload v√°lido e n√£o-vazio.
+    // Nada aqui apaga conte√∫do em caso de falha (ver catch abaixo).
     while (list.firstChild) list.removeChild(list.firstChild);
 
     items.slice(0, 10).forEach(function (item) {
@@ -1677,13 +1677,13 @@
       if (item.source) {
         var src = document.createElement('span');
         src.setAttribute('style', 'opacity:.65;font-size:13px;');
-        src.textContent = ' ‘«ˆ ' + item.source;
+        src.textContent = ' ‚Äî ' + item.source;
         li.appendChild(src);
       }
       list.appendChild(li);
     });
 
-    if (!list.children.length) throw new Error('nenhum item v+Ìlido');
+    if (!list.children.length) throw new Error('nenhum item v√°lido');
 
     hasRenderedList = true;
     if (status) status.textContent = '';
@@ -1701,21 +1701,21 @@
       })
       .then(function (data) {
         if (!data || data.ok !== true || !Array.isArray(data.items) || !data.items.length) {
-          throw new Error('payload vazio ou inv+Ìlido');
+          throw new Error('payload vazio ou inv√°lido');
         }
         render(data.items, data.updatedAt);
       })
       .catch(function () {
-        // REGRA EXPL+ÏCITA (-∫16 do top10noticias.md): falha no fetch
-        // NUNCA apaga a lista anterior. Se j+Ì existe um TOP 10
-        // renderizado, ele permanece intacto e s+¶ exibimos um aviso
-        // discreto. A mensagem de indispon+°vel aparece apenas quando
+        // REGRA EXPL√çCITA (¬ß16 do top10noticias.md): falha no fetch
+        // NUNCA apaga a lista anterior. Se j√° existe um TOP 10
+        // renderizado, ele permanece intacto e s√≥ exibimos um aviso
+        // discreto. A mensagem de indispon√≠vel aparece apenas quando
         // nenhuma lista foi exibida ainda.
         if (!status) return;
         if (!hasRenderedList) {
-          status.textContent = 'Not+°cias temporariamente indispon+°veis.';
+          status.textContent = 'Not√≠cias temporariamente indispon√≠veis.';
         } else {
-          status.textContent = 'N+˙o foi poss+°vel atualizar. Exibindo o TOP 10 anterior.';
+          status.textContent = 'N√£o foi poss√≠vel atualizar. Exibindo o TOP 10 anterior.';
         }
       });
   }
