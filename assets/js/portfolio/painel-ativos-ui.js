@@ -44,6 +44,10 @@
 
   function isRemote() { return ui.mode === 'remote' && !!fb(); }
 
+  function isAuthedUser(u) {
+    return !!(u && u.id && !u.anonymous);
+  }
+
   function setStatus(msg) {
     var upd = $('pa-updated');
     if (upd) upd.textContent = msg || '';
@@ -172,6 +176,37 @@
   /* ---------- Render ---------- */
   function render() {
     if (!service) return;
+    // Modo bloqueado: não exibe carteira (exige login), esconde dados sensíveis
+    if (ui.mode === 'locked') {
+      try {
+        var locked = $('pa-locked');
+        if (locked) locked.style.display = '';
+        var empty = $('pa-empty');
+        if (empty) empty.style.display = 'none';
+        var wrap = $('pa-table-wrap');
+        if (wrap) wrap.style.display = 'none';
+        var tfoot = $('pa-tfoot');
+        if (tfoot) tfoot.style.display = 'none';
+        var cards = $('pa-total');
+        if (cards) {
+          setText('pa-total', '$ —');
+          setText('pa-count', '0');
+          var plEl = $('pa-pl'); if (plEl) { plEl.textContent = '$ —'; plEl.className = ''; }
+          var sub = $('pa-pl-sub'); if (sub) { sub.textContent = 'Entre para acessar'; sub.className = 'pa-sub'; }
+          var dayEl = $('pa-day'); if (dayEl) { dayEl.textContent = '$ —'; dayEl.className = ''; }
+          setText('pa-sum-invested', '$ —');
+          setText('pa-sum-current', '$ —');
+          var rsPl = $('pa-sum-pl'); if (rsPl) { rsPl.textContent = '$ —'; rsPl.className = ''; }
+          var rsDay = $('pa-sum-day'); if (rsDay) { rsDay.textContent = '$ —'; rsDay.className = ''; }
+          var upd = $('pa-updated'); if (upd) upd.textContent = 'Entre para acessar sua carteira sincronizada.';
+        }
+        var demoBadge = $('pa-demo-badge');
+        if (demoBadge) demoBadge.style.display = 'none';
+        var clearBtn = $('pa-clear-demo');
+        if (clearBtn) clearBtn.style.display = 'none';
+      } catch (e) {}
+      return;
+    }
     var host = getRoot();
     var view = service.query({ filter: ui.filter === 'ALL' ? null : ui.filter, sort: ui.sort });
     // Overlay ao vivo: patrimônio, donut e tabela acompanham os tickers.
@@ -590,6 +625,7 @@
   }
 
   function onTickerPrice(ev) {
+    if (ui.mode === 'locked') return;
     var d = ev && ev.detail;
     var price = d && Number(d.price);
     if (!d || !Number.isFinite(price) || price <= 0) return;
@@ -744,9 +780,38 @@
     remoteUid = null;
     try { if (fb() && fb().coolDown) fb().coolDown(); } catch (e) {}
     var badge = $('pa-mode-badge');
-    if (badge) { badge.textContent = 'Local'; badge.classList.add('pa-local'); }
+    if (badge) { badge.textContent = 'Local'; badge.classList.add('pa-local'); badge.classList.remove('pa-locked'); }
     setBadgeUid();
     setSide(false);
+    updateLockedUI();
+  }
+
+  function enterLockedMode() {
+    clearLiveState();
+    ui.mode = 'locked';
+    ui.needsSync = false;
+    remoteUid = null;
+    try { if (fb() && fb().coolDown) fb().coolDown(); } catch (e) {}
+    var badge = $('pa-mode-badge');
+    if (badge) { badge.textContent = 'Login necessário'; badge.classList.remove('pa-local'); badge.classList.add('pa-locked'); badge.title = ''; }
+    setSide(false);
+    updateLockedUI();
+  }
+
+  function updateLockedUI() {
+    try {
+      var locked = $('pa-locked');
+      var isLocked = ui.mode === 'locked';
+      if (locked) locked.style.display = isLocked ? '' : 'none';
+      var addBtn = $('pa-add-toggle');
+      if (addBtn) addBtn.style.display = isLocked ? 'none' : '';
+      var formWrap = $('pa-form-wrap');
+      if (formWrap && isLocked) formWrap.style.display = 'none';
+      var toolbar = document.querySelector('#painel-ativos .pa-toolbar');
+      if (toolbar) toolbar.style.display = isLocked ? 'none' : '';
+      var grid = document.querySelector('#painel-ativos .pa-grid');
+      if (grid) grid.style.display = isLocked ? 'none' : '';
+    } catch (e) {}
   }
 
   // Migração eb_portfolio_v2 → Firestore (uma vez por sessão logada).
@@ -788,8 +853,23 @@
   }
 
   function onSubmit() {
+    if (ui.mode === 'locked') {
+      setErr('Entre para acessar sua carteira sincronizada.');
+      try { var h = getRoot(); if (h && h.EstudeAuth && h.EstudeAuth.openModal) h.EstudeAuth.openModal('login'); } catch (e) {}
+      return;
+    }
     var input = readForm();
     if (isRemote()) { onSubmitRemote(input); return; }
+    // Login obrigatório: sem sessão autenticada, não grava local silenciosamente.
+    try {
+      var hostChk = getRoot();
+      var cu = hostChk && hostChk.EstudeAuth && hostChk.EstudeAuth.getUser ? hostChk.EstudeAuth.getUser() : null;
+      if (!isAuthedUser(cu)) {
+        setErr('Entre para acessar sua carteira sincronizada.');
+        try { if (hostChk && hostChk.EstudeAuth && hostChk.EstudeAuth.openModal) hostChk.EstudeAuth.openModal('login'); } catch (e) {}
+        return;
+      }
+    } catch (e) {}
     var res;
     if (ui.editingTicker) {
       res = service.update(ui.editingTicker, input);
@@ -889,9 +969,8 @@
     var root = $(ROOT_ID);
     if (!root || !host || !host.PortfolioService || !host.PortfolioStorage) return;
     service = host.PortfolioService.createService(host.PortfolioStorage.LocalPortfolioStorage);
-    if (host.PortfolioDemo) {
-      try { host.PortfolioDemo.seedIfEmpty(service); } catch (e) {}
-    }
+    // Login obrigatório: não semear demo como carteira do usuário quando bloqueado.
+    // Demo só seria exibida como "Exemplo" em modo local antigo, agora suprimida.
 
     // Filtros
     var filters = root.querySelectorAll('[data-filter]');
@@ -980,9 +1059,21 @@
       } catch (e) {}
     }
 
+    // Login obrigatório: CTA do bloqueado
+    var loginCta = $('pa-login-cta');
+    if (loginCta) loginCta.addEventListener('click', function () {
+      try { var h = getRoot(); if (h && h.EstudeAuth && h.EstudeAuth.openModal) h.EstudeAuth.openModal('login'); } catch (e) {}
+    });
     // Toggle do formulário (colapsado por padrão)
     var toggle = $('pa-add-toggle');
-    if (toggle) toggle.addEventListener('click', function () { clearForm(); setFormOpen(true); });
+    if (toggle) toggle.addEventListener('click', function () {
+      if (ui.mode === 'locked') {
+        setErr('Entre para acessar sua carteira sincronizada.');
+        try { var h2 = getRoot(); if (h2 && h2.EstudeAuth && h2.EstudeAuth.openModal) h2.EstudeAuth.openModal('login'); } catch (e) {}
+        return;
+      }
+      clearForm(); setFormOpen(true);
+    });
     var closeBtn = $('pa-form-close');
     if (closeBtn) closeBtn.addEventListener('click', function () { clearForm(); setFormOpen(false, { noScroll: true }); });
 
@@ -998,6 +1089,11 @@
     // estável entre local e nuvem (ids internos mudam na transição).
     var tbody = $('pa-tbody');
     if (tbody) tbody.addEventListener('click', function (e) {
+      if (ui.mode === 'locked') {
+        setErr('Entre para acessar sua carteira sincronizada.');
+        try { var hh = getRoot(); if (hh && hh.EstudeAuth && hh.EstudeAuth.openModal) hh.EstudeAuth.openModal('login'); } catch (ee) {}
+        return;
+      }
       var btn = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
       if (!btn) return;
       var ticker = btn.getAttribute('data-ticker');
@@ -1066,74 +1162,80 @@
 
     // Vazio: CTA
     var emptyBtn = $('pa-empty-add');
-    if (emptyBtn) emptyBtn.addEventListener('click', function () { clearForm(); setFormOpen(true); });
+    if (emptyBtn) emptyBtn.addEventListener('click', function () {
+      if (ui.mode === 'locked') {
+        setErr('Entre para acessar sua carteira sincronizada.');
+        try { var h3 = getRoot(); if (h3 && h3.EstudeAuth && h3.EstudeAuth.openModal) h3.EstudeAuth.openModal('login'); } catch (e) {}
+        return;
+      }
+      clearForm(); setFormOpen(true);
+    });
 
     setFormType('CRYPTO');
     setFormOpen(false, { noScroll: true });
     setSide(false);
+    // Login obrigatório: inicia bloqueado, sem carteira local silenciosa.
+    enterLockedMode();
     render();
 
-    // Fase 2: sessão (anônima sob demanda) → modo remoto + migração.
-    // Espera a restauração da sessão (whenReady) ANTES de decidir: sem
-    // isso, o boot pega currentUser null e cria anônimo duplicado a refresh.
-    // Falha aqui é silenciosa: painel segue local (Fase 1 intacta).
+    // Fase 2: apenas com usuário autenticado (não anônimo) entra em Nuvem.
     try {
       var host2 = getRoot();
       if (host2 && host2.FirebasePortfolio && host2.FirebasePortfolio.isConfigured() &&
-          host2.EstudeAuth && host2.EstudeAuth.ensureAnonymous) {
-        var goRemote = function (uid) {
+          host2.EstudeAuth && host2.EstudeAuth.whenReady && host2.EstudeAuth.onAuthChange) {
+        var goRemoteAuthed = function (uid) {
           enterRemoteMode(uid);
           setStatus('Carregando carteira…');
-          // Ordem crítica: migrar ANTES do primeiro load. O load remoto
-          // resolve vazio quando não há nó na nuvem — se ele rodasse antes,
-          // apagaria a visão local (e persistiria vazio por cima).
+          // Migrar ANTES do primeiro load quando houver dados locais pendentes.
           maybeMigrate().then(function () {
             return refreshFromRemote();
           }).then(function () {
             setStatus('');
           }).catch(function (err) {
             if (err && err.code === 'offline') {
-              setErr('Sem conexão. Exibindo dados locais.');
-              enterLocalMode();
+              setErr('Sem conexão.');
+              enterLockedMode();
               render();
             } else {
-              enterLocalMode();
+              setErr(err && err.message ? err.message : 'Não foi possível carregar a carteira.');
+              enterLockedMode();
               render();
             }
           });
         };
-        var startRemote = function () {
+        var checkAuthAndGo = function () {
           var cur = null;
           try { cur = host2.EstudeAuth.getUser(); } catch (e) {}
-          if (cur && cur.id) {
-            goRemote(cur.id);
+          if (isAuthedUser(cur)) {
+            goRemoteAuthed(cur.id);
           } else {
-            host2.EstudeAuth.ensureAnonymous().then(function (u) {
-              if (u && u.id) goRemote(u.id);
-            }).catch(function () { /* segue local */ });
+            // Sem sessão ou anônimo: permanece bloqueado, não cria anônimo, não migra, não apaga.
+            enterLockedMode();
+            render();
           }
         };
-        if (host2.EstudeAuth.whenReady) {
-          host2.EstudeAuth.whenReady().then(function () { startRemote(); })
-            .catch(function () { startRemote(); });
-        } else {
-          startRemote();
-        }
-        if (host2.EstudeAuth.onAuthChange) {
-          host2.EstudeAuth.onAuthChange(function (user) {
-            if (user && user.id) {
-              // Recarrega SEMPRE que o UID mudar (login, link, troca de
-              // conta) — mesmo já em modo remoto. Sem isso a tabela exibe
-              // dados do UID velho e as escritas falham no UID novo.
-              if (ui.mode !== 'remote' || remoteUid !== user.id) goRemote(user.id);
-            } else if (ui.mode === 'remote') {
-              enterLocalMode();
+        host2.EstudeAuth.whenReady().then(function () { checkAuthAndGo(); })
+          .catch(function () { checkAuthAndGo(); });
+        host2.EstudeAuth.onAuthChange(function (user) {
+          if (isAuthedUser(user)) {
+            if (ui.mode !== 'remote' || remoteUid !== user.id) goRemoteAuthed(user.id);
+          } else {
+            // Logout ou anônimo: bloqueia (nunca Nuvem para anônimo)
+            if (ui.mode === 'remote' || ui.mode === 'locked') {
+              enterLockedMode();
+              render();
+            } else {
+              // já bloqueado: apenas garante estado
+              enterLockedMode();
               render();
             }
-          });
-        }
+          }
+        });
+      } else {
+        enterLockedMode();
+        render();
       }
-    } catch (e) { /* segue local */ }
+    } catch (e) { enterLockedMode(); render(); }
   }
 
   if (document.readyState === 'loading') {

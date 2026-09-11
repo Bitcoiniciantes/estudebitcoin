@@ -54,8 +54,13 @@
   background: rgba(255, 255, 255, 0.03);
 }
 #painel-ativos .pa-badge.pa-local { color: var(--pa-accent); border-color: rgba(34, 211, 238, 0.4); }
+#painel-ativos .pa-badge.pa-locked { color: #f87171; border-color: rgba(248, 113, 113, 0.4); background: rgba(248, 113, 113, 0.08); }
 #painel-ativos .pa-badge.pa-demo { color: #fbbf24; border-color: rgba(251, 191, 36, 0.4); }
 #painel-ativos .pa-updated { font-size: 12px; color: var(--pa-muted); }
+#painel-ativos .pa-locked { text-align: center; padding: 28px 16px; border: 1px dashed rgba(248, 113, 113, 0.35); border-radius: var(--pa-radius); background: rgba(248, 113, 113, 0.06); margin-bottom: 14px; }
+#painel-ativos .pa-locked strong { display: block; color: #fff; font-size: 15px; margin-bottom: 6px; }
+#painel-ativos .pa-locked p { margin: 0 0 12px; color: var(--pa-muted); font-size: 13px; line-height: 1.5; }
+#painel-ativos .pa-locked .pa-btn { min-width: 200px; }
 
 /* Cards de resumo */
 #painel-ativos .pa-cards {

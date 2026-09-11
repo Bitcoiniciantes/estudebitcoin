@@ -1525,15 +1525,21 @@
       <div>
         <p class="pa-kicker">PAINEL PESSOAL</p>
         <h2 id="pa-title">Minha Carteira</h2>
-        <p>Acompanhamento de patrimônio, alocação e desempenho. Dados locais do navegador.</p>
+        <p>Entre para acessar sua carteira sincronizada.</p>
       </div>
       <div class="pa-badges">
-        <span class="pa-badge pa-local" id="pa-mode-badge">Local</span>
+        <span class="pa-badge pa-locked" id="pa-mode-badge">Entrar</span>
         <span class="pa-badge">USD</span>
         <span class="pa-badge pa-demo" id="pa-demo-badge" style="display:none">Exemplo</span>
-        <button type="button" class="pa-add-btn" id="pa-add-toggle">+ Adicionar ativo</button>
+        <button type="button" class="pa-add-btn" id="pa-add-toggle" style="display:none">+ Adicionar ativo</button>
         <span class="pa-updated" id="pa-updated"></span>
       </div>
+    </div>
+
+    <div class="pa-locked" id="pa-locked" style="display:none">
+      <strong>Entre para acessar sua carteira sincronizada.</strong>
+      <p>Sua carteira fica salva na nuvem e abre igual em qualquer aparelho com o mesmo login.</p>
+      <button type="button" class="pa-btn" id="pa-login-cta">Entrar / Criar conta</button>
     </div>
 
     <div class="pa-cards" role="region" aria-label="Resumo da carteira">
