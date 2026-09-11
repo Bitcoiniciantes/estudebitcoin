@@ -148,6 +148,7 @@
       email: fu.email || '',
       name: fu.displayName || fu.email || 'Usuário',
       verified: !!fu.emailVerified,
+      anonymous: !!fu.isAnonymous,
       passwordOnly: isPasswordOnly,
       _ref: fu
     };
@@ -203,7 +204,157 @@
     return next;
   }
 
+  /* ---------- Sessão anônima (Fase 2, carteira) ----------
+   * Cria sessão anônima sob demanda (lazy: só quando a carteira precisa),
+   * com guarda contra disparos concorrentes do onAuthStateChanged.
+   * Vinculação preserva o UID (link, nunca nova conta). */
+  var anonBusy = false;
+
+  // Resolve na PRIMEIRA emissão do onAuthStateChanged — sinal do Firebase
+  // de que a restauração da sessão terminou (com usuário ou sem).
+  // Sem isso, checar currentUser no boot pega o momento null e cria
+  // sessão duplicada a cada refresh.
+  var authReadyPromise = null;
+  function awaitAuthReady() {
+    if (authReadyPromise) return authReadyPromise;
+    authReadyPromise = ensureFirebase().then(function (fb) {
+      if (!fb) return null;
+      return new Promise(function (resolve) {
+        var done = false;
+        var to = setTimeout(function () {
+          if (!done) { done = true; resolve(null); }
+        }, 8000);
+        try {
+          var off = auth().onAuthStateChanged(function (fu) {
+            if (!done) {
+              done = true; clearTimeout(to);
+              try { off(); } catch (e) {}
+              resolve(fu || null);
+            }
+          });
+        } catch (e) {
+          if (!done) { done = true; clearTimeout(to); resolve(null); }
+        }
+      });
+    }).catch(function () { return null; });
+    return authReadyPromise;
+  }
+
+  // Trava entre abas para criação de anônimo: só uma aba cria; as outras
+  // esperam o listener (a sessão é compartilhada via storage do Firebase).
+  function anonClaim() {
+    try {
+      var k = 'eb_anon_claim';
+      var now = Date.now();
+      var raw = global.localStorage.getItem(k);
+      if (raw) {
+        var claim = JSON.parse(raw);
+        if (claim && (now - claim.at) < 20000) return false; // outra aba criando
+      }
+      global.localStorage.setItem(k, JSON.stringify({ at: now }));
+      return true;
+    } catch (e) { return true; }
+  }
+
+  function anonUnclaim() {
+    try { global.localStorage.removeItem('eb_anon_claim'); } catch (e) {}
+  }
+
+  function waitForUser(timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var to = setTimeout(function () {
+        if (!done) { done = true; reject(new Error('Tempo esgotado.')); }
+      }, timeoutMs || 15000);
+      try {
+        var off = auth().onAuthStateChanged(function (fu) {
+          if (fu && !done) {
+            done = true; clearTimeout(to);
+            try { off(); } catch (e) {}
+            resolve(fu);
+          }
+        });
+      } catch (e) {
+        if (!done) { done = true; clearTimeout(to); reject(e); }
+      }
+    });
+  }
+
+  function ensureAnonymous() {
+    return ensureFirebase().then(function (fb) {
+      if (!fb) throw new Error('Login ainda não configurado.');
+      // 1. Sessão já viva? Retorna sem criar nada.
+      var cur = null;
+      try { cur = auth().currentUser; } catch (e) {}
+      if (cur) return normUser(cur);
+      // 2. Aguarda a restauração (pode haver sessão salva chegando).
+      return awaitAuthReady().then(function (fu) {
+        if (fu) return normUser(fu);
+        var mine = false;
+        try { mine = (auth().currentUser == null) && anonClaim(); } catch (e) { mine = true; }
+        if (!mine) {
+          // Outra aba está criando: espera o usuário aparecer.
+          return waitForUser(15000).then(function (u2) { return normUser(u2); });
+        }
+        if (anonBusy) {
+          anonUnclaim();
+          return waitForUser(15000).then(function (u2) { return normUser(u2); });
+        }
+        anonBusy = true;
+        return auth().signInAnonymously().then(function (cred) {
+          anonBusy = false;
+          anonUnclaim();
+          return normUser(cred.user);
+        }).catch(function (err) {
+          anonBusy = false;
+          anonUnclaim();
+          throw err;
+        });
+      });
+    });
+  }
+
+  function isAnonymousSession() {
+    try {
+      var u = auth().currentUser;
+      return !!(u && u.isAnonymous);
+    } catch (e) { return false; }
+  }
+
+  function linkGoogle() {
+    return ensureFirebase().then(function (fb) {
+      if (!fb) throw new Error('Login ainda não configurado.');
+      var provider = new fb.auth.GoogleAuthProvider();
+      if (isAnonymousSession()) {
+        return auth().currentUser.linkWithPopup(provider).then(function (cred) {
+          afterUser(cred.user);
+          return true;
+        });
+      }
+      return signInGoogle();
+    });
+  }
+
+  function linkEmail(email, senha) {
+    return ensureFirebase().then(function (fb) {
+      if (!fb) throw new Error('Login ainda não configurado.');
+      if (isAnonymousSession()) {
+        var credential = fb.auth.EmailAuthProvider.credential(email, senha);
+        return auth().currentUser.linkWithCredential(credential).then(function (cred) {
+          afterUser(cred.user);
+          return normUser(cred.user);
+        });
+      }
+      return signInEmail(email, senha);
+    });
+  }
+
   function signInGoogle() {
+    // Sessão anônima ativa: vincular (preserva UID e carteira) em vez de
+    // trocar de sessão (o que orfanaria os dados do UID anônimo).
+    try {
+      if (isAnonymousSession()) return linkGoogle();
+    } catch (e) {}
     return ensureFirebase().then(function (fb) {
       if (!fb) throw new Error('Login ainda não configurado.');
       var provider = new fb.auth.GoogleAuthProvider();
@@ -226,6 +377,9 @@
   }
 
   function signInEmail(email, senha) {
+    try {
+      if (isAnonymousSession()) return linkEmail(email, senha);
+    } catch (e) {}
     return ensureFirebase().then(function (fb) {
       if (!fb) throw new Error('Login ainda não configurado.');
       return auth().signInWithEmailAndPassword(email, senha);
@@ -245,6 +399,11 @@
   }
 
   function signUpEmail(email, senha) {
+    // Cadastro com sessão anônima ativa = vinculação (preserva UID).
+    // createUser trocaria de sessão e orfanaria a carteira anônima.
+    try {
+      if (isAnonymousSession()) return linkEmail(email, senha);
+    } catch (e) {}
     return ensureFirebase().then(function (fb) {
       if (!fb) throw new Error('Login ainda não configurado.');
       return auth().createUserWithEmailAndPassword(email, senha);
@@ -574,6 +733,7 @@
     if (/invalid-credential|wrong-password|user-not-found|invalid-email/i.test(code + ' ' + m) ||
         /invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos. Esqueceu? Use "Esqueci a senha".';
     if (/email-already-in-use|already registered/i.test(code + ' ' + m)) return 'Este e-mail já tem conta. Entre com sua senha ou clique em "Esqueci a senha".';
+    if (/credential-already-in-use|account-exists-with-different-credential/i.test(code + ' ' + m)) return 'Este login já pertence a outra conta. Entre por ele para acessar sua carteira.';
     if (/weak-password|weak|short|length/i.test(code + ' ' + m)) return 'Use uma senha com 6+ caracteres.';
     if (/too-many-requests|rate limit|too many/i.test(code + ' ' + m)) return 'Muitas tentativas. Aguarde um pouco.';
     if (/network-request-failed|network/i.test(code)) return 'Sem conexão. Verifique a internet e tente de novo.';
@@ -755,6 +915,16 @@
   var EstudeAuth = {
     isConfigured: isConfigured,
     getUser: function () { return currentUser; },
+    whenReady: function () {
+      return awaitAuthReady().then(function (fu) {
+        if (fu) return normUser(fu);
+        return currentUser;
+      });
+    },
+    ensureAnonymous: ensureAnonymous,
+    isAnonymousSession: isAnonymousSession,
+    linkGoogle: linkGoogle,
+    linkEmail: linkEmail,
     onAuthChange: function (fn) {
       if (typeof fn === 'function') authListeners.push(fn);
       return fn;
