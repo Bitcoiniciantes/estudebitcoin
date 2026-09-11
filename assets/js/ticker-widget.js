@@ -228,6 +228,22 @@
     }
   }
 
+  // Broadcast de cotações para consumidores (ex.: painel de ativos): emite o
+  // MESMO evento dos ticks WS para cada quote do refresh — cobre o preço
+  // inicial dos cryptos e TODOS os stocks (que não têm WebSocket).
+  function broadcastQuotes(quotes) {
+    if (!Array.isArray(quotes)) return;
+    for (var i = 0; i < quotes.length; i++) {
+      var q = quotes[i];
+      if (!q || typeof q.price !== "number" || !Number.isFinite(q.price) || q.price <= 0) continue;
+      try {
+        window.dispatchEvent(new CustomEvent("estudebitcoin:ticker-price", {
+          detail: { symbol: q.symbol, price: q.price, changePct: q.changePct }
+        }));
+      } catch (broadcastError) { /* broadcast opcional, nunca quebra o ticker */ }
+    }
+  }
+
   function refresh(force) {
     var key = activeTab + "|" + activeWindow;
     if (force) delete cache[key];
@@ -235,10 +251,10 @@
       cache[key] = quotes;
       return quotes;
     });
-    promise.then(render).catch(function () { render([]); });
+    promise.then(function (quotes) { broadcastQuotes(quotes); render(quotes); }).catch(function () { render([]); });
   }
 
-  function updateLivePrice(symbol, price, volume) {
+  function updateLivePrice(symbol, price, volume, changePct) {
     livePrices[symbol] = price;
     // INTEGRAÇÃO RISK ENGINE (aditivo, sem efeito sobre o ticker): expõe cada
     // tick via evento para o adapter (risk-engine-adapter.js), que encaminha
@@ -247,7 +263,7 @@
     // é proibido criar segundo WebSocket/polling/fetch só para o Risk Engine.
     // Mesmo padrão de CustomEvent já usado neste arquivo (load-asset).
     try {
-      window.dispatchEvent(new CustomEvent("estudebitcoin:ticker-price", { detail: { symbol: symbol, price: price } }));
+      window.dispatchEvent(new CustomEvent("estudebitcoin:ticker-price", { detail: { symbol: symbol, price: price, changePct: changePct } }));
     } catch (broadcastError) { /* broadcast opcional, nunca quebra o ticker */ }
     if (typeof volume === "number" && Number.isFinite(volume)) {
       liveVolume[symbol] = volume;
@@ -292,7 +308,7 @@
         var pair = String(payload.stream || "").replace("@ticker", "");
         var symbol = pairSymbol[pair];
         if (symbol && payload.data && typeof payload.data.c !== "undefined") {
-          updateLivePrice(symbol, parseFloat(payload.data.c), parseFloat(payload.data.q));
+          updateLivePrice(symbol, parseFloat(payload.data.c), parseFloat(payload.data.q), parseFloat(payload.data.P));
         }
       } catch (error) { /* ignora mensagens invalidas */ }
     };
@@ -385,6 +401,18 @@
   bindButtons();
   window.setInterval(function () { refresh(true); }, 5000);
   connectWs();
+
+  // Broadcast de stocks independente da aba ativa: fetchStocks() só roda com
+  // a aba stocks visível, mas stocks não têm WebSocket — sem este loop, a
+  // carteira nunca receberia cotação deles. 60s basta (stocks andam devagar);
+  // só emite o evento, sem mexer nos cards. 1 chamada ao Worker por minuto.
+  function refreshStocksBroadcast() {
+    try {
+      fetchStocks().then(function (quotes) { broadcastQuotes(quotes); }).catch(function () {});
+    } catch (e) {}
+  }
+  window.setInterval(refreshStocksBroadcast, 60000);
+  refreshStocksBroadcast();
 
   /* ── S/R Dinâmico — Alertas visuais nos cards ── */
   var alertDirection = {};

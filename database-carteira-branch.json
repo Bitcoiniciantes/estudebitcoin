@@ -1,0 +1,82 @@
+{
+  "carteira": {
+    ".read": "auth != null && auth.uid == $uid",
+    ".write": "auth != null && auth.uid == $uid",
+    "currency": {
+      ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 8"
+    },
+    "localMigrationCompleted": {
+      ".validate": "newData.isBoolean()"
+    },
+    "localMigrationAt": {
+      ".validate": "newData.isNumber()"
+    },
+    "assets": {
+      "$ticker": {
+        ".validate": "newData.hasChildren(['ticker', 'name', 'type', 'quantity', 'avgPrice', 'currentPrice'])",
+        "ticker": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 16"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60"
+        },
+        "type": {
+          ".validate": "newData.isString() && (newData.val() == 'crypto' || newData.val() == 'stock')"
+        },
+        "quantity": {
+          ".validate": "newData.isNumber()"
+        },
+        "avgPrice": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "currentPrice": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "manualPrice": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "priceSource": {
+          ".validate": "newData.val() == 'manual'"
+        },
+        "dailyChangePercent": {
+          ".validate": "newData.isNumber()"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "closedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "lots": {
+          "$lot": {
+            ".validate": "newData.hasChildren(['quantity', 'price', 'date'])",
+            "quantity": {
+              ".validate": "newData.isNumber() && newData.val() != 0"
+            },
+            "price": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "avgPrice": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "date": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "$other": {
+      ".validate": false
+    }
+  }
+}
