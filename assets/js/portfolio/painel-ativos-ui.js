@@ -933,9 +933,12 @@
     }
     setBusy(true, (ui.editingTicker && !isSell) ? 'Salvando…' : (isSell ? 'Vendendo…' : 'Adicionando…'));
     var done = function (msg) {
+      var keepOpen = !ui.editingTicker && !isSell;
       setBusy(false);
       clearForm();
-      setFormOpen(false, { noScroll: true });
+      // Inclusões sucessivas mantêm o formulário aberto e limpo, igual ao
+      // modo local. Edição/venda encerram o fluxo após a confirmação.
+      if (!keepOpen) setFormOpen(false, { noScroll: true });
       setSide(false);
       refreshFromRemote().then(function () {
         if (msg) setStatus(msg);
