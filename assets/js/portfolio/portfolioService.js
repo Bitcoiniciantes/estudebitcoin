@@ -227,13 +227,16 @@
     }
 
     // Substituição silenciosa (snapshot ao vivo): não carimba updatedAt.
-    // Usa saveSnapshot quando o adapter oferece; senão, cai para save().
+    // Exige saveSnapshot do adapter; SEM fallback para save()/persist(),
+    // que carimbariam updatedAt e violariam o contrato "silent".
     function replaceAllSilent(assets) {
       state.assets = Array.isArray(assets) ? assets : [];
       if (storage && typeof storage.saveSnapshot === 'function') {
         return storage.saveSnapshot(state);
       }
-      return persist();
+      var e = new Error('Storage adapter sem saveSnapshot: snapshot silencioso indisponível.');
+      e.code = 'unsupported';
+      throw e;
     }
 
     var SORTS = {

@@ -545,9 +545,10 @@
   // memória; o snapshot local acompanha via persistLiveLocal (throttle);
   // no remoto, o RTDB sincroniza na próxima escrita (sem gravar por tick).
   // Só CRYPTO (stocks não passam pelo WS; mantêm snapshot + cotação manual).
-  var LIVE_TTL_MS = 30000;      // sem tick por 30s, volta ao snapshot
+  var LIVE_WS_TTL_MS = 30000;       // websocket crypto: tick a tick
+  var LIVE_SNAPSHOT_TTL_MS = 90000; // snapshot HTTP: cobre o loop de 60s dos stocks + latência
   var RENDER_THROTTLE_MS = 2500; // re-render completo (totais/donut) com throttle
-  var live = {};                 // ticker normalizado -> {price, change, at}
+  var live = {};                 // ticker normalizado -> {price, change, at, source}
   var liveTimer = null;
 
   function normEv(sym) {
@@ -558,9 +559,14 @@
     return String(sym == null ? '' : sym).trim().toUpperCase().replace(/USDT$/, '');
   }
 
+  function liveTtlFor(source) {
+    return source === 'websocket' ? LIVE_WS_TTL_MS : LIVE_SNAPSHOT_TTL_MS;
+  }
+
   function liveFresh(t) {
     var l = live[t];
-    return !!(l && (Date.now() - l.at) <= LIVE_TTL_MS);
+    if (!l) return false;
+    return (Date.now() - l.at) <= liveTtlFor(l.source);
   }
 
   // Visão de um ativo com overlay ao vivo (cópia; nunca muta o service).
@@ -591,11 +597,20 @@
     if (!t || !service || !service.findByTicker) return;
     var found = null;
     try { found = service.findByTicker(t); } catch (e) { found = null; }
-    // Crypto (WS tick a tick) e stocks (refresh do ticker a cada 5s) usam o
-    // MESMO evento; o motor da carteira não distingue a fonte.
+    // Crypto (WS tick a tick) e stocks (refresh do ticker a cada 5s/60s) usam
+    // o MESMO evento; o motor da carteira não distingue a fonte — só a
+    // PRIORIDADE: websocket fresco > snapshot HTTP (price+change juntos).
     if (!found) return;
+    // Origem normalizada; evento antigo sem source = snapshot (conservador:
+    // nunca derruba um websocket fresco).
+    var src = (d.source === 'websocket') ? 'websocket' : 'snapshot';
     var ch = Number(d.changePct);
-    live[t] = { price: price, change: Number.isFinite(ch) ? ch : null, at: Date.now() };
+    var prev = live[t];
+    if (src === 'snapshot' && prev && prev.source === 'websocket' &&
+        (Date.now() - prev.at) <= LIVE_WS_TTL_MS) {
+      return; // WS fresco vence: não toca price, change nem at.
+    }
+    live[t] = { price: price, change: Number.isFinite(ch) ? ch : null, at: Date.now(), source: src };
     paintLiveRow(t);
     scheduleLiveRender();
   }
@@ -638,6 +653,16 @@
     } catch (e) {}
   }
 
+  // Limpa o estado live (troca de carteira/UID ou de modo). NÃO chamar em
+  // refresh normal da mesma carteira (perderia a cotação live a cada load).
+  function clearLiveState() {
+    live = {};
+    try {
+      if (liveTimer) { clearTimeout(liveTimer); }
+    } catch (e) {}
+    liveTimer = null;
+  }
+
   // Persiste o snapshot ao vivo SÓ no modo local (sem custo, sem quota).
   // No modo remoto não grava por tick: o RTDB sincroniza na próxima escrita
   // (compra/venda/edição) e gravar a cada tick seria tempestade de transações.
@@ -645,8 +670,9 @@
   function persistLiveLocal() {
     try {
       if (ui.mode !== 'local' || !service || !service.getState) return;
-      var saveSilent = service.replaceAllSilent || service.replaceAll;
-      if (typeof saveSilent !== 'function') return;
+      // Só via replaceAllSilent (SEM fallback para replaceAll: save() carimba
+      // updatedAt e violaria o contrato silent). Adapter sem suporte = sem persist.
+      if (typeof service.replaceAllSilent !== 'function') return;
       var st = service.getState();
       var list = st && st.assets;
       if (!list || !list.length) return;
@@ -660,7 +686,7 @@
         if (a.dailyVariation !== day) { a.dailyVariation = day; changed = true; }
       }
       // Snapshot silencioso: preserva portfolio.updatedAt (carimbo é do usuário).
-      if (changed) saveSilent.call(service, list);
+      if (changed) service.replaceAllSilent(list);
     } catch (e) {}
   }
 
@@ -699,6 +725,8 @@
 
   function enterRemoteMode(uid) {
     if (ui.mode === 'remote' && remoteUid && uid && remoteUid === uid) return;
+    // Transição (local→remoto) ou UID diferente: descarta live da origem.
+    clearLiveState();
     ui.mode = 'remote';
     remoteUid = uid || remoteUid;
     try { if (fb() && fb().warmup) fb().warmup(remoteUid); } catch (e) {}
@@ -709,6 +737,8 @@
   }
 
   function enterLocalMode() {
+    // Transição (remoto→local): descarta live da nuvem anterior.
+    clearLiveState();
     ui.mode = 'local';
     ui.needsSync = false;
     remoteUid = null;
@@ -852,8 +882,11 @@
 
   /* ---------- Boot ---------- */
   function bind() {
-    var root = $(ROOT_ID);
     var host = getRoot();
+    // Guarda de inicialização: bind 2× = 2 listeners + 2 intervals + 2 pagehide.
+    if (host && host.__PainelAtivosBound) return;
+    if (host) host.__PainelAtivosBound = true;
+    var root = $(ROOT_ID);
     if (!root || !host || !host.PortfolioService || !host.PortfolioStorage) return;
     service = host.PortfolioService.createService(host.PortfolioStorage.LocalPortfolioStorage);
     if (host.PortfolioDemo) {
@@ -1110,5 +1143,26 @@
   }
 
   var _host = getRoot();
-  if (_host) _host.PainelAtivos = { render: render, getUI: function () { return ui; }, maybeMigrate: maybeMigrate, onTickerPrice: onTickerPrice, persistLiveLocal: persistLiveLocal };
+  if (_host) _host.PainelAtivos = {
+    render: render,
+    getUI: function () { return ui; },
+    maybeMigrate: maybeMigrate,
+    onTickerPrice: onTickerPrice,
+    persistLiveLocal: persistLiveLocal,
+    enterRemoteMode: enterRemoteMode,
+    enterLocalMode: enterLocalMode,
+    // Superfície de teste (isolada, sem efeito no comportamento normal).
+    _test: {
+      setTtl: function (ms) { // compat: ajusta ambos
+        var old = LIVE_WS_TTL_MS;
+        if (Number.isFinite(ms) && ms >= 0) { LIVE_WS_TTL_MS = ms; LIVE_SNAPSHOT_TTL_MS = ms; }
+        return old;
+      },
+      setWsTtl: function (ms) { var old = LIVE_WS_TTL_MS; if (Number.isFinite(ms) && ms >= 0) LIVE_WS_TTL_MS = ms; return old; },
+      setSnapshotTtl: function (ms) { var old = LIVE_SNAPSHOT_TTL_MS; if (Number.isFinite(ms) && ms >= 0) LIVE_SNAPSHOT_TTL_MS = ms; return old; },
+      getTtls: function () { return { ws: LIVE_WS_TTL_MS, snapshot: LIVE_SNAPSHOT_TTL_MS }; },
+      clearLive: clearLiveState,
+      getLive: function () { var o = {}; for (var k in live) o[k] = live[k]; return o; }
+    }
+  };
 })();

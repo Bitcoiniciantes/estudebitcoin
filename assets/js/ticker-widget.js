@@ -238,7 +238,7 @@
       if (!q || typeof q.price !== "number" || !Number.isFinite(q.price) || q.price <= 0) continue;
       try {
         window.dispatchEvent(new CustomEvent("estudebitcoin:ticker-price", {
-          detail: { symbol: q.symbol, price: q.price, changePct: q.changePct }
+          detail: { symbol: q.symbol, price: q.price, changePct: q.changePct, source: "snapshot" }
         }));
       } catch (broadcastError) { /* broadcast opcional, nunca quebra o ticker */ }
     }
@@ -263,7 +263,7 @@
     // é proibido criar segundo WebSocket/polling/fetch só para o Risk Engine.
     // Mesmo padrão de CustomEvent já usado neste arquivo (load-asset).
     try {
-      window.dispatchEvent(new CustomEvent("estudebitcoin:ticker-price", { detail: { symbol: symbol, price: price, changePct: changePct } }));
+      window.dispatchEvent(new CustomEvent("estudebitcoin:ticker-price", { detail: { symbol: symbol, price: price, changePct: changePct, source: "websocket" } }));
     } catch (broadcastError) { /* broadcast opcional, nunca quebra o ticker */ }
     if (typeof volume === "number" && Number.isFinite(volume)) {
       liveVolume[symbol] = volume;

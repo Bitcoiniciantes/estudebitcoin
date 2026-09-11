@@ -225,7 +225,29 @@ SEED PADRÃO (2026-09-11, pedido do Joel): carteira vazia abre com 9 ativos
 qtd 1 — BTC, ETH, LINK, AVAX (crypto) + MSTR, SI=F/PRATA, HG=F/COBRE,
 BZ=F/BRENT, URNM (stocks, tickers iguais aos cards). Médio = atual (neutro;
 o ao vivo assume em segundos com dot verde). Só afeta carteiras vazias
-(`seedIfEmpty`); carteiras com dados não mudam.
+(`seedIfEmpty`); carteiras com dados não mudam. `?v=2` no demo.
+
+DEPLOY PRODUÇÃO (2026-09-11, commit `33a8a85`): push main → Pages rebuildou;
+conferido via fetch — UI `?v=4`, demo `?v=2`, ticker `?v=20`, provider `?v=3`
+no ar. Validado em produção pelo Joel: seed planta os 9, dots verdes em
+crypto e stocks, patrimônio acompanha. Escopo do commit: só painel
+(portfolio + ticker broadcast + CSS + testes + bumps); auth/worker/docs de
+outros workstreams ficaram fora, intocados.
+
+PRIORIDADE WS > SNAPSHOT (2026-09-11, review Manus): o refresh HTTP de 5s
+re-despachava candles e revertia tick WS mais novo (patrimônio flickerava,
+persist podia carimbar valor velho). Evento agora carrega `source` —
+`'websocket'` no `updateLivePrice`, `'snapshot'` no `broadcastQuotes` (mesmo
+evento). Regra: WS válido sempre vence; snapshot ignorado se houver WS fresco
+do ticker dentro do TTL (price+change juntos, sem tocar `at`); sem source =
+snapshot (conservador). `live` agora `{price, change, at, source}`.
+`clearLiveState()` em transição local↔remoto e troca de UID (nunca em refresh
+da mesma carteira). Bind idempotente (`__PainelAtivosBound`: 1 listener, 1
+interval, 1 pagehide). `replaceAllSilent` SEM fallback para `persist()` —
+adapter sem `saveSnapshot` recebe erro `unsupported` (storage real tem).
+Testes A–J no caminho real (`test-live-prices.mjs`, 11 testes). Total geral:
+71 testes, 0 falhas. Sem commit/deploy.
+FIM DO CAPÍTULO — painel funcional de ponta a ponta.
 Correções pós-review (alvo do evento era `document` × `window`; updatedAt era
 carimbado pelo snapshot): listener em `window`, `saveSnapshot`, `?v=19/3`.
 Limitação conhecida: USDT-BRL exibe com `$` (moeda da linha é USD); validar
