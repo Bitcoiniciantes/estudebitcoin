@@ -62,6 +62,14 @@
     return Number.isFinite(n) ? n : null;
   }
 
+  // A Binance retorna preço e variação, mas não o nome do ativo. Mantemos
+  // os mesmos nomes canônicos usados pelo ticker-widget para que o formulário
+  // de inclusão preencha o nome também para criptoativos.
+  var CRYPTO_NAMES = {
+    BTC: 'Bitcoin', ETH: 'Ethereum', SOL: 'Solana', LINK: 'Chainlink',
+    AVAX: 'Avalanche', RENDER: 'Render', PAXG: 'Pax Gold'
+  };
+
   // CRYPTO via Binance 24h ticker: { lastPrice, priceChangePercent }.
   function cryptoQuote(ticker) {
     var symbol = ticker.replace(/[^A-Z0-9]/g, '') + 'USDT';
@@ -70,7 +78,12 @@
         var price = num(j && j.lastPrice);
         var day = num(j && j.priceChangePercent);
         if (price === null || price <= 0) return null;
-        return { price: price, dailyVariation: day === null ? 0 : day, source: 'binance' };
+        return {
+          price: price,
+          dailyVariation: day === null ? 0 : day,
+          name: CRYPTO_NAMES[ticker] || null,
+          source: 'binance'
+        };
       })
       .catch(function () { return null; });
   }
