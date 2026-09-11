@@ -767,9 +767,14 @@
     remoteUid = uid || remoteUid;
     try { if (fb() && fb().warmup) fb().warmup(remoteUid); } catch (e) {}
     var badge = $('pa-mode-badge');
-    if (badge) { badge.textContent = 'Nuvem'; badge.classList.remove('pa-local'); }
+    if (badge) {
+      badge.textContent = 'Nuvem';
+      badge.classList.remove('pa-local');
+      badge.classList.remove('pa-locked');
+    }
     setBadgeUid();
     setSide(false);
+    updateLockedUI();
   }
 
   function enterLocalMode() {
@@ -803,6 +808,10 @@
       var locked = $('pa-locked');
       var isLocked = ui.mode === 'locked';
       if (locked) locked.style.display = isLocked ? '' : 'none';
+      var hint = $('pa-auth-hint');
+      if (hint) hint.textContent = isLocked
+        ? 'Entre para acessar sua carteira sincronizada.'
+        : 'Carteira sincronizada na nuvem.';
       var addBtn = $('pa-add-toggle');
       if (addBtn) addBtn.style.display = isLocked ? 'none' : '';
       var formWrap = $('pa-form-wrap');
