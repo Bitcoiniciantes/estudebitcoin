@@ -1260,6 +1260,7 @@
   if (_host) _host.PainelAtivos = {
     render: render,
     getUI: function () { return ui; },
+    getService: function () { return service; },
     maybeMigrate: maybeMigrate,
     onTickerPrice: onTickerPrice,
     persistLiveLocal: persistLiveLocal,
