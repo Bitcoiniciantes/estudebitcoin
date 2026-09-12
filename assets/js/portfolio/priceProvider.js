@@ -62,13 +62,27 @@
     return Number.isFinite(n) ? n : null;
   }
 
-  // A Binance retorna preço e variação, mas não o nome do ativo. Mantemos
-  // os mesmos nomes canônicos usados pelo ticker-widget para que o formulário
-  // de inclusão preencha o nome também para criptoativos.
-  var CRYPTO_NAMES = {
-    BTC: 'Bitcoin', ETH: 'Ethereum', SOL: 'Solana', LINK: 'Chainlink',
-    AVAX: 'Avalanche', RENDER: 'Render', PAXG: 'Pax Gold'
-  };
+  function cryptoName(ticker) {
+    return fetchJSON('https://api.coingecko.com/api/v3/search?query=' + encodeURIComponent(ticker))
+      .then(function (j) {
+        var list = j && Array.isArray(j.coins) ? j.coins : [];
+        var wanted = String(ticker).toUpperCase();
+        var matches = [];
+        for (var i = 0; i < list.length; i++) {
+          var coin = list[i] || {};
+          if (String(coin.symbol || '').toUpperCase() === wanted && coin.name) {
+            matches.push(coin);
+          }
+        }
+        matches.sort(function (a, b) {
+          var ar = Number.isFinite(Number(a.market_cap_rank)) ? Number(a.market_cap_rank) : Infinity;
+          var br = Number.isFinite(Number(b.market_cap_rank)) ? Number(b.market_cap_rank) : Infinity;
+          return ar - br;
+        });
+        return matches.length ? String(matches[0].name).trim() : null;
+      })
+      .catch(function () { return null; });
+  }
 
   // CRYPTO via Binance 24h ticker: { lastPrice, priceChangePercent }.
   function cryptoQuote(ticker) {
@@ -78,12 +92,14 @@
         var price = num(j && j.lastPrice);
         var day = num(j && j.priceChangePercent);
         if (price === null || price <= 0) return null;
-        return {
-          price: price,
-          dailyVariation: day === null ? 0 : day,
-          name: CRYPTO_NAMES[ticker] || null,
-          source: 'binance'
-        };
+    return cryptoName(ticker).then(function (name) {
+      return {
+            price: price,
+            dailyVariation: day === null ? 0 : day,
+            name: name,
+            source: 'binance'
+          };
+        });
       })
       .catch(function () { return null; });
   }
