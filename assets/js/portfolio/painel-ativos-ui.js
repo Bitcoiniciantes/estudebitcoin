@@ -353,6 +353,42 @@
     if (fd) { fd.textContent = fmtMoneySigned(totals.dailyDelta); fd.className = cls(totals.dailyDelta); }
   }
 
+  // Visão pronta para exportação (Tabela + totais + resumo): o MESMO
+  // pipeline do render() — query com filtro/ordem atuais + overlay ao vivo.
+  // Retorna null quando não há carteira visível (modo bloqueado).
+  function getExportView() {
+    if (!service || ui.mode === 'locked') return null;
+    var view = service.query({ filter: ui.filter === 'ALL' ? null : ui.filter, sort: ui.sort });
+    try {
+      var host = getRoot();
+      var calcApi = host && host.PortfolioCalculator;
+      if (calcApi) {
+        var over = view.assets.map(function (a) { return liveView(a); });
+        var touched = over.some(function (o) { return o.live; });
+        if (touched) {
+          var list = over.map(function (o) { return o.asset; });
+          var calcs = list.map(function (x) { return x.calc; });
+          var totals = calcApi.calcTotals(calcs);
+          calcApi.applyAllocations(calcs, totals.current);
+          view = { assets: list, totals: totals };
+        }
+      }
+    } catch (e) {}
+    var meta = null;
+    try {
+      var st = service.getState();
+      if (st && st.portfolio) meta = { name: st.portfolio.name, currency: st.portfolio.currency, updatedAt: st.portfolio.updatedAt };
+    } catch (e) {}
+    return {
+      assets: view.assets,
+      totals: view.totals,
+      portfolio: meta,
+      filter: ui.filter,
+      sort: ui.sort,
+      generatedAt: new Date().toISOString()
+    };
+  }
+
   /* ---------- Formulário expansível (colapsado por padrão) ---------- */
   function setFormOpen(open, opts) {
     ui.formOpen = !!open;
@@ -1261,6 +1297,7 @@
     render: render,
     getUI: function () { return ui; },
     getService: function () { return service; },
+    getExportView: getExportView,
     maybeMigrate: maybeMigrate,
     onTickerPrice: onTickerPrice,
     persistLiveLocal: persistLiveLocal,
