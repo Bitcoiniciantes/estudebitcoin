@@ -682,7 +682,18 @@
         (Date.now() - prev.at) <= LIVE_WS_TTL_MS) {
       return; // WS fresco vence: não toca price, change nem at.
     }
-    live[t] = { price: price, change: Number.isFinite(ch) ? ch : null, at: Date.now(), source: src };
+    // HOJE de STOCKS: somente changePct explicitamente marcado como 24h
+    // (portfolioLive.refreshStocks). Evento do ticker (qualquer janela:
+    // 1H/24H/7D/30D, sem marca) atualiza o preço, nunca o HOJE. Crypto
+    // segue a regra antiga (WS 24h rolante vence enquanto fresco).
+    var isStock = found.type !== 'CRYPTO';
+    var change;
+    if (!isStock || d.changeWindow === '24h') {
+      change = Number.isFinite(ch) ? ch : null;
+    } else {
+      change = prev ? prev.change : null; // preserva último 24h (ou null → cai no stored)
+    }
+    live[t] = { price: price, change: change, at: Date.now(), source: src };
     paintLiveRow(t);
     scheduleLiveRender();
   }

@@ -95,7 +95,7 @@
     return base + 'USDT';
   }
 
-  function dispatch(symbol, price, changePct, source) {
+  function dispatch(symbol, price, changePct, source, changeWindow) {
     var p = Number(price);
     if (!symbol || !Number.isFinite(p) || p <= 0) return false;
     var ch = Number(changePct);
@@ -104,13 +104,18 @@
       if (!host || !host.dispatchEvent) return false;
       var Ctor = host.CustomEvent || null;
       if (typeof Ctor !== 'function') return false;
+      var detail = {
+        symbol: String(symbol).trim().toUpperCase(), // TICKER PURO
+        price: p,
+        changePct: Number.isFinite(ch) ? ch : null, // NUNCA change24h
+        source: source === 'websocket' ? 'websocket' : 'snapshot'
+      };
+      // Marca explícita da janela do changePct. Só refreshStocks marca
+      // ('24h', Worker com window=24h). Eventos do ticker-widget e o WS
+      // crypto NÃO têm a marca — o painel decide o HOJE por ela.
+      if (changeWindow === '24h') detail.changeWindow = '24h';
       host.dispatchEvent(new Ctor('estudebitcoin:ticker-price', {
-        detail: {
-          symbol: String(symbol).trim().toUpperCase(), // TICKER PURO
-          price: p,
-          changePct: Number.isFinite(ch) ? ch : null, // NUNCA change24h
-          source: source === 'websocket' ? 'websocket' : 'snapshot'
-        }
+        detail: detail
       }));
       return true;
     } catch (e) { return false; }
@@ -163,7 +168,7 @@
           var price = num(hit.price);
           if (price === null || price <= 0) continue;
           var day = num(hit.changePct != null ? hit.changePct : hit.dailyVariation);
-          if (dispatch(want, price, day === null ? null : day, 'snapshot')) n++;
+          if (dispatch(want, price, day === null ? null : day, 'snapshot', '24h')) n++;
         }
         return n;
       }).catch(function () { return 0; });
