@@ -26276,13 +26276,19 @@
   {
     "data": "2026-09-13",
     "precoBtcUsd": 76838.16,
-    "cotacaoUsdBrl": 5.1028,
-    "precoBtcBrl": 392089.74
+    "cotacaoUsdBrl": 5.1112,
+    "precoBtcBrl": 392735.8
   },
   {
     "data": "2026-09-14",
-    "precoBtcUsd": 77741.45,
-    "cotacaoUsdBrl": 5.1275,
-    "precoBtcBrl": 398619.31
+    "precoBtcUsd": 78163.38,
+    "cotacaoUsdBrl": 5.1112,
+    "precoBtcBrl": 399509.3
+  },
+  {
+    "data": "2026-09-15",
+    "precoBtcUsd": 76838.26,
+    "cotacaoUsdBrl": 5.146,
+    "precoBtcBrl": 395409.67
   }
 ]
