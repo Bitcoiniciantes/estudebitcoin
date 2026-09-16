@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import fs from 'node:fs';
 
-const SRC = fs.readFileSync(new URL('./assets/js/portfolio/painel-ativos-ui.js', import.meta.url), 'utf8');
+const SRC = fs.readFileSync(new URL('../assets/js/portfolio/painel-ativos-ui.js', import.meta.url), 'utf8');
 
 function timeoutErr() {
   const e = new Error('Servidor demorou a responder. Verifique a conexão e tente de novo.');

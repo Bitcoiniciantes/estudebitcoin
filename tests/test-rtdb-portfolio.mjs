@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { test: T } = require('./assets/js/portfolio/firebasePortfolio.js');
+const { test: T } = require('../assets/js/portfolio/firebasePortfolio.js');
 
 const NOW = 1700000000000;
 const approx = (a, b, eps = 1e-9) =>

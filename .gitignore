@@ -3,3 +3,9 @@
 node_modules/
 .env*
 !.env.example
+*.v6-bak
+alerta-worker-v7-backup/
+_archive_local/
+*.log
+calc-debug*.png
+screenshot_*.png

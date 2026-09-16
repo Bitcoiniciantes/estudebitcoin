@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const svcMod = require('./assets/js/portfolio/portfolioService.js');
+const svcMod = require('../assets/js/portfolio/portfolioService.js');
 
 function memAdapter(seed) {
   let state = seed || { version: 1, portfolio: { name: 't', currency: 'USD', updatedAt: null }, assets: [] };

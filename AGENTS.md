@@ -444,6 +444,36 @@ document.addEventListener('click', unlockAudioOnFirstInteraction, { once: true }
 
 ---
 
+### Fase 9 — Correção P0: congelamento do nível GRAPH no AlertEngine (2026-09-03)
+
+**Data:** 2026-09-03
+**Commit:** `0e8b6e1` — `fix(alerts): prevent GRAPH level freeze below 0.1%`
+**Escopo:** ÚNICA alteração de produção em `assets/js/services/alertEngine.js` (`setAlertLevels`). Sem mudanças em Worker, DynamicSR, cooldown, hysteresis, crossover, rearm, timeframe, candles, normalização ou autoridade.
+
+#### Problema (confirmado pela Auditoria P0)
+O dedup de `setAlertLevels` usava tolerância de 0,1% para TODOS os casos. Em atualização `GRAPH→GRAPH` com delta < 0,1% (ex.: R 77.546,9 → 77.559; delta 12,1 < tolerância 77,6), a função dava `return` e o motor mantinha o nível antigo — enquanto o `DynamicSR` já tinha atualizado o `srLevels` do gráfico (dynamicSR.js recalcula o desenho antes de chamar o motor). Resultado: motor monitora nível STALE, beeps "falsos" vs o nível visível, até um delta > 0,1%.
+
+#### Correção aplicada
+```javascript
+// dentro de setAlertLevels(), no cálculo de "mesmos níveis":
+var graphToGraph = existing.config.source === 'GRAPH' && source === 'GRAPH';
+var epsilon = graphToGraph ? 1e-4 : 0.001; // P0: GRAPH→GRAPH usa 1e-4 relativo
+var sameSupport = Math.abs(existing.config.support - support) < support * epsilon;
+var sameResistance = Math.abs(existing.config.resistance - resistance) < resistance * epsilon;
+```
+- `GRAPH→GRAPH`: atualiza sempre que delta > epsilon técnico (1e-4 relativo ≈ US$ 7,75 em BTC a 77k).
+- Demais casos (`TICKER→TICKER` no refresh de 5s etc.): dedup de 0,1% preservado (evita reset de estado a cada refresh).
+- Bloco de upgrade `TICKER→GRAPH`, normalização, estado e proteção `GRAPH > TICKER` (`hasUserDefinedLevels`) inalterados.
+
+#### Testes (adicionados ao repo)
+- `test-auditoria-p0-freeze.mjs` — simulação determinística com os PREÇOS REAIS da janela 23:28 (02:28:12–02:29:33 UTC): cenário real `77.546,9 → 77.559` agora atualiza o motor. **PASS.**
+- `test-auditoria-p0-fix.mjs` — unit sobre o CÓDIGO REAL do engine (stubs de browser em Node), Casos A–E da orientação: A GRAPH delta<0,1% atualiza; B delta<epsilon ignorado; C TICKER não sobrescreve GRAPH; D TICKER→GRAPH assume autoridade; E crossover segue disparando. **PASS (5/5).**
+
+#### Validação
+`node tests/test-auditoria-p0-freeze.mjs` e `node tests/test-auditoria-p0-fix.mjs` → ambos PASS. `git diff --check` limpo. Nenhuma regressão nos fluxos existentes (nenhuma regra foi alterada para fazer teste passar).
+
+---
+
 ## 6. Regras Funcionais Finais
 
 ### Autoridade de S/R
@@ -513,6 +543,31 @@ document.addEventListener('click', unlockAudioOnFirstInteraction, { once: true }
 
 > Regra da auditoria: **provar QUEM dispara e com quais dados antes de corrigir.** Não alterar normalização, autoridade GRAPH>TICKER, cooldown/histerese, timeframe ou candles enquanto a cadeia causal não for provada com ocorrência real. Não declarar causa raiz sem evidência.
 
+### Arquitetura Dual (Client + Worker)
+O sistema possui dois motores independentes:
+- **CLIENT_ALERT_ENGINE** (`assets/js/services/alertEngine.js`) — browser, PWA aberto, som imediato
+- **WORKER** (`alerta-worker/src/index.js`, v7.0.0) — Cloudflare Cron 1min, Push notification
+
+Ambos podem gerar notificações. É necessário identificar a origem antes de atribuir problema.
+
+### Worker v7.0.0 Publicado
+- Health: `{"service":"alerta-worker","status":"ok","version":"7.0.0"}`
+- Hysteresis: 0.15% (`HYSTERESIS_PCT = 0.0015`)
+- Cooldown: 5min (`COOLDOWN_MS = 300000`)
+- Código fonte: NÃO no repo (v6.1.0). Backup em `alerta-worker-v7-backup/` (gitignored).
+
+### KV `ALERTAS_KV` — Estado Confirmado
+- `alert:BTC`: support=76264, resistance=77900, enabled=true
+- `cron:states.BTC`: lastPrice=81090.67, resistanceTriggered=true, lastResistanceTriggeredAt=2026-09-03T11:18:46.424Z
+- `cron:index`: 8 alertas, 20 subscriptions
+- Subscriptions são globais (sem associação com símbolo)
+
+### Contaminação BTC ↔ AVAX
+**NÃO COMPROVADA.** Estados são separados por símbolo em `cron:states`.
+
+### Risco de lastPrice Defasado
+O Worker pode omitir `KV.put()` quando apenas `lastPrice` muda, causando defasagem entre ciclo N e N+1. **HIPÓTESE A VALIDAR.**
+
 ### Instrumentação (commits)
 - `65cf7ba` — logs `[BTC ALERT TRACE]` em ticker-widget (PREÇO RECEBIDO) e alertEngine (INICIALIZAÇÃO / VERIFICAÇÃO / DISPARO TENTADO para TODOS os ativos).
 - `3d67ed5` — ring buffer `window.__BTC_TRACE__` (2000 eventos) + `window.__TRACE_DUMP__()` (JSON completo, sem truncamento do console). Uso após incidente: `copy(__TRACE_DUMP__())`.
@@ -541,5 +596,119 @@ document.addEventListener('click', unlockAudioOnFirstInteraction, { once: true }
 1. Capturar próxima ocorrência com `copy(__TRACE_DUMP__())` + anotar qual card acendeu.
 2. Obter fonte do worker v7.0.0 (quem deployou em 2026-08-31) e seu storage.
 3. Detalhes completos em `DOCS/AUDITORIA_P0_ALERTAS_FALSOS_BTC.md`.
+
+### Patch A — Prevenção de sobrescrita de S/R pelo ticker (2026-09-03)
+
+**Commit:** `4e562c9` — `fix: prevent ticker from overwriting chart SR levels`  
+**Arquivo:** `assets/js/ticker-widget.js`  
+**Deploy:** https://estudebitcoin.pages.dev (Pages)
+
+**Problema:** O ticker chamava `DynamicSR.calculateSR()` + `AlertEngine.setAlertLevels()` a cada 5s para TODOS os cryptos, sobrescrevendo os níveis configurados pelo gráfico.
+
+**Correção:** Guard `srActive` que verifica se DynamicSR está ativo para o símbolo atual. Se ativo, o ticker NÃO calcula nem atualiza S/R para esse símbolo.
+
+**Estrutura:**
+```javascript
+var srActive = window.DynamicSR.isActive() && window.DynamicSR.getSymbol() === symbol;
+if (srActive) {
+  console.log('[SR TRACE] TICKER SKIPPED symbol=' + symbol + ' reason=GRAPH_ACTIVE');
+} else {
+  // cálculo original do ticker
+}
+```
+
+**Logs:** `[SR TRACE] TICKER SKIPPED` e `[SR TRACE] TICKER UPDATE` mantidos para validação.
+
+**Validação:** Testes automatizados via headless browser (estrutura OK, lógica OK). Teste de crossover real PENDENTE.
+
+### Regra de Investigação
+
+**NUNCA** concluir "contaminação de símbolo" apenas porque uma notificação contém vários símbolos ou porque várias subscriptions receberam a mesma notificação.
+
+A cadeia de prova deve ser:
+```
+ALERT CONFIG → SYMBOL → PRICE SOURCE → PRICE SAMPLES → PREVIOUS PRICE → CROSSING DETECTOR → STATE TRANSITION → PUSH EVENT → SUBSCRIPTIONS
+```
+
+O diagnóstico deve identificar **exatamente em qual etapa** ocorreu a divergência.
+
+### Worker deployado v7.0.0 (auditado via download do script — backup local em `alerta-worker-v7-backup/`, gitignored)
+- **O repo (`alerta-worker/src/index.js`, v6.1.0) está DEFASADO em relação à produção (v7.0.0).** Qualquer correção de Worker deve usar o backup do v7 até o repo ser ressincronizado.
+- v7 usa o mesmo contrato KV (`ALERTAS_KV`, chaves `sub:`/`alert:`/`cron:index`/`cron:states`) e endpoints (`/subscribe`, `/unsubscribe`, `/alerts/sync`, `/`).
+- v7 implementa o que o v6 do repo NÃO tem: `HYSTERESIS_PCT = 0.0015` (rearm real: `currentPrice < resistance*(1−0.0015)`, L963) e `COOLDOWN_MS = 300000` (5min por direção, com `lastResistanceTriggeredAt`/`lastSupportTriggeredAt` no estado).
+- **Divergência de cooldown entre os motores:** Worker v7 = 5min; client AlertEngine = 120s (alertEngine.js L304). O mesmo evento pode apitar no client (≥2min) mas ser bloqueado no Worker (≥5min) — e vice-versa em janelas 2–5min.
+- **KV `67cf3ab4…` (único ALERTAS_KV da conta) permanece VAZIO** mesmo após `/subscribe` do v7 retornar `ok:true` ⇒ o binding `ALERTAS_KV` do deploy v7 aponta para outro namespace (não acessível sem o settings fetch, recusado) ou storage fora da conta. Estado real do push (subs/alertas do v7) **não verificável nesta sessão**.
+
+### Mecanismo provado — congelamento do nível do motor pelo dedup de 0.1% (Categoria B, client)
+- **Onde:** `alertEngine.js` `setAlertLevels()` L149–163.
+- **Como:** se `|old − new| < nível·0.001` (≈ US$ 77 em BTC a 77k) **e** não for upgrade `TICKER→GRAPH`, a função dá `return` e o motor **mantém o nível antigo**. `DynamicSR.recalculate()` atualiza o `srLevels` do gráfico ANTES de chamar `setAlertLevels` (dynamicSR.js L278–285; conversor.js L416–418/L522–531) — então **o gráfico passa a desenhar o nível novo enquanto o motor fica congelado no antigo** até um delta > 0.1%.
+- **Consequência:** o motor pode disparar beeps em cruzamentos de um nível **que não é o desenhado no gráfico** (defasagem permanente ≤ ~0.1%, ~US$ 77). Sintoma real descrito na auditoria: "GRÁFICO R=77.559; MOTOR R=77.546" — beep correto para o motor, falso em relação ao gráfico.
+- **Confirmação nos logs (23:28:12–23:29:33 UTC):** zero `DISPARO TENTADO` de BTC na janela apesar de o preço cruzar 77.559 ⇒ deriva-se **R do motor ≤ 77.546,9** naquele instante (se R > 77.546,9, o rearm L250–255 + cruzamento em 02:28:32 teriam logado disparo). Divergência motor (≤77.546,9) × gráfico (77.559) = **12+ USD — dentro da janela de congelamento de 0.1%**.
+- **Valor exato/lastro a confirmar:** expandir 1 objeto `[BTC ALERT TRACE] DISPARO TENTADO` (campos `resistance_level`, `config_source`) ou colar os `[SR-TRACE] ALERT_ENGINE setAlertLevels`/`GRAPH recalculate` de BTC do console (23:20–23:30).
+
+### Fechamento da Auditoria P0 (2026-09-03) — CAUSA RAIZ
+```
+CAUSA RAIZ:
+  Nível do motor de alertas (client) congelado pelo dedup de 0.1% em setAlertLevels
+  (alertEngine.js L149–163) quando DynamicSR recalcula com delta < 0.1% — o gráfico
+  desenha o nível novo, o motor mantém o antigo. Beeps disparam no nível STALE
+  (≤ 77.546,9 na ocorrência de 23:28) enquanto o usuário vê R=77.559.
+
+EMISSOR: CLIENT_ALERT_ENGINE (som/card BTC). Push do Worker: separado e hoje sem
+  dados persistidos (worker v7 deployado não grava no KV acessível da conta).
+
+EVIDÊNCIA:
+  - Logs reais 23:28:12–23:29:33 UTC: zero DISPARO BTC apesar de cruzamentos de 77.559
+    ⇒ R do motor ≤ 77.546,9 (derivação sobre rearm L250–255 e crossover L264–271).
+  - Simulação determinística test-auditoria-p0-freeze.mjs (preços reais da janela):
+    R=77.559 teria disparado às ~02:28:34 (não ocorreu); R=77.546,5 reproduz o silêncio.
+  - Demo do dedup na simulação: recalc GRAPH 77.559 sobre motor 77.546,9 → motor
+    permanece 77.546,9 (congelado; delta 12,1 < tolerância 77,6).
+  - KV ALERTAS_KV vazio (0 chaves) + /subscribe do v7 ok:true sem persistir nada.
+
+CORREÇÃO NECESSÁRIA:
+  1. setAlertLevels: GRAPH→GRAPH atualiza para delta > epsilon técnico de 1e-4
+     relativo (dedup de 0,1% mantido p/ TICKER→TICKER) — IMPLEMENTADO em
+     2026-09-03, commit `0e8b6e1` (detalhes na "Fase 9" acima; testes
+     test-auditoria-p0-freeze.mjs e test-auditoria-p0-fix.mjs: PASS).
+  2. Worker: ressincronizar alerta-worker/ com o v7 (backup em alerta-worker-v7-backup/),
+     corrigir binding KV de produção e sincronizar o nível GRAPH (o que o usuário vê)
+     para o alert:BTC nunca ficar defasado — PENDENTE (fora do escopo da correção P0).
+  3. NÃO alterar: normalização, autoridade GRAPH>TICKER, cooldown/histerese atuais,
+     timeframe, candles.
+
+TESTES: simulação determinística com preços reais (R gráfico dispararia na janela;
+  R stale reproduz o silêncio) — mecanismo PASS. Correção do client aplicada e
+  testada (Fase 9); correção do Worker pendente.
+
+LIMITAÇÃO: valor exato/config_source do nível no instante do beep (logs truncados)
+  não confirmado; cadeia apoia-se em derivação + simulação. `copy(__TRACE_DUMP__())`
+  (commit 3d67ed5, no ar) captura a próxima ocorrência completa.
+```
+Relatório completo: `DOCS/AUDITORIA_P0_ALERTAS_FALSOS_BTC.md` (seção "RELATÓRIO FINAL").
+
+---
+
+## 8. Login opcional + sync de painéis (2026-09-08)
+
+Decisões: login **Google + e-mail/senha** (modal "Entrar no EstudeBitcoin", só no topo),
+backend **Firebase (projeto do mural, sem pausar no Free)** — Auth + RTDB
+`users/{uid}/panels/{risk,sim}` com rules por dono. Ambos os painéis, cross-device.
+Login nunca obrigatório; qualquer falha é silenciosa (localStorage).
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `assets/js/auth.js` | `window.EstudeAuth` (Google popup+redirect fallback, e-mail/senha com verificação, reset, logout, apagar dados) + `window.PanelSync` (localStorage `eb_panel_*` + set/pull RTDB, merge último-vence por `updatedAt`). SDKs compat (app/auth/database) sob demanda via `BI.loadScripts`. Eventos `estudebitcoin:auth-change` / `estudebitcoin:panel-pull`. |
+| `assets/css/login.css` | Botão `.dash-login-btn` (linguagem do MENU) + modal card claro (modelo aprovado). |
+| `assets/js/config.js` | Reaproveita `firebase:` do mural (sem chaves novas) + `cdn.firebaseAuth`. Provedores ativados no console. |
+| `assets/js/risk-engine/risk-engine-panel.js` | Salva `readParams()` em `eb_panel_risk` a cada reconfig + restaura no boot + aplica pull via evento. Sem `PanelSync`, comportamento idêntico ao anterior. |
+| `index.html` / `indexsemalavancagem.html` | Botão `#eb-login-btn` em `.dash-actions` + modal `#eb-login-overlay` (views login/signup/reset/verify/account) + includes `login.css` / `auth.js`. |
+| `assets/js/calc-persist.js` | Ponte same-origin p/ o simulador iframe (fonte React fora do repo): lê/escreve inputs pelo DOM (seletores: 2 inputs sem aria-label, `.order-row`, `.secondary-button`, `.remove-button`, `.toggle`; escrita via setter nativo + `input`). Salva `eb_panel_sim` (+ push nuvem logado) e restaura no load; aplica pull `sim` via evento. QA: round-trip valores+qtd ordens+MMR PASS. Frágil a rebuild do bundle — rever seletores se o bundle mudar. |
+
+RTDB rules (somar ao `mural` existente, nunca substituir): `users.$uid` com
+`.read/.write = auth != null && auth.uid === $uid`. Só params de simulação (KBs);
+push/mural/alertas seguem locais. Conta e-mail/senha só sincroniza após
+`emailVerified` (Google já vem verificado). Painel `sim` via ponte `calc-persist.js`
+(não reescrever o bundle; seletores ancorados no DOM atual).
 
 

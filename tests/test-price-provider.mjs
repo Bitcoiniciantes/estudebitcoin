@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import fs from 'node:fs';
 
-const SRC = fs.readFileSync(new URL('./assets/js/portfolio/priceProvider.js', import.meta.url), 'utf8');
+const SRC = fs.readFileSync(new URL('../assets/js/portfolio/priceProvider.js', import.meta.url), 'utf8');
 
 function mount(fetchStub) {
   const sandbox = {

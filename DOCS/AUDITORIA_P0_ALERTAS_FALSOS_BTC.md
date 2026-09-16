@@ -615,8 +615,8 @@ var sameResistance = Math.abs(existing.config.resistance - resistance) < resista
 ## Testes executados
 | Teste | Resultado |
 |---|---|
-| `node test-auditoria-p0-freeze.mjs` — preços reais da janela 23:28; cenário 77.546,9→77.559 | **PASS** |
-| `node test-auditoria-p0-fix.mjs` — código REAL do engine (stubs de browser), Casos A–E | **PASS (5/5)** |
+| `node tests/test-auditoria-p0-freeze.mjs` — preços reais da janela 23:28; cenário 77.546,9→77.559 | **PASS** |
+| `node tests/test-auditoria-p0-fix.mjs` — código REAL do engine (stubs de browser), Casos A–E | **PASS (5/5)** |
 
 Casos validados: A GRAPH delta<0,1% atualiza · B delta<epsilon ignorado · C TICKER não sobrescreve GRAPH · D TICKER→GRAPH assume autoridade · E crossover dispara em R=77.559.
 

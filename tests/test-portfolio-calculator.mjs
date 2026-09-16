@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const calc = require('./assets/js/portfolio/portfolioCalculator.js');
+const calc = require('../assets/js/portfolio/portfolioCalculator.js');
 
 function approx(a, b, eps = 1e-9) {
   return Math.abs(a - b) <= eps * Math.max(1, Math.abs(a), Math.abs(b));

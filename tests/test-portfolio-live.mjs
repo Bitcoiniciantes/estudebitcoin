@@ -18,11 +18,11 @@ globalThis.dispatchEvent = (ev) => { dispatched.push(ev); return true; };
 globalThis.document = { hidden: false, addEventListener: () => {} };
 globalThis.WebSocket = undefined; // força fallback REST (sem WS no Node)
 
-const src = readFileSync(new URL('./assets/js/portfolio/portfolioLive.js', import.meta.url), 'utf8');
+const src = readFileSync(new URL('../assets/js/portfolio/portfolioLive.js', import.meta.url), 'utf8');
 // Impede auto-start (interval) de segurar o processo: avalia com setInterval mockado.
 const _setInterval = globalThis.setInterval;
 globalThis.setInterval = () => 0;
-const mod = await import('./assets/js/portfolio/portfolioLive.js');
+const mod = await import('../assets/js/portfolio/portfolioLive.js');
 globalThis.setInterval = _setInterval;
 const Live = globalThis.PortfolioLive;
 ok('expõe window.PortfolioLive', !!Live && typeof Live.resync === 'function');

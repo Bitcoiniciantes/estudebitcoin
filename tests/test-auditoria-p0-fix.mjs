@@ -36,7 +36,7 @@ global.window.dispatchEvent = function (ev) {
   return true;
 };
 
-require('./assets/js/services/alertEngine.js');
+require('../assets/js/services/alertEngine.js');
 const engine = global.AlertEngine;
 
 let failures = 0;

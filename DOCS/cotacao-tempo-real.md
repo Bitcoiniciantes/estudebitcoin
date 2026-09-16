@@ -57,7 +57,7 @@ Universo dinâmico lido de `PainelAtivos.getService().query()` (tickers e
 
 ## 4. Testes
 
-`node test-portfolio-live.mjs` → **17/17 PASS**:
+`node tests/test-portfolio-live.mjs` → **17/17 PASS**:
 contrato (`changePct`, symbol puro), `SLV`/`MSTR` via Worker, `BNB` via
 Binance, `GEMI` ausente sem dispatch, `price>0`, backoff+jitter+teto 30s,
 reset após mensagem válida, WS abre/fecha/reabre 1×, debounce

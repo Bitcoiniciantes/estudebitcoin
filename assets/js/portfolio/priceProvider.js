@@ -92,8 +92,8 @@
         var price = num(j && j.lastPrice);
         var day = num(j && j.priceChangePercent);
         if (price === null || price <= 0) return null;
-    return cryptoName(ticker).then(function (name) {
-      return {
+        return cryptoName(ticker).then(function (name) {
+          return {
             price: price,
             dailyVariation: day === null ? 0 : day,
             name: name,

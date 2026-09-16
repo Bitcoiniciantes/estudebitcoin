@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import fs from 'node:fs';
 
-const dir = new URL('./assets/js/portfolio/', import.meta.url);
+const dir = new URL('../assets/js/portfolio/', import.meta.url);
 const SOURCES = ['portfolioCalculator.js', 'portfolioStorage.js', 'portfolioService.js', 'painel-ativos-ui.js']
   .map((f) => fs.readFileSync(new URL('./' + f, dir), 'utf8'));
 
