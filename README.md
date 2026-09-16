@@ -13,7 +13,7 @@ Conecte este repositório ao Cloudflare Pages usando:
 
 Como o site é estático, o Cloudflare Pages publica diretamente `index.html` e os diretórios `assets` e `dados`. Cada novo push em `main` gera uma nova publicação automaticamente.
 
-O arquivo `CLOUDFLARE_PAGES.md` contém o passo a passo visual da configuração.
+O arquivo `DOCS/CLOUDFLARE_PAGES.md` contém o passo a passo visual da configuração.
 
 ## Worker da API
 

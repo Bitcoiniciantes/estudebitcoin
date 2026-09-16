@@ -540,6 +540,6 @@ document.addEventListener('click', unlockAudioOnFirstInteraction, { once: true }
 ### Pendências
 1. Capturar próxima ocorrência com `copy(__TRACE_DUMP__())` + anotar qual card acendeu.
 2. Obter fonte do worker v7.0.0 (quem deployou em 2026-08-31) e seu storage.
-3. Detalhes completos em `AUDITORIA_P0_ALERTAS_FALSOS_BTC.md`.
+3. Detalhes completos em `DOCS/AUDITORIA_P0_ALERTAS_FALSOS_BTC.md`.
 
 
