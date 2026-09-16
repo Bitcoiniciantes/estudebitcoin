@@ -978,3 +978,30 @@ Nenhum desvio arquitetural. Ajustes menores fiéis ao plano: `syncOnLogin` com g
 1. Save antes do primeiro restore escreveria a chave legada — impossível no fluxo real (listeners só existem pós-`bind`); se ocorresse, a migração a recolhe.
 2. Testes usam Firebase/RTDB falsos — smoke-test logado em staging recomendado antes do deploy.
 3. Commit NÃO criado (working tree contém modificações pré-existentes não relacionadas); deploy não feito.
+
+---
+
+## 12. Evoluções pós-implementação (registro de entregas)
+
+### 12.1 Indicador de status de persistência — commit `e9ebad1` (deployado e verificado no ar)
+- `#re-save-status` em `#re-painel`: `Salvando...` → `Salvo neste navegador às HH:MM:SS` / falha; eventos `panel-push-start/success/error` emitidos por `pushPanel()` (`auth.js`) e consumidos com guards painel+asset (stale de outro ativo ignorado).
+- Botão Salvar descartado por decisão de UX (autosave buttonless) e técnica (double-write com o debounce interno).
+- Smoke real autenticado (conta de teste, RTDB real): BTC/ETH/SOL/PAXG isolados, reloads, migrações local+nuvem (com e sem `simbolo`) — tudo PASS; suíte 105/105 → 111/111.
+
+### 12.2 Posição do status — commit `15972bf` (deployado e verificado no ar)
+- Container movido de (após `.re-grid`) para o final do card, lado direito (após `.re-foot`); confirmado por screenshot headless. Só `index.html`, 3+/3−.
+
+### 12.3 Refresh atualizava o horário — commit `a41c5db` (deployado e verificado no ar)
+- Causa: ramo `risk` de `syncOnLogin()` chamava `pushPanel` incondicionalmente a cada login/reload (sem o guard `newer()` que o ramo `sim` já tinha) → `panel-push-success` re-carimbava o status sem nenhuma edição.
+- Fix (só `auth.js`): mesma semântica do ramo `sim` — lê `risk/{asset}`, empurra só se `local.updatedAt > cloud.updatedAt`. Recuperação offline preservada.
+- Testes: `panel-sync-synconlogin.test.mjs` (4 testes: local-novo empurra, iguais silenciam, nuvem-nova nunca sobrescrita, decisão por asset).
+
+### 12.4 Troca de ativo sem persistência — commit `64c3e88` (deployado e verificado no ar)
+- Causa: `change` persistia 2× por troca (`persistRiskParams(prevAsset)` + `reconfigurar()`), e o `input` do select persistia antes — cada `saveLocal` renovava `updatedAt` e agendava push sem nenhuma alteração de dados.
+- Fix (só `risk-engine-panel.js`): extraído `configureAdapter()` (configure+render, sem persist); `change` só identifica→troca identidade→`saveLastAsset`→restaura→`configureAdapter`; `re-simbolo` removido dos listeners `input`; `reconfigurar()` mantém persist para edição real.
+- Testes T1–T4: troca sem alteração = zero save/schedule/push + `updatedAt` intacto; edição real salva; `saveLastAsset` preservado.
+
+### Estado final
+- Suíte: **119/119** (`node --test` nos 7 arquivos). `git diff --check` limpo nos arquivos do escopo.
+- Commits publicados em `origin/main`: `6a649f3` (multi-ativo) → `e9ebad1` (status) → `15972bf` (posição) → `a41c5db` (guard sync) → `64c3e88` (switch sem persist). Todos verificados ao vivo em `estudebitcoin.pages.dev`.
+- Pendente fora deste MD (working tree, não commitado): subtítulo do painel ("Atualizado em tempo real. Simulação modelo Quantifury.").

@@ -245,13 +245,23 @@ snapshot (conservador). `live` agora `{price, change, at, source}`.
 da mesma carteira). Bind idempotente (`__PainelAtivosBound`: 1 listener, 1
 interval, 1 pagehide). `replaceAllSilent` SEM fallback para `persist()` —
 adapter sem `saveSnapshot` recebe erro `unsupported` (storage real tem).
-Testes A–J no caminho real (`test-live-prices.mjs`, 11 testes). Total geral:
-71 testes, 0 falhas. Sem commit/deploy.
-FIM DO CAPÍTULO — painel funcional de ponta a ponta.
 Correções pós-review (alvo do evento era `document` × `window`; updatedAt era
 carimbado pelo snapshot): listener em `window`, `saveSnapshot`, `?v=19/3`.
-Limitação conhecida: USDT-BRL exibe com `$` (moeda da linha é USD); validar
-no navegador real (harness sem internet não executa os scripts da página).
+
+TTL POR ORIGEM (2026-09-11, Manus): TTL global 30s fazia snapshot de stock
+(loop 60s) expirar em 30s — patrimônio voltava ao persistido por 30s e dot
+sumia. Agora `LIVE_WS_TTL_MS=30000` (websocket) e `LIVE_SNAPSHOT_TTL_MS=90000`
+(snapshot HTTP), `liveTtlFor(source)` e `liveFresh()` por origem; WS fresco
+sempre vence snapshot; snapshot só entra sem WS ou com WS expirado; price e
+change atômicos. `_test` expõe `setWsTtl`/`setSnapshotTtl`/`getTtls` (isolado,
+sem Date.now global). Testes D1 (snapshot válido 30s), D2 (expira só após
+90s), D3 (WS expira 30s e snapshot aceito). `test-live-prices.mjs` 13 testes
+A-J no caminho real. Total geral: 73 testes (13 live + 5 provider + 2 retry +
+15 RTDB + 6 merge + 9 calculator + 12 functions + 11 handlers), 0 falhas.
+Commit `e8e8a52` (`fix: prioritize live quotes and isolate portfolio state`)
+publicado em `main` (push 33a8a85..e8e8a52).
+FIM DO CAPÍTULO — painel funcional de ponta a ponta.
+Limitação: USDT-BRL exibe com `$` (moeda da linha é USD).
 ## 7. Futura migração (NÃO implementar agora)
 
 ```
