@@ -2,8 +2,11 @@ name: Atualizar Historico ETF BTC
 
 on:
   schedule:
-    - cron: '0 9 * * *'
-    - cron: '0 14 * * *'
+    - cron: '0 1 * * 2-6'    # 22h Brasília (mesmo dia do pregão)
+    - cron: '0 6 * * 2-6'    # 03h Brasília (madrugada)
+    - cron: '0 10 * * 2-6'   # 07h Brasília (dia seguinte)
+    - cron: '0 13 * * 2-6'   # 10h Brasília (dia seguinte)
+    - cron: '0 14 * * 2-6'   # 11h Brasília (dia seguinte)
   workflow_dispatch:
 
 jobs:
