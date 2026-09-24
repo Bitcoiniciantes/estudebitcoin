@@ -112,7 +112,8 @@ async function atualizarHistoricoETF() {
 
     // 3. Mescla por data: registros novos sobrescrevem dias já salvos
     //    (a API às vezes revisa os últimos dias); dias fora da janela da API
-    //    são mantidos como já estavam.
+    //    são mantidos como já estavam. Se a API mandar duas linhas com a mesma
+    //    data, a última substitui a primeira (série diária: um registro por dia).
     const porData = new Map();
     historicoAtual.forEach(function (r) { porData.set(r.data, r); });
     novosRegistros.forEach(function (r) { porData.set(r.data, r); });
