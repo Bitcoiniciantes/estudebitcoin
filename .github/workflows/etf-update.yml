@@ -9,6 +9,11 @@ on:
     - cron: '0 14 * * 2-6'   # 11h Brasília (dia seguinte)
   workflow_dispatch:
 
+# Evita dois runs disputando o git push ao mesmo tempo
+concurrency:
+  group: etf-update
+  cancel-in-progress: false
+
 jobs:
   atualizar:
     runs-on: ubuntu-latest
@@ -16,13 +21,18 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
+
       - uses: actions/setup-node@v5
         with:
           node-version: '18'
-      - run: node scripts/atualizar_etf.js
+
+      - name: Buscar dados do ETF (SoSoValue)
+        run: node scripts/atualizar_etf.js
         env:
           SOSOVALUE_API_KEY: ${{ secrets.SOSOVALUE_API_KEY }}
-      - run: |
+
+      - name: Commit e push (só se houver mudança)
+        run: |
           git config --global user.name "GitHub Action Bot"
           git config --global user.email "action@github.com"
           git add dados/historico_etf.json dados/historico_etf-data.js
