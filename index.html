@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="assets/css/widgets.css?v=17" />
   <link rel="stylesheet" href="assets/css/login.css?v=1" />
   <link rel="stylesheet" href="assets/css/painel-ativos.css?v=1" />
+  <link rel="stylesheet" href="assets/css/graham.css?v=1" />
 
   <style>
     body { background: #ffffff; color: #1a1a1a; scroll-behavior: smooth; padding-top: 52px; }
@@ -806,6 +807,66 @@
   .tq-bell.alert-bell-active {
     animation: bellShake 0.45s infinite;
   }
+  /* ── Preço Justo (Graham) — botão ⚖ nos cards de STOCKS ── */
+  .tq-graham {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: .75rem;
+    line-height: 1;
+    padding: 2px;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .tq:hover .tq-graham { opacity: 1; pointer-events: auto; }
+  .tq-graham:hover { transform: scale(1.25); }
+  @media (hover: none) {
+    .tq .tq-graham { opacity: 0.55; pointer-events: auto; }
+  }
+  /* ── Busca avulsa Graham (só aba STOCKS, abaixo do grid) ── */
+  .tq-graham-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 10px;
+    background: rgba(255,255,255,.02);
+  }
+  .tq-graham-label { color: #b7d5bc; font-size: .72rem; font-weight: 800; letter-spacing: .06em; }
+  .tq-graham-bar input {
+    flex: 1 1 160px;
+    min-width: 0;
+    background: #111c17;
+    border: 1px solid #2b4734;
+    border-radius: 8px;
+    color: #fff;
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    padding: 7px 10px;
+    text-transform: uppercase;
+  }
+  .tq-graham-bar input:focus { outline: none; border-color: #54b85a; }
+  .tq-graham-bar button {
+    background: #54b85a;
+    border: 1px solid #54b85a;
+    border-radius: 8px;
+    color: #071009;
+    cursor: pointer;
+    font-size: .7rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    padding: 7px 14px;
+  }
+  .tq-graham-bar button:hover { filter: brightness(1.1); }
   .tq-sr-label {
     font-size: .65rem;
     font-weight: 800;
@@ -1825,6 +1886,7 @@
 <script defer src="assets/js/portfolio/painel-ativos-ui.js?v=5"></script>
 <script defer src="assets/js/portfolio/portfolioLive.js?v=1"></script>
 <script defer src="assets/js/portfolio/portfolioExport.js?v=1"></script>
+<script defer src="assets/js/portfolio/graham.js?v=1"></script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(function () {});

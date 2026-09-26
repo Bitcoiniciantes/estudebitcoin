@@ -68,6 +68,7 @@
   var activeWindow = "24h";
   var cache = {};
   var livePrices = {};
+  var cardPrices = {}; // último preço visto por símbolo (p/ modal Graham)
   var liveVolume = {};
   var quoteData = {};
   var pairSymbol = {};
@@ -119,9 +120,14 @@
     var bell = isCrypto(quote.symbol)
       ? '<button class="tq-bell" data-bell="' + esc(symbolKey(quote.symbol)) + '" aria-label="Dispensar alerta" title="Dispensar alerta">&#128276;</button>'
       : '';
+    // Preço Justo (Graham): só em STOCKS (cripto não tem LPA/VPA).
+    var grahamBtn = !isCrypto(quote.symbol)
+      ? '<button class="tq-graham" data-graham="' + esc(symbolKey(quote.symbol)) + '" aria-label="Ver preço justo de ' + esc(symbolKey(quote.symbol)) + '" title="Preço justo (Graham)">&#9878;</button>'
+      : '';
     return '<div class="tq ' + changeClass(change) + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
       '<b class="tqSym' + smallLabel + '">' + esc(label) + "</b>" +
       bell +
+      grahamBtn +
       '<span class="tqPct">' + pct + "</span>" +
       '<strong class="tqPrice' + small + '">' + fmtPrice(price, currency, !isCrypto(quote.symbol)) + "</strong>" +
       "</div>";
@@ -212,8 +218,14 @@
     grid.innerHTML = quotes.length
       ? quotes.map(card).join("")
       : '<div class="tqEmpty">Sem cotações disponíveis no momento.</div>';
+    for (var i = 0; i < quotes.length; i++) {
+      var q = quotes[i];
+      var seen = typeof livePrices[q.symbol] === "number" ? livePrices[q.symbol] : q.price;
+      if (typeof seen === "number" && Number.isFinite(seen) && seen > 0) cardPrices[q.symbol] = seen;
+    }
     grid.style.gridTemplateColumns = "repeat(" + Math.min(Math.max(quotes.length, 1), 8) + ", minmax(0, 1fr))";
     if (statusEl) statusEl.textContent = "AO VIVO · " + new Date().toLocaleTimeString("pt-BR");
+    updateGrahamBar();
     restoreAlertVisuals();
   }
 
@@ -256,6 +268,7 @@
 
   function updateLivePrice(symbol, price, volume, changePct) {
     livePrices[symbol] = price;
+    if (typeof price === "number" && Number.isFinite(price) && price > 0) cardPrices[symbol] = price;
     // INTEGRAÇÃO RISK ENGINE (aditivo, sem efeito sobre o ticker): expõe cada
     // tick via evento para o adapter (risk-engine-adapter.js), que encaminha
     // o preço ao RiskEngine.calcularRisco(). Justificativa: nenhum mecanismo
@@ -467,6 +480,49 @@
       }
       return;
     }
+  });
+
+  /* ── Preço Justo (Graham) — modal genérico ── */
+  // Botão ⚖ nos cards de STOCKS. Capture (true) + stopPropagation para não
+  // disparar o clique do card (tooltip/conversor), registrado em bubble.
+  grid.addEventListener("click", function (event) {
+    var gEl = event.target && event.target.closest ? event.target.closest(".tq-graham") : null;
+    if (!gEl) return;
+    event.stopPropagation();
+    event.preventDefault();
+    var sym = gEl.getAttribute("data-graham");
+    if (sym && window.Graham && window.Graham.open) {
+      window.Graham.open(sym, { price: cardPrices[sym] || null });
+    }
+  }, true);
+
+  // Busca avulsa de preço justo: fica ABAIXO do grid e só aparece na aba
+  // STOCKS (nunca na primeira página/CRIPTO).
+  var grahamBar = document.createElement("div");
+  grahamBar.className = "tq-graham-bar";
+  grahamBar.style.display = "none";
+  grahamBar.innerHTML = '<span class="tq-graham-label">&#9878; Preço justo (Graham):</span>' +
+    '<input id="tq-graham-input" placeholder="TICKER (ex: PETR4, AAPL)" maxlength="14" autocomplete="off" spellcheck="false" />' +
+    '<button type="button" id="tq-graham-go">Consultar</button>';
+  grid.parentNode.insertBefore(grahamBar, grid.nextSibling);
+
+  function updateGrahamBar() {
+    grahamBar.style.display = activeTab === "stocks" ? "" : "none";
+  }
+
+  function submitGrahamSearch() {
+    var input = document.getElementById("tq-graham-input");
+    var ticker = input ? input.value : "";
+    if (ticker && String(ticker).trim() && window.Graham && window.Graham.open) {
+      window.Graham.open(ticker, {});
+    }
+  }
+
+  var grahamGo = document.getElementById("tq-graham-go");
+  if (grahamGo) grahamGo.addEventListener("click", submitGrahamSearch);
+  var grahamInput = document.getElementById("tq-graham-input");
+  if (grahamInput) grahamInput.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") { event.preventDefault(); submitGrahamSearch(); }
   });
 
   refresh(true);

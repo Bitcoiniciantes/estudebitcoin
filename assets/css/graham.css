@@ -1,0 +1,85 @@
+/* =====================================================================
+   EstudeBitcoin — Graham (modal de Preço Justo). Escopo próprio .gb-*,
+   não vaza para o site. Tema escuro alinhado ao painel da carteira.
+   ===================================================================== */
+.gb-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: rgba(3, 6, 10, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.gb-card {
+  width: min(480px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: #10151d;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  padding: 18px;
+  color: #eef2f6;
+  box-sizing: border-box;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.gb-head { display: flex; gap: 12px; align-items: flex-start; }
+.gb-ico {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  background: rgba(34, 211, 238, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #22d3ee;
+}
+.gb-head h3 { margin: 0 0 6px; font-size: 15px; line-height: 1.35; color: #fff; }
+.gb-sub { margin: 0; font-size: 12px; line-height: 1.5; color: #9aa5b1; }
+.gb-close {
+  margin-left: auto;
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: #9aa5b1;
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.gb-close:hover { color: #fff; border-color: rgba(255, 255, 255, 0.25); }
+.gb-body { margin-top: 14px; }
+.gb-loading { color: #9aa5b1; font-size: 13px; text-align: center; padding: 18px 0; }
+.gb-rows { display: grid; gap: 2px; }
+.gb-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.07);
+  font-size: 13px;
+}
+.gb-row:last-child { border-bottom: 0; }
+.gb-row span { color: #9aa5b1; }
+.gb-row strong { color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gb-row.gb-total strong { font-size: 17px; color: #22d3ee; }
+.gb-verdict { margin: 14px 0 4px; text-align: center; }
+.gb-chip {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  padding: 7px 16px;
+  border: 1px solid;
+}
+.gb-chip.gb-sub { color: #34d399; border-color: rgba(52, 211, 153, 0.5); background: rgba(52, 211, 153, 0.1); }
+.gb-chip.gb-sobre { color: #f87171; border-color: rgba(248, 113, 113, 0.5); background: rgba(248, 113, 113, 0.1); }
+.gb-chip.gb-justo { color: #22d3ee; border-color: rgba(34, 211, 238, 0.5); background: rgba(34, 211, 238, 0.1); }
+.gb-note { font-size: 12px; line-height: 1.55; color: #9aa5b1; margin: 10px 0 0; }
+.gb-src { font-size: 11px; color: #6b7683; margin: 12px 0 0; }

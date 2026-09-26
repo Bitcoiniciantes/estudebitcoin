@@ -211,11 +211,11 @@ function parseRssItems(xml, defaultSource, limit = 60) {
 const NEWS_FETCH_TIMEOUT_MS = 8000;
 const NEWS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
-async function fetchWithTimeout(url, timeoutMs = NEWS_FETCH_TIMEOUT_MS) {
+async function fetchWithTimeout(url, timeoutMs = NEWS_FETCH_TIMEOUT_MS, extraHeaders = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" }, signal: controller.signal });
+    const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36", ...extraHeaders }, signal: controller.signal });
     if (!response.ok) throw new Error(`news-${response.status}`);
     return response;
   } finally {
@@ -659,6 +659,118 @@ async function assetQuotes(request) {
   return json(request, body);
 }
 
+// ---------- Fundamentos (LPA/VPA p/ Preço Justo de Graham) ----------
+// Brapi com token no secret BRAPI_TOKEN (nunca no código). Cache 24h
+// (fundamentos mudam 1x/trimestre). Sem token: 503 code=no_token e o
+// front-end usa o fallback anônimo (só LPA, B3).
+const FUND_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const FUND_CACHE_PREFIX = "https://bitcoiniciantes-ia.workers.dev/_cache/fundamentals/v2/";
+
+function normFundSymbol(raw) {
+  return String(raw || "").trim().toUpperCase().replace(/[\s_\/]/g, "-").slice(0, 16);
+}
+
+// Candidatos brapi: como digitado; B3 sem sufixo tenta .SA; EUA tenta BDR 34.
+function fundCandidates(raw) {
+  const base = normFundSymbol(raw).replace(/-/g, "");
+  if (!base) return [];
+  const out = [base];
+  if (/^[A-Z]{4}\d{1,2}$/.test(base)) out.push(base + ".SA");
+  else if (/^[A-Z]{1,5}$/.test(base)) out.push(base + "34");
+  return [...new Set(out)];
+}
+
+async function assetFundamentals(request, rawSymbol, env) {
+  const token = String((env && env.BRAPI_TOKEN) || "");
+  if (!token) return json(request, { error: "Fundamentos indisponiveis (token nao configurado).", code: "no_token" }, 503);
+  const cands = fundCandidates(rawSymbol);
+  if (!cands.length) return json(request, { error: "Ativo invalido." }, 400);
+  const cacheKey = FUND_CACHE_PREFIX + encodeURIComponent(cands[0]);
+  try {
+    const cached = await caches.default.match(cacheKey);
+    if (cached && (Date.now() - (Number(cached.headers.get("X-Cached-At")) || 0)) <= FUND_CACHE_TTL_MS) {
+      return json(request, await cached.json());
+    }
+  } catch {
+    // cache opcional
+  }
+  let body = null;
+  for (const sym of cands) {
+    try {
+      const response = await fetchWithTimeout(
+        `https://brapi.dev/api/quote/${encodeURIComponent(sym)}?fundamental=true`,
+        10000,
+        { Authorization: `Bearer ${token}` }
+      );
+      const payload = await response.json();
+      const q = payload && Array.isArray(payload.results) ? payload.results[0] : null;
+      const lpa = Number(q && q.earningsPerShare);
+      if (!q || !Number.isFinite(lpa)) continue;
+      const pickNum = (...vals) => {
+        for (const v of vals) {
+          const n = Number(v);
+          if (Number.isFinite(n)) return n;
+        }
+        return null;
+      };
+      const price = Number.isFinite(Number(q.regularMarketPrice)) ? Number(q.regularMarketPrice) : null;
+      let vpa = pickNum(q.bookValuePerShare, q.bookValue, q.bvps);
+      // Sem VPA direto: tenta o endpoint de estatísticas (P/VP, VPA, LPA...)
+      // e, em último caso, deriva VPA = preço / P/VP.
+      if (vpa == null) {
+        try {
+          const statRes = await fetchWithTimeout(
+            `https://brapi.dev/api/v2/stocks/statistics?symbols=${encodeURIComponent(sym)}`,
+            10000,
+            { Authorization: `Bearer ${token}` }
+          );
+          const statPayload = await statRes.json();
+          const list = statPayload && Array.isArray(statPayload.results) ? statPayload.results : [];
+          const data = list.length && list[0] && typeof list[0].data === 'object' && list[0].data ? list[0].data : null;
+          if (data) {
+            const flat = {};
+            for (const k of Object.keys(data)) {
+              flat[String(k).toLowerCase().replace(/[^a-z]/g, '')] = data[k];
+            }
+            vpa = pickNum(
+              flat.bookvaluepershare, flat.bookvalue, flat.bvps, flat.vpa,
+              flat.valorpatrimonialporacao, flat.patrimonioliquidoPorAcao
+            );
+            if (vpa == null && price != null) {
+              const pvps = pickNum(flat.pricetobook, flat.pvp, flat.pvpvp);
+              if (pvps) vpa = price / pvps;
+            }
+          }
+        } catch (statError) {
+          console.error(`fundamentals-stats-${sym}-error`, statError);
+        }
+      }
+      body = {
+        ticker: cands[0],
+        symbol: q.symbol || sym,
+        lpa,
+        vpa,
+        price,
+        currency: q.currency || null,
+        source: "brapi",
+        fetchedAt: new Date().toISOString(),
+      };
+      break;
+    } catch (error) {
+      console.error(`fundamentals-${sym}-error`, error);
+    }
+  }
+  if (!body) return json(request, { error: "Fundamentos indisponiveis para este ativo.", code: "no_data" }, 404);
+  try {
+    await caches.default.put(cacheKey, new Response(JSON.stringify(body), {
+      headers: { "Content-Type": "application/json", "X-Cached-At": String(Date.now()) },
+    }));
+  } catch {
+    // cache opcional
+  }
+  return json(request, body);
+}
+
 // ---------- Candles OHLC (Yahoo) para ações/ETFs no Termômetro ----------
 
 const CANDLE_PERIODS = {
@@ -1038,6 +1150,9 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/api/quotes") {
       return assetQuotes(request);
+    }
+    if (request.method === "GET" && url.pathname === "/api/fundamentals") {
+      return assetFundamentals(request, url.searchParams.get("symbol"), env);
     }
     if (request.method === "GET" && url.pathname === "/api/candles") {
       return assetCandles(request, url.searchParams.get("asset"), url.searchParams.get("period"));

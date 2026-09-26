@@ -1,0 +1,340 @@
+/* =====================================================================
+   EstudeBitcoin — Graham (Preço Justo de Benjamin Graham)
+   ---------------------------------------------------------------------
+   Preço Justo = sqrt(22.5 × LPA × VPA), onde LPA = lucro por ação (EPS)
+   e VPA = valor patrimonial por ação (book value per share).
+
+   - calcularPrecoJustoGraham(lpa, vpa): PURA. Retorna null se LPA ou VPA
+     ausentes, não-finitos ou <= 0 (a fórmula não vale com negativos —
+     nunca "finge" resultado).
+   - getFundamentals(ticker): busca LPA/VPA via Worker próprio
+     (/api/fundamentals, com token brapi no secret) com fallback para a
+     brapi anônima (só LPA, sem VPA). Cache em memória com TTL de 24h.
+     Nunca persiste, nunca toca a carteira (feature aditiva).
+   - open(ticker, opts): modal GENÉRICO de detalhe — aceita qualquer
+     ticker (carteira, cards de STOCKS ou busca avulsa). Compara o preço
+     atual com o justo: subvalorizado / sobrevalorizado / justo (~).
+   ===================================================================== */
+(function () {
+  'use strict';
+
+  function getRoot() {
+    try {
+      if (typeof globalThis !== 'undefined') return globalThis;
+    } catch (e) {}
+    return null;
+  }
+
+  var WORKER = 'https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/fundamentals';
+  var BRAPI_ANON = 'https://brapi.dev/api/quote/';
+  var CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+  var VERDICT_TOLERANCE = 0.02; // ±2% = "preço justo"
+  var TIMEOUT_MS = 10000;
+
+  var cache = {}; // ticker -> {data, at}
+  var usdBrlRate = null; // p/ converter justo BRL -> USD na comparação
+
+  /* ---------- 1. Função pura ---------- */
+
+  function calcularPrecoJustoGraham(lpa, vpa) {
+    var l = Number(lpa);
+    var v = Number(vpa);
+    if (!Number.isFinite(l) || !Number.isFinite(v)) return null;
+    if (l <= 0 || v <= 0) return null;
+    var fair = Math.sqrt(22.5 * l * v);
+    if (!Number.isFinite(fair) || fair <= 0) return null;
+    return fair;
+  }
+
+  function verdict(currentPrice, fairPrice) {
+    var c = Number(currentPrice);
+    var f = Number(fairPrice);
+    if (!Number.isFinite(c) || !Number.isFinite(f) || c <= 0 || f <= 0) return null;
+    var ratio = c / f;
+    if (ratio < 1 - VERDICT_TOLERANCE) return 'subvalorizado';
+    if (ratio > 1 + VERDICT_TOLERANCE) return 'sobrevalorizado';
+    return 'justo';
+  }
+
+  /* ---------- 2. Símbolos ---------- */
+
+  function normTicker(t) {
+    return String(t == null ? '' : t).trim().toUpperCase().replace(/[\s_\/]/g, '-');
+  }
+
+  // B3: PETR4, VALE3, ITUB4... (4 letras + dígito). EUA: AAPL, NVDA...
+  function looksB3(t) {
+    return /^[A-Z]{4}\d{1,2}(-UNIT)?$/.test(String(t || ''));
+  }
+
+  /* ---------- 3. Busca de fundamentos ---------- */
+
+  function fetchJSON(url) {
+    var ctrl = null;
+    var timer = null;
+    try {
+      if (typeof AbortController !== 'undefined') {
+        ctrl = new AbortController();
+        timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, TIMEOUT_MS);
+      }
+    } catch (e) {}
+    return fetch(url, ctrl ? { signal: ctrl.signal, cache: 'no-store' } : { cache: 'no-store' }).then(function (res) {
+      if (timer) clearTimeout(timer);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).catch(function (err) {
+      if (timer) clearTimeout(timer);
+      throw err;
+    });
+  }
+
+  function num(v) {
+    var n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  // Mapeia o payload (Worker normalizado OU brapi crua) p/ {lpa, vpa, ...}.
+  // A brapi usa earningsPerShare (LPA); VPA vem no modo fundamental.
+  function mapPayload(ticker, payload, source) {
+    if (!payload || typeof payload !== 'object') return null;
+    var q = payload;
+    if (q && typeof q === 'object' && !('earningsPerShare' in q) && !('lpa' in q)) {
+      if (Array.isArray(q.results) && q.results[0]) q = q.results[0];
+      else if (q.quote && typeof q.quote === 'object') q = q.quote;
+    }
+    var lpa = num(q.lpa != null ? q.lpa : q.earningsPerShare);
+    var vpa = num(
+      q.vpa != null ? q.vpa
+        : q.bookValuePerShare != null ? q.bookValuePerShare
+        : q.bookValue != null ? q.bookValue
+        : q.bvps != null ? q.bvps
+        : q.valorPatrimonialPorAcao
+    );
+    var price = num(q.price != null ? q.price : q.regularMarketPrice);
+    var currency = String(q.currency || '').trim().toUpperCase() || null;
+    return {
+      ticker: ticker,
+      lpa: lpa,
+      vpa: vpa,
+      price: price,
+      currency: currency,
+      source: source || q.source || null,
+      fetchedAt: q.fetchedAt || new Date().toISOString()
+    };
+  }
+
+  function getCached(ticker) {
+    var hit = cache[ticker];
+    if (!hit) return null;
+    if ((Date.now() - hit.at) > CACHE_TTL_MS) { delete cache[ticker]; return null; }
+    return hit.data;
+  }
+
+  function getFundamentals(rawTicker) {
+    var ticker = normTicker(rawTicker);
+    if (!ticker) return Promise.resolve(null);
+    var hit = getCached(ticker);
+    if (hit) return Promise.resolve(hit);
+    // 1) Worker próprio (com token brapi no secret: LPA + VPA, B3 e EUA).
+    return fetchJSON(WORKER + '?symbol=' + encodeURIComponent(ticker))
+      .then(function (payload) {
+        var data = mapPayload(ticker, payload, 'worker');
+        if (data && (data.lpa != null || data.vpa != null)) {
+          cache[ticker] = { data: data, at: Date.now() };
+          return data;
+        }
+        throw new Error('sem fundamentos no worker');
+      })
+      .catch(function () {
+        // 2) Fallback: brapi anônima (B3, só LPA — sem VPA o Graham
+        // retorna null e o modal explica; nunca finge resultado).
+        var b3 = ticker.replace(/-/g, '');
+        return fetchJSON(BRAPI_ANON + encodeURIComponent(b3))
+          .then(function (payload) {
+            var data = mapPayload(ticker, payload, 'brapi-anon');
+            if (data && data.lpa != null) {
+              cache[ticker] = { data: data, at: Date.now() };
+              return data;
+            }
+            return null;
+          })
+          .catch(function () { return null; });
+      });
+  }
+
+  /* ---------- 4. Moeda ---------- */
+
+  // Taxa USD/BRL p/ comparar justo (BRL) com preço atual (USD).
+  // Vem do mesmo evento dos cards; até chegar, sem conversão.
+  function onTickerPrice(ev) {
+    try {
+      var d = ev && ev.detail;
+      if (!d) return;
+      var s = String(d.symbol || '').trim().toUpperCase().replace(/[\s_\/]/g, '-');
+      var p = Number(d.price);
+      if ((s === 'USDT-BRL' || s === 'USDTBRL') && Number.isFinite(p) && p > 0) usdBrlRate = p;
+    } catch (e) {}
+  }
+
+  function toUSD(value, currency) {
+    var v = Number(value);
+    if (!Number.isFinite(v)) return null;
+    if (!currency || currency === 'USD') return v;
+    if (currency === 'BRL' && usdBrlRate) return v / usdBrlRate;
+    return null; // outra moeda ou sem taxa: sem conversão
+  }
+
+  /* ---------- 5. Formatação ---------- */
+
+  function fmtMoney(v, currency) {
+    if (typeof v !== 'number' || !Number.isFinite(v)) return '—';
+    var prefix = currency === 'BRL' ? 'R$ ' : '$ ';
+    var sign = v < 0 ? '-' : '';
+    return sign + prefix + Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  var ICON_SCALE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M7 7l-3 6a3.5 3.5 0 0 0 6 0L7 7z"/><path d="M17 7l-3 6a3.5 3.5 0 0 0 6 0l-3-6z"/><path d="M8 21h8"/></svg>';
+
+  /* ---------- 6. Modal genérico ---------- */
+
+  var overlay = null;
+
+  function closeModal() {
+    try {
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    } catch (e) {}
+    overlay = null;
+    try {
+      if (typeof document !== 'undefined' && document.removeEventListener) {
+        document.removeEventListener('keydown', onKeyDown);
+      }
+    } catch (e) {}
+  }
+
+  function onKeyDown(ev) {
+    if (ev && (ev.key === 'Escape' || ev.key === 'Esc')) closeModal();
+  }
+
+  function verdictChip(v) {
+    if (v === 'subvalorizado') return '<span class="gb-chip gb-sub">▼ SUBVALORIZADO</span>';
+    if (v === 'sobrevalorizado') return '<span class="gb-chip gb-sobre">▲ SOBREVALORIZADO</span>';
+    if (v === 'justo') return '<span class="gb-chip gb-justo">≈ PREÇO JUSTO</span>';
+    return '';
+  }
+
+  function renderBody(ticker, fund, currentPrice) {
+    var fair = fund ? calcularPrecoJustoGraham(fund.lpa, fund.vpa) : null;
+    var fairCur = fund && fund.currency ? fund.currency : null;
+    var fairUSD = fair != null ? toUSD(fair, fairCur) : null;
+    var curUSD = toUSD(currentPrice, 'USD');
+    var v = (curUSD != null && fairUSD != null) ? verdict(curUSD, fairUSD) : null;
+
+    var html = '';
+    html += '<div class="gb-rows">';
+    html += '<div class="gb-row"><span>LPA — lucro por ação</span><strong>' + (fund && fund.lpa != null ? esc(fmtMoney(fund.lpa, fairCur)) : '—') + '</strong></div>';
+    html += '<div class="gb-row"><span>VPA — valor patrimonial por ação</span><strong>' + (fund && fund.vpa != null ? esc(fmtMoney(fund.vpa, fairCur)) : '—') + '</strong></div>';
+    html += '<div class="gb-row gb-total"><span>Preço justo (Graham)</span><strong>' + (fair != null ? esc(fmtMoney(fair, fairCur)) : '—') + '</strong></div>';
+    if (fair != null && fairCur && fairCur !== 'USD' && fairUSD != null) {
+      html += '<div class="gb-row"><span>Preço justo em USD</span><strong>' + esc(fmtMoney(fairUSD, 'USD')) + '</strong></div>';
+    }
+    html += '<div class="gb-row"><span>Preço atual</span><strong>' + (curUSD != null ? esc(fmtMoney(curUSD, 'USD')) : '—') + '</strong></div>';
+    html += '</div>';
+
+    if (v) {
+      html += '<div class="gb-verdict">' + verdictChip(v) + '</div>';
+      if (v === 'subvalorizado') html += '<p class="gb-note">O preço atual está abaixo do preço justo calculado: possível subvalorização.</p>';
+      else if (v === 'sobrevalorizado') html += '<p class="gb-note">O preço atual está acima do preço justo calculado: possível sobrevalorização.</p>';
+      else html += '<p class="gb-note">O preço atual está próximo (±2%) do preço justo calculado.</p>';
+    } else if (fair != null && curUSD == null) {
+      html += '<p class="gb-note">Sem preço atual disponível para comparar.</p>';
+    } else {
+      html += '<p class="gb-note">Dados insuficientes para o cálculo (LPA e VPA precisam ser positivos). ' +
+        'Isso é comum em criptoativos e empresas com prejuízo ou patrimônio líquido negativo.</p>';
+    }
+
+    html += '<p class="gb-src">Fonte: ' + esc((fund && fund.source) || '—') +
+      (fund && fund.fetchedAt ? ' · ' + esc(new Date(fund.fetchedAt).toLocaleString('pt-BR')) : '') + '</p>';
+    return html;
+  }
+
+  // Abre o modal p/ QUALQUER ticker. opts: {price (atual, USD), autoPrice=true}.
+  // Se price não vier, tenta o preço que acompanha os fundamentos.
+  function open(rawTicker, opts) {
+    var ticker = normTicker(rawTicker);
+    if (!ticker || typeof document === 'undefined' || !document.body) return;
+    opts = opts || {};
+    closeModal();
+
+    overlay = document.createElement('div');
+    overlay.className = 'gb-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Preço justo de ' + ticker);
+    overlay.innerHTML =
+      '<div class="gb-card">' +
+        '<div class="gb-head"><span class="gb-ico">' + ICON_SCALE + '</span>' +
+        '<div><h3>Preço Justo do Ativo ' + esc(ticker) + ' segundo Fórmula de Benjamin Graham</h3>' +
+        '<p class="gb-sub">√(22,5 × LPA × VPA) — valor intrínseco estimado a partir do lucro e do patrimônio por ação. Conteúdo educativo, não é recomendação de investimento.</p></div>' +
+        '<button type="button" class="gb-close" aria-label="Fechar">✕</button></div>' +
+        '<div class="gb-body"><p class="gb-loading">Buscando fundamentos…</p></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    var card = overlay.querySelector('.gb-card');
+    var body = overlay.querySelector('.gb-body');
+    overlay.querySelector('.gb-close').addEventListener('click', closeModal);
+    overlay.addEventListener('click', function (ev) { if (ev.target === overlay) closeModal(); });
+    document.addEventListener('keydown', onKeyDown);
+    if (card) card.addEventListener('click', function (ev) { ev.stopPropagation(); });
+
+    var optPrice = Number(opts.price);
+    getFundamentals(ticker).then(function (fund) {
+      if (!overlay) return; // fechado durante o fetch
+      var current = Number.isFinite(optPrice) && optPrice > 0 ? optPrice
+        : (fund && fund.price > 0 ? (fund.currency === 'BRL' ? toUSD(fund.price, 'BRL') : fund.price) : null);
+      // Preço vindo dos fundamentos em BRL é convertido p/ USD p/ comparar.
+      body.innerHTML = renderBody(ticker, fund, current);
+    }).catch(function () {
+      if (!overlay) return;
+      body.innerHTML = '<p class="gb-note">Não foi possível carregar os fundamentos agora. Tente novamente.</p>';
+    });
+  }
+
+  var api = {
+    calcularPrecoJustoGraham: calcularPrecoJustoGraham,
+    verdict: verdict,
+    getFundamentals: getFundamentals,
+    open: open,
+    close: closeModal,
+    // Superfície de teste (sem efeito no comportamento normal).
+    _test: {
+      mapPayload: mapPayload,
+      normTicker: normTicker,
+      looksB3: looksB3,
+      toUSD: toUSD,
+      setRate: function (r) { usdBrlRate = r; },
+      clearCache: function () { cache = {}; }
+    }
+  };
+
+  var host = getRoot();
+  if (host) {
+    host.Graham = api;
+    try {
+      var w = host.window || null;
+      var target = (w && typeof w.addEventListener === 'function') ? w : host;
+      if (target && typeof target.addEventListener === 'function') {
+        target.addEventListener('estudebitcoin:ticker-price', onTickerPrice);
+      }
+    } catch (e) {}
+  }
+  if (typeof module === 'object' && module.exports && typeof module.exports === 'object') {
+    module.exports = api;
+  }
+})();
