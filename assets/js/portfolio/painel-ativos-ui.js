@@ -103,6 +103,15 @@
     return v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 8 });
   }
 
+  // Equivalente em Reais do total da carteira (exibição apenas; nenhum
+  // cálculo — lucro/prejuízo, variação do dia e alocação seguem em USD).
+  // Mesmo padrão pt-BR do fmtMoney, com prefixo R$.
+  function fmtBRL(v) {
+    if (typeof v !== 'number' || !Number.isFinite(v)) return 'R$ —';
+    var sign = v < 0 ? '-' : '';
+    return sign + 'R$ ' + Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
   function cls(v) { return v > 0 ? 'pos' : (v < 0 ? 'neg' : ''); }
 
   // Ícones inline (sem dependências, sem emoji): lápis e lixeira.
@@ -190,6 +199,7 @@
         var cards = $('pa-total');
         if (cards) {
           setText('pa-total', '$ —');
+          setText('pa-total-brl', 'R$ —');
           setText('pa-count', '0');
           var plEl = $('pa-pl'); if (plEl) { plEl.textContent = '$ —'; plEl.className = ''; }
           var sub = $('pa-pl-sub'); if (sub) { sub.textContent = 'Entre para acessar'; sub.className = 'pa-sub'; }
@@ -229,6 +239,14 @@
 
     // Cards
     setText('pa-total', fmtMoney(totals.current));
+    // Equivalente em BRL do total (exibição ao vivo via USD_BRL_RATE;
+    // sem cotação ainda → 'R$ —', sem fetch extra).
+    var brlEl = $('pa-total-brl');
+    if (brlEl) {
+      brlEl.textContent = (USD_BRL_RATE && typeof totals.current === 'number' && Number.isFinite(totals.current))
+        ? fmtBRL(totals.current * USD_BRL_RATE)
+        : 'R$ —';
+    }
     setText('pa-count', String(totals.count));
     var plEl = $('pa-pl');
     if (plEl) {
@@ -622,6 +640,19 @@
   var live = {};                 // ticker normalizado -> {price, change, at, source}
   var liveTimer = null;
 
+  // Cotação USD/BRL para o equivalente em Reais do card "Valor da carteira"
+  // (exibição apenas). Fonte: evento "estudebitcoin:ticker-price" do
+  // USDT-BRL (ticker-widget / portfolioLive). Sem fetch próprio: até o
+  // ticker emitir, o card mostra 'R$ —'. Atualizada tick a tick, junto
+  // com o render normal (throttle de RENDER_THROTTLE_MS).
+  var USD_BRL_RATE = null;
+
+  // Detecta o símbolo do dólar (com ou sem hífen: 'USDT-BRL' / 'USDTBRL').
+  function isUsdBrlSymbol(sym) {
+    var s = String(sym == null ? '' : sym).trim().toUpperCase().replace(/[\s_\/]/g, '-');
+    return s === 'USDT-BRL' || s === 'USDTBRL';
+  }
+
   function normEv(sym) {
     var host = getRoot();
     try {
@@ -665,6 +696,13 @@
     var d = ev && ev.detail;
     var price = d && Number(d.price);
     if (!d || !Number.isFinite(price) || price <= 0) return;
+    // Dólar: atualiza a taxa do equivalente em BRL mesmo que USDT-BRL não
+    // esteja na carteira (sem findByTicker, sem fetch). O render throttled
+    // repinta o card junto com o fluxo normal.
+    if (isUsdBrlSymbol(d.symbol)) {
+      USD_BRL_RATE = price;
+      scheduleLiveRender();
+    }
     var t = normEv(d.symbol);
     if (!t || !service || !service.findByTicker) return;
     var found = null;

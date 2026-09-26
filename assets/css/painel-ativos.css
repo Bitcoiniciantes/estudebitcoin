@@ -86,6 +86,7 @@
 }
 #painel-ativos .pa-card strong { font-size: clamp(18px, 2.4vw, 26px); font-weight: 800; color: #fff; }
 #painel-ativos .pa-card span.pa-sub { display: block; font-size: 12px; color: var(--pa-muted); margin-top: 4px; }
+#pa-total-brl { font-variant-numeric: tabular-nums; white-space: nowrap; }
 #painel-ativos .pos { color: var(--pa-green) !important; }
 #painel-ativos .neg { color: var(--pa-red) !important; }
 #painel-ativos .pos::before { content: "▲ "; font-size: 0.75em; }
