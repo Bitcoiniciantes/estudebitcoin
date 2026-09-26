@@ -805,6 +805,23 @@
       return false;
     }
 
+    // Mostrar/ocultar senha (olho dentro do campo). type=button no HTML,
+    // então nunca submete o form; wireForm() lê .value e segue intacto.
+    function wirePassToggle(passId, btnId) {
+      var input = $(passId), btn = $(btnId);
+      if (!input || !btn) return;
+      input.classList.add('eb-login-pass-input');
+      btn.addEventListener('click', function () {
+        var show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        btn.classList.toggle('is-visible', show);
+        btn.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha');
+        btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+      });
+    }
+    wirePassToggle('eb-login-form-login-pass', 'eb-login-form-login-pass-toggle');
+    wirePassToggle('eb-login-form-signup-pass', 'eb-login-form-signup-pass-toggle');
+
     var gBtn = $('eb-login-google');
     if (gBtn) gBtn.addEventListener('click', function () {
       if (!gateConfigured()) return;

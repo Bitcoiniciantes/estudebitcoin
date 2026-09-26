@@ -120,7 +120,8 @@
   color: #23272f;
 }
 .eb-login-card input[type="email"],
-.eb-login-card input[type="password"] {
+.eb-login-card input[type="password"],
+.eb-login-card input[type="text"].eb-login-pass-input {
   width: 100%;
   box-sizing: border-box;
   padding: 11px 13px;
@@ -136,6 +137,38 @@
   border-color: #F7931A;
   box-shadow: 0 0 0 3px rgba(247,147,26,0.18);
 }
+/* ---- Mostrar/ocultar senha (olho dentro do campo) ---- */
+.eb-login-pass-wrap {
+  position: relative;
+}
+.eb-login-pass-wrap input {
+  padding-right: 44px;
+}
+.eb-login-pass-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #9CA3AF;
+  cursor: pointer;
+}
+.eb-login-pass-toggle:hover { color: #4b5563; background: rgba(156,163,175,0.12); }
+.eb-login-pass-toggle:focus-visible {
+  outline: 2px solid #F7931A;
+  outline-offset: 1px;
+}
+.eb-login-pass-toggle .eb-login-eye-closed { display: none; }
+.eb-login-pass-toggle.is-visible .eb-login-eye-open { display: none; }
+.eb-login-pass-toggle.is-visible .eb-login-eye-closed { display: block; }
 .eb-login-primary {
   width: 100%;
   margin-top: 16px;
