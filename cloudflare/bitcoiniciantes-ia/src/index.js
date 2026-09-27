@@ -713,7 +713,7 @@ async function assetTickerSearch(request, rawName, env) {
 // Regra inviolável: Finnhub NUNCA sobrescreve dado válido da brapi — só
 // preenche campo ausente/inválido. Cache 24h do normalizado final (v5).
 const FUND_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const FUND_CACHE_PREFIX = "https://bitcoiniciantes-ia.workers.dev/_cache/fundamentals/v5/";
+const FUND_CACHE_PREFIX = "https://bitcoiniciantes-ia.workers.dev/_cache/fundamentals/v6/";
 
 function normFundSymbol(raw) {
   return String(raw || "").trim().toUpperCase().replace(/[\s_\/]/g, "-").slice(0, 16);
