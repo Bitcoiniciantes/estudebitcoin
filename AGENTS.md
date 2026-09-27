@@ -712,3 +712,30 @@ push/mural/alertas seguem locais. Conta e-mail/senha só sincroniza após
 (não reescrever o bundle; seletores ancorados no DOM atual).
 
 
+---
+
+## 9. Preço Justo de Graham + histórico (2026-09-27, local, não publicado)
+
+Decisões: `calcularPrecoJustoGraham(lpa, vpa)` pura (`null` se ausente/≤0);
+fundamentos via Worker `GET /api/fundamentals?symbol=` (brapi com secret
+`BRAPI_TOKEN`, fallback statistics p/ VPA, cache 24h) com fallback brapi
+anônima (só LPA, B3); modal genérico `Graham.open(ticker)` (qualquer ticker:
+carteira, cards STOCKS, busca avulsa só na aba STOCKS + tabela de histórico
+da sessão com upside em USD); cobertura real: B3 completa, EUA parcial
+(nome+preço, sem EPS/VPA nesse plano).
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `assets/js/portfolio/graham.js` | `window.Graham` (calc, `getFundamentals`, `resolveTicker`, modal, `Cloud`) |
+| `assets/css/graham.css` | Modal `.gb-*` escopado |
+| `cloudflare/bitcoiniciantes-ia/src/index.js` | Rotas `/api/fundamentals` e `/api/tickers/search` (secret, nunca no código) |
+| `assets/js/ticker-widget.js` | Botão ⚖ nos cards STOCKS, busca avulsa + tabela (só aba STOCKS), fiação Cloud |
+
+**Nuvem do histórico (SÓ logados):** `GrahamCloud` salva
+`users/{uid}/panels/graham` (`{items[] cap 50, updatedAt}`, debounce 2s,
+falha silenciosa; herda rules por dono, sem mudança no console). Anônimo =
+só memória (sem localStorage). Login → pull (nuvem vence); logout/troca de
+conta → limpa a visão. Testes: `tests/test-graham.mjs` (16) e
+`tests/test-graham-cloud.mjs` (8, firebase/auth stubados).
+
+

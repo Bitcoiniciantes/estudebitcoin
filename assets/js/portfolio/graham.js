@@ -361,6 +361,158 @@
     });
   }
 
+  /* ---------- 7. Nuvem (histórico por usuário logado) ----------
+     SOMENTE quem tem login (id && !anonymous). Anônimo: só memória da
+     sessão, sem localStorage, sem nuvem. Caminho:
+     users/{uid}/panels/graham (herda as rules por dono já existentes).
+     Tudo silencioso: falha de rede/permissão nunca quebra a consulta. */
+
+  var GrahamCloud = (function () {
+    var MAX_ITEMS = 50;
+    var PUSH_DEBOUNCE_MS = 2000;
+    var cbs = null; // {getHistory, setHistory}
+    var uid = null;
+    var pulledUid = null;
+    var pushTimer = null;
+    var listening = false;
+
+    function authedUid() {
+      try {
+        var host = getRoot();
+        var u = host && host.EstudeAuth && host.EstudeAuth.getUser ? host.EstudeAuth.getUser() : null;
+        if (u && u.id && !u.anonymous) return String(u.id);
+      } catch (e) {}
+      return null;
+    }
+
+    function dbRef(id) {
+      try {
+        var host = getRoot();
+        if (!id || !host || !host.firebase || !host.firebase.apps ||
+            !host.firebase.apps.length || !host.firebase.database) return null;
+        return host.firebase.database().ref('users/' + id + '/panels/graham');
+      } catch (e) { return null; }
+    }
+
+    function cleanItems(list) {
+      var out = [];
+      if (!Array.isArray(list)) return out;
+      for (var i = 0; i < list.length && out.length < MAX_ITEMS; i++) {
+        var h = list[i];
+        if (!h || typeof h !== 'object') continue;
+        var t = String(h.ticker || '').trim().toUpperCase();
+        if (!t) continue;
+        var cur = Number(h.currentUSD);
+        var fair = Number(h.fairUSD);
+        var brl = Number(h.fairBRL);
+        out.push({
+          ticker: t,
+          name: (typeof h.name === 'string' && h.name.trim()) ? h.name.trim().slice(0, 80) : null,
+          currentUSD: (Number.isFinite(cur) && cur > 0) ? cur : null,
+          fairBRL: (Number.isFinite(brl) && brl > 0) ? brl : null,
+          fairUSD: (Number.isFinite(fair) && fair > 0) ? fair : null,
+          upside: (function () {
+            var u = Number(h.upside);
+            return Number.isFinite(u) ? u : null;
+          })(),
+          at: (typeof h.at === 'string' && h.at) ? h.at : new Date().toISOString()
+        });
+      }
+      return out;
+    }
+
+    function doPush() {
+      pushTimer = null;
+      try {
+        var id = authedUid();
+        if (!id || !cbs) return;
+        var ref = dbRef(id);
+        if (!ref) return;
+        var items = cleanItems(cbs.getHistory ? cbs.getHistory() : []);
+        ref.set({ items: items, updatedAt: new Date().toISOString() }).catch(function () {});
+      } catch (e) {}
+    }
+
+    function pushSoon() {
+      try {
+        if (!authedUid()) return; // anônimo: nada a persistir
+        if (pushTimer) { try { clearTimeout(pushTimer); } catch (e) {} }
+        pushTimer = setTimeout(doPush, PUSH_DEBOUNCE_MS);
+      } catch (e) {}
+    }
+
+    function pull() {
+      try {
+        var id = authedUid();
+        if (!id || !cbs) return;
+        if (pulledUid === id) return; // já sincronizado p/ este uid
+        var ref = dbRef(id);
+        if (!ref) return;
+        ref.once('value').then(function (snap) {
+          try {
+            var val = snap && snap.val ? snap.val() : null;
+            var items = cleanItems(val && val.items);
+            pulledUid = id;
+            if (cbs.setHistory) cbs.setHistory(items);
+          } catch (e) {}
+        }).catch(function () {});
+      } catch (e) {}
+    }
+
+    // Troca de sessão: logou (authed) → pull; deslogou/anonimizou → limpa
+    // a visão local (não vaza histórico entre contas).
+    function onAuthChange(user) {
+      try {
+        var id = (user && user.id && !user.anonymous) ? String(user.id) : null;
+        uid = id;
+        if (!id) {
+          pulledUid = null;
+          if (pushTimer) { try { clearTimeout(pushTimer); } catch (e) {} pushTimer = null; }
+          if (cbs && cbs.setHistory) cbs.setHistory([]);
+          return;
+        }
+        pull();
+      } catch (e) {}
+    }
+
+    function init(callbacks) {
+      cbs = callbacks || null;
+      try {
+        var host = getRoot();
+        if (!listening && host) {
+          var target = null;
+          try {
+            var w = host.window || null;
+            target = (w && typeof w.addEventListener === 'function') ? w : null;
+            if (!target && typeof host.addEventListener === 'function') target = host;
+            if (!target && typeof document !== 'undefined' && document.addEventListener) target = document;
+          } catch (e) {}
+          if (target) {
+            target.addEventListener('estudebitcoin:auth-change', function (ev) {
+              onAuthChange(ev && ev.detail && ev.detail.user);
+            });
+            listening = true;
+          }
+        }
+      } catch (e) {}
+      // Já logado no boot (sessão restaurada): puxa direto.
+      try { if (authedUid()) pull(); } catch (e) {}
+      return api.Cloud;
+    }
+
+    return {
+      init: init,
+      pushSoon: pushSoon,
+      pull: pull,
+      onAuthChange: onAuthChange,
+      _test: {
+        cleanItems: cleanItems,
+        authedUid: authedUid,
+        reset: function () { uid = null; pulledUid = null; cbs = null; listening = false; if (pushTimer) { try { clearTimeout(pushTimer); } catch (e) {} } pushTimer = null; }
+      }
+    };
+  })();
+
   var api = {
     calcularPrecoJustoGraham: calcularPrecoJustoGraham,
     verdict: verdict,
@@ -368,6 +520,7 @@
     resolveTicker: resolveTicker,
     open: open,
     close: closeModal,
+    Cloud: GrahamCloud,
     // Superfície de teste (sem efeito no comportamento normal).
     _test: {
       mapPayload: mapPayload,

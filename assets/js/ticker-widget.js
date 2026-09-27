@@ -257,6 +257,7 @@
   }
 
   function refresh(force) {
+    ensureGrahamCloud();
     var key = activeTab + "|" + activeWindow;
     if (force) delete cache[key];
     var promise = cache[key] ? Promise.resolve(cache[key]) : (activeTab === "crypto" ? fetchCrypto() : fetchStocks()).then(function (quotes) {
@@ -537,7 +538,7 @@
 
   function renderGrahamHistory() {
     if (!grahamHistory.length) { grahamHistEl.innerHTML = ""; return; }
-    var html = '<table><thead><tr><th>Empresa</th><th>Ticker</th><th>Hoje</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th></tr></thead><tbody>';
+    var html = '<table><thead><tr><th>Empresa</th><th>Ticker</th><th>Hoje</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th><th></th></tr></thead><tbody>';
     // Taxa p/ a coluna Reais (Atual USD → BRL): vem do próprio ticker USDT-BRL.
     var rate = Number(cardPrices["USDT-BRL"]);
     if (!Number.isFinite(rate) || rate <= 0) rate = null;
@@ -550,11 +551,30 @@
         '<td><b>' + esc(h.ticker) + '</b></td>' +
         '<td>' + esc(fmtShortUSD(h.currentUSD)) + '</td>' +
         '<td>' + esc(fmtShortBRL(reais)) + '</td>' +
-        '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +
         '<td>' + esc(fmtShortUSD(h.fairUSD)) + '</td>' +
-        '<td class="' + cls + '">' + esc(fmtPctSigned(h.upside)) + '</td></tr>';
+        '<td class="' + cls + '">' + esc(fmtPctSigned(h.upside)) + '</td>' +
+        '<td><button type="button" class="tq-h-del" data-del="' + esc(symbolKey(h.ticker)) + '" title="Remover ' + esc(h.ticker) + ' do histórico" aria-label="Remover ' + esc(h.ticker) + '">✕</button></td></tr>';
     }
     grahamHistEl.innerHTML = html + "</tbody></table>";
+  }
+
+  // Nuvem do histórico Graham (só logados; anônimo fica na memória).
+  // Lazy: graham.js carrega DEPOIS do ticker (defer em ordem).
+  var grahamCloudReady = false;
+  function ensureGrahamCloud() {
+    if (grahamCloudReady) return;
+    try {
+      if (window.Graham && window.Graham.Cloud && window.Graham.Cloud.init) {
+        window.Graham.Cloud.init({
+          getHistory: function () { return grahamHistory; },
+          setHistory: function (list) {
+            grahamHistory = Array.isArray(list) ? list : [];
+            renderGrahamHistory();
+          }
+        });
+        grahamCloudReady = true;
+      }
+    } catch (e) {}
   }
 
   function logGrahamHistory(result) {
@@ -582,10 +602,29 @@
       if (idx >= 0) grahamHistory[idx] = entry;
       else grahamHistory.push(entry);
       renderGrahamHistory();
+      // Persistência (só logados; anônimo: memória da sessão).
+      try {
+        if (window.Graham && window.Graham.Cloud && window.Graham.Cloud.pushSoon) {
+          window.Graham.Cloud.pushSoon();
+        }
+      } catch (e) {}
     } catch (e) {}
   }
 
   grahamHistEl.addEventListener("click", function (event) {
+    var del = event.target && event.target.closest ? event.target.closest("[data-del]") : null;
+    if (del) {
+      event.stopPropagation();
+      var dt = del.getAttribute("data-del");
+      grahamHistory = grahamHistory.filter(function (h) { return h.ticker !== dt; });
+      renderGrahamHistory();
+      try {
+        if (window.Graham && window.Graham.Cloud && window.Graham.Cloud.pushSoon) {
+          window.Graham.Cloud.pushSoon();
+        }
+      } catch (e) {}
+      return;
+    }
     var row = event.target && event.target.closest ? event.target.closest("tr[data-ticker]") : null;
     if (!row) return;
     var sym = row.getAttribute("data-ticker");
