@@ -60,17 +60,19 @@ describe('verdict', () => {
 });
 
 describe('mapPayload (_test)', () => {
-  it('11. payload brapi cru (results[]) → lpa/vpa/moeda', () => {
+  it('11. payload brapi cru (results[]) → lpa/vpa/moeda/nome', () => {
     const m = G._test.mapPayload('PETR4', {
-      results: [{ symbol: 'PETR4', earningsPerShare: 10.3482633, regularMarketPrice: 47.99, currency: 'BRL' }]
+      results: [{ symbol: 'PETR4', longName: 'Petróleo Brasileiro S.A. - Petrobras', earningsPerShare: 10.3482633, regularMarketPrice: 47.99, currency: 'BRL' }]
     }, 'brapi-anon');
     assert.equal(m.ticker, 'PETR4');
+    assert.equal(m.name, 'Petróleo Brasileiro S.A. - Petrobras');
     assert.ok(approx(m.lpa, 10.3482633, 1e-9));
     assert.equal(m.vpa, null); // anônima não traz VPA
     assert.equal(m.currency, 'BRL');
   });
   it('12. payload do Worker normalizado passa direto', () => {
-    const m = G._test.mapPayload('AAPL', { lpa: 6.5, vpa: 4.2, price: 200, currency: 'USD' }, 'worker');
+    const m = G._test.mapPayload('AAPL', { name: 'Apple Inc.', lpa: 6.5, vpa: 4.2, price: 200, currency: 'USD' }, 'worker');
+    assert.equal(m.name, 'Apple Inc.');
     assert.equal(m.lpa, 6.5);
     assert.equal(m.vpa, 4.2);
   });

@@ -32,6 +32,9 @@
   var TIMEOUT_MS = 10000;
 
   var cache = {}; // ticker -> {data, at}
+  // PENDÊNCIA (pausado por decisão): persistência em nuvem/servidor dos
+  // fundamentos/histórico. Hoje é só memória local (some ao fechar a página).
+  // Retomar depois — sem implementar por enquanto.
   var usdBrlRate = null; // p/ converter justo BRL -> USD na comparação
 
   /* ---------- 1. Função pura ---------- */
@@ -112,8 +115,11 @@
     );
     var price = num(q.price != null ? q.price : q.regularMarketPrice);
     var currency = String(q.currency || '').trim().toUpperCase() || null;
+    var name = q.name || q.longName || q.shortName || null;
+    if (typeof name !== 'string' || !name.trim()) name = null;
     return {
       ticker: ticker,
+      name: name && name.trim(),
       lpa: lpa,
       vpa: vpa,
       price: price,
@@ -237,8 +243,12 @@
 
     var html = '';
     html += '<div class="gb-rows">';
-    html += '<div class="gb-row"><span>LPA — lucro por ação</span><strong>' + (fund && fund.lpa != null ? esc(fmtMoney(fund.lpa, fairCur)) : '—') + '</strong></div>';
-    html += '<div class="gb-row"><span>VPA — valor patrimonial por ação</span><strong>' + (fund && fund.vpa != null ? esc(fmtMoney(fund.vpa, fairCur)) : '—') + '</strong></div>';
+    // LPA/VPA zerados (ex.: brapi EUA devolve 0 como placeholder) valem
+    // como ausentes na exibição — a fórmula já os rejeita no cálculo.
+    var showLpa = fund && fund.lpa != null && fund.lpa > 0;
+    var showVpa = fund && fund.vpa != null && fund.vpa > 0;
+    html += '<div class="gb-row"><span>LPA — lucro por ação</span><strong>' + (showLpa ? esc(fmtMoney(fund.lpa, fairCur)) : '—') + '</strong></div>';
+    html += '<div class="gb-row"><span>VPA — valor patrimonial por ação</span><strong>' + (showVpa ? esc(fmtMoney(fund.vpa, fairCur)) : '—') + '</strong></div>';
     html += '<div class="gb-row gb-total"><span>Preço justo (Graham)</span><strong>' + (fair != null ? esc(fmtMoney(fair, fairCur)) : '—') + '</strong></div>';
     if (fair != null && fairCur && fairCur !== 'USD' && fairUSD != null) {
       html += '<div class="gb-row"><span>Preço justo em USD</span><strong>' + esc(fmtMoney(fairUSD, 'USD')) + '</strong></div>';
@@ -263,7 +273,10 @@
     return html;
   }
 
-  // Abre o modal p/ QUALQUER ticker. opts: {price (atual, USD), autoPrice=true}.
+  // Abre o modal p/ QUALQUER ticker. opts: {price (atual, USD), autoPrice=true,
+  // onDone(resultado)} — onDone é opcional e só informa o resultado
+  // {ticker, fund, fair, fairUSD, current} p/ camadas de exibição
+  // (ex.: histórico de sessão). Não altera modal nem cálculo.
   // Se price não vier, tenta o preço que acompanha os fundamentos.
   function open(rawTicker, opts) {
     var ticker = normTicker(rawTicker);
@@ -300,6 +313,30 @@
         : (fund && fund.price > 0 ? (fund.currency === 'BRL' ? toUSD(fund.price, 'BRL') : fund.price) : null);
       // Preço vindo dos fundamentos em BRL é convertido p/ USD p/ comparar.
       body.innerHTML = renderBody(ticker, fund, current);
+      // Nome da empresa (longName/shortName da fonte) como subtítulo.
+      if (fund && fund.name) {
+        try {
+          var h3 = overlay.querySelector('.gb-head h3');
+          if (h3 && !overlay.querySelector('.gb-name')) {
+            var nm = document.createElement('p');
+            nm.className = 'gb-name';
+            nm.textContent = fund.name;
+            h3.parentNode.insertBefore(nm, h3.nextSibling);
+          }
+        } catch (e) {}
+      }
+      if (opts.onDone) {
+        try {
+          var f2 = fund ? calcularPrecoJustoGraham(fund.lpa, fund.vpa) : null;
+          opts.onDone({
+            ticker: ticker,
+            fund: fund,
+            fair: f2,
+            fairUSD: f2 != null ? toUSD(f2, fund && fund.currency) : null,
+            current: current
+          });
+        } catch (e) {}
+      }
     }).catch(function () {
       if (!overlay) return;
       body.innerHTML = '<p class="gb-note">Não foi possível carregar os fundamentos agora. Tente novamente.</p>';

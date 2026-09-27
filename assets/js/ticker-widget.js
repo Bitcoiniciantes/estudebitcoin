@@ -492,7 +492,7 @@
     event.preventDefault();
     var sym = gEl.getAttribute("data-graham");
     if (sym && window.Graham && window.Graham.open) {
-      window.Graham.open(sym, { price: cardPrices[sym] || null });
+      window.Graham.open(sym, { price: cardPrices[sym] || null, onDone: logGrahamHistory });
     }
   }, true);
 
@@ -502,19 +502,100 @@
   grahamBar.className = "tq-graham-bar";
   grahamBar.style.display = "none";
   grahamBar.innerHTML = '<span class="tq-graham-label">&#9878; Preço justo (Graham):</span>' +
-    '<input id="tq-graham-input" placeholder="TICKER (ex: PETR4, AAPL)" maxlength="14" autocomplete="off" spellcheck="false" />' +
+    '<input id="tq-graham-input" placeholder="TICKER (ex: PETR4, AAPL)" maxlength="14" autocomplete="off" spellcheck="false" value="ITUB4" />' +
     '<button type="button" id="tq-graham-go">Consultar</button>';
   grid.parentNode.insertBefore(grahamBar, grid.nextSibling);
 
+  // Histórico da sessão (só memória; some ao recarregar). Tabela abaixo da
+  // busca, visível só na aba STOCKS. Linha clicável reabre o modal.
+  var grahamHistory = []; // [{ticker, currentUSD, fairUSD, upside}]
+  var grahamHistEl = document.createElement("div");
+  grahamHistEl.className = "tq-graham-hist";
+  grahamHistEl.style.display = "none";
+  grid.parentNode.insertBefore(grahamHistEl, grahamBar.nextSibling);
+
+  function fmtPctSigned(v) {
+    if (typeof v !== "number" || !Number.isFinite(v)) return "—";
+    var sign = v > 0 ? "+" : (v < 0 ? "-" : "");
+    return sign + Math.abs(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
+  }
+
+  function fmtShortUSD(v) {
+    if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) return "—";
+    return "$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function fmtShortBRL(v) {
+    if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) return "—";
+    return "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function renderGrahamHistory() {
+    if (!grahamHistory.length) { grahamHistEl.innerHTML = ""; return; }
+    var html = '<table><thead><tr><th>Ticker</th><th>Atual</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th></tr></thead><tbody>';
+    for (var i = 0; i < grahamHistory.length; i++) {
+      var h = grahamHistory[i];
+      var cls = h.upside == null ? "" : (h.upside > 0 ? "tq-h-up" : (h.upside < 0 ? "tq-h-down" : ""));
+      html += '<tr data-ticker="' + esc(symbolKey(h.ticker)) + '">' +
+        '<td><b>' + esc(h.ticker) + '</b></td>' +
+        '<td>' + esc(fmtShortUSD(h.currentUSD)) + '</td>' +
+        '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +
+        '<td>' + esc(fmtShortUSD(h.fairUSD)) + '</td>' +
+        '<td class="' + cls + '">' + esc(fmtPctSigned(h.upside)) + '</td></tr>';
+    }
+    grahamHistEl.innerHTML = html + "</tbody></table>";
+  }
+
+  function logGrahamHistory(result) {
+    try {
+      if (!result || !result.ticker) return;
+      var t = String(result.ticker).trim().toUpperCase();
+      var cur = Number(result.current);
+      var fair = Number(result.fairUSD);
+      var up = (Number.isFinite(cur) && cur > 0 && Number.isFinite(fair) && fair > 0)
+        ? (fair - cur) / cur * 100 : null;
+      // Preço justo em BRL só quando a fonte de origem é BRL (B3). Ativos
+      // em USD mostram '—' (sem converter USD→BRL→USD de volta). O upside
+      // continua sempre em USD.
+      var fairBRL = (result.fund && result.fund.currency === "BRL" &&
+        Number.isFinite(Number(result.fair)) && Number(result.fair) > 0)
+        ? Number(result.fair) : null;
+      var entry = { ticker: t, currentUSD: (Number.isFinite(cur) && cur > 0) ? cur : null, fairBRL: fairBRL, fairUSD: (Number.isFinite(fair) && fair > 0) ? fair : null, upside: up };
+      var idx = -1;
+      for (var i = 0; i < grahamHistory.length; i++) {
+        if (grahamHistory[i].ticker === t) { idx = i; break; }
+      }
+      if (idx >= 0) grahamHistory[idx] = entry;
+      else grahamHistory.push(entry);
+      renderGrahamHistory();
+    } catch (e) {}
+  }
+
+  grahamHistEl.addEventListener("click", function (event) {
+    var row = event.target && event.target.closest ? event.target.closest("tr[data-ticker]") : null;
+    if (!row) return;
+    var sym = row.getAttribute("data-ticker");
+    var price = null;
+    for (var i = 0; i < grahamHistory.length; i++) {
+      if (grahamHistory[i].ticker === sym) { price = grahamHistory[i].currentUSD; break; }
+    }
+    if (sym && window.Graham && window.Graham.open) {
+      window.Graham.open(sym, { price: price, onDone: logGrahamHistory });
+    }
+  });
+
   function updateGrahamBar() {
-    grahamBar.style.display = activeTab === "stocks" ? "" : "none";
+    var show = activeTab === "stocks";
+    grahamBar.style.display = show ? "" : "none";
+    grahamHistEl.style.display = show ? "" : "none";
   }
 
   function submitGrahamSearch() {
     var input = document.getElementById("tq-graham-input");
-    var ticker = input ? input.value : "";
-    if (ticker && String(ticker).trim() && window.Graham && window.Graham.open) {
-      window.Graham.open(ticker, {});
+    var ticker = input ? String(input.value).trim().toUpperCase() : "";
+    if (input && input.value !== ticker) input.value = ticker;
+    if (ticker && window.Graham && window.Graham.open) {
+      window.Graham.open(ticker, { onDone: logGrahamHistory });
     }
   }
 

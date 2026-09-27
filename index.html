@@ -832,22 +832,20 @@
   .tq-graham-bar {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 8px;
     flex-wrap: wrap;
     margin-top: 10px;
-    padding: 10px 12px;
-    border: 1px solid rgba(255,255,255,.06);
-    border-radius: 10px;
-    background: rgba(255,255,255,.02);
   }
-  .tq-graham-label { color: #b7d5bc; font-size: .72rem; font-weight: 800; letter-spacing: .06em; }
+  .tq-graham-label { color: #6b7f72; font-size: .72rem; font-weight: 800; letter-spacing: .06em; }
   .tq-graham-bar input {
-    flex: 1 1 160px;
-    min-width: 0;
-    background: #111c17;
-    border: 1px solid #2b4734;
+    flex: 0 0 auto;
+    width: 150px;
+    max-width: 150px;
+    background: #fff;
+    border: 1px solid #cfd8d2;
     border-radius: 8px;
-    color: #fff;
+    color: #1a1a1a;
     font-size: .8rem;
     font-weight: 700;
     letter-spacing: .04em;
@@ -867,6 +865,30 @@
     padding: 7px 14px;
   }
   .tq-graham-bar button:hover { filter: brightness(1.1); }
+  /* ── Histórico Graham da sessão (só aba STOCKS, abaixo da busca) ── */
+  .tq-graham-hist { margin-top: 8px; overflow-x: auto; }
+  .tq-graham-hist table { width: 100%; border-collapse: collapse; font-size: .75rem; }
+  .tq-graham-hist th, .tq-graham-hist td {
+    padding: 8px 10px;
+    text-align: right;
+    white-space: nowrap;
+    color: #1a1a1a;
+    background: transparent;
+    font-variant-numeric: tabular-nums;
+  }
+  .tq-graham-hist th:first-child, .tq-graham-hist td:first-child { text-align: left; }
+  .tq-graham-hist thead th {
+    font-size: .64rem; text-transform: uppercase; letter-spacing: .06em;
+    color: #6b7f72;
+    border-bottom: 1px solid rgba(0,0,0,.12);
+  }
+  .tq-graham-hist tbody td { border-bottom: 1px solid rgba(0,0,0,.07); }
+  .tq-graham-hist tbody tr { cursor: pointer; }
+  .tq-graham-hist tbody tr:hover { background: rgba(84,184,90,.08); }
+  .tq-graham-hist tbody tr:last-child td { border-bottom: 0; }
+  /* Só o Upside tem cor de destaque (paleta ganho/perda do site). */
+  .tq-graham-hist td.tq-h-up { color: #16c784; font-weight: 800; }
+  .tq-graham-hist td.tq-h-down { color: #ea3943; font-weight: 800; }
   .tq-sr-label {
     font-size: .65rem;
     font-weight: 800;

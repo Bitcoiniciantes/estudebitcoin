@@ -39,6 +39,7 @@
   color: #22d3ee;
 }
 .gb-head h3 { margin: 0 0 6px; font-size: 15px; line-height: 1.35; color: #fff; }
+.gb-name { margin: 0 0 6px; font-size: 13px; font-weight: 700; color: #fff; }
 .gb-sub { margin: 0; font-size: 12px; line-height: 1.5; color: #9aa5b1; }
 .gb-close {
   margin-left: auto;

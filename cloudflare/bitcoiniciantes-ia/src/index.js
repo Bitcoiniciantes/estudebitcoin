@@ -664,7 +664,7 @@ async function assetQuotes(request) {
 // (fundamentos mudam 1x/trimestre). Sem token: 503 code=no_token e o
 // front-end usa o fallback anônimo (só LPA, B3).
 const FUND_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const FUND_CACHE_PREFIX = "https://bitcoiniciantes-ia.workers.dev/_cache/fundamentals/v2/";
+const FUND_CACHE_PREFIX = "https://bitcoiniciantes-ia.workers.dev/_cache/fundamentals/v3/";
 
 function normFundSymbol(raw) {
   return String(raw || "").trim().toUpperCase().replace(/[\s_\/]/g, "-").slice(0, 16);
@@ -748,6 +748,7 @@ async function assetFundamentals(request, rawSymbol, env) {
       body = {
         ticker: cands[0],
         symbol: q.symbol || sym,
+        name: q.longName || q.shortName || null,
         lpa,
         vpa,
         price,
