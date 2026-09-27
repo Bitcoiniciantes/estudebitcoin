@@ -713,7 +713,7 @@ async function assetTickerSearch(request, rawName, env) {
 // Regra inviolável: Finnhub NUNCA sobrescreve dado válido da brapi — só
 // preenche campo ausente/inválido. Cache 24h do normalizado final (v5).
 const FUND_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const FUND_CACHE_PREFIX = "https://bitcoiniciantes-ia.workers.dev/_cache/fundamentals/v6/";
+const FUND_CACHE_PREFIX = "https://bitcoiniciantes-ia.workers.dev/_cache/fundamentals/v7/";
 
 function normFundSymbol(raw) {
   return String(raw || "").trim().toUpperCase().replace(/[\s_\/]/g, "-").slice(0, 16);
@@ -889,19 +889,50 @@ async function assetFundamentals(request, rawSymbol, env) {
     }
   }
 
+  // ---- 3) HG BRASIL (fallback B3-ONLY, SOMENTE se VPA ainda faltar) ----
+  // B3 sem VPA após brapi+finnhub (ex: BBAS3): financials.equity_per_share
+  // é o VPA direto (fallback: equity/quota_count). Sem HG_FINANCE_KEY,
+  // caminho dorme. HG não expõe LPA confiável — nem tenta.
+  const hgKey = String((env && env.HG_FINANCE_KEY) || "");
+  const isB3 = /^[A-Z]{4}\d{1,2}$/.test(cands[0]);
+  let hgName = null;
+  if (!vpa && isB3 && hgKey) {
+    try {
+      const response = await fetchWithTimeout(
+        `https://api.hgbrasil.com/finance/stock_price?symbol=${encodeURIComponent(cands[0])}&key=${encodeURIComponent(hgKey)}`,
+        10000
+      );
+      const payload = await response.json();
+      const r = payload && payload.results ? payload.results[cands[0]] : null;
+      const fin = r && r.financials && typeof r.financials === 'object' ? r.financials : null;
+      if (fin) {
+        let hvpa = pickNum(fin.equity_per_share, fin.equityPerShare);
+        if (hvpa == null && Number.isFinite(Number(fin.equity)) &&
+            Number.isFinite(Number(fin.quota_count)) && Number(fin.quota_count) > 0) {
+          const derived = Number(fin.equity) / Number(fin.quota_count);
+          if (Number.isFinite(derived) && derived > 0) hvpa = derived;
+        }
+        if (hvpa != null && hvpa > 0) { vpa = hvpa; vpaSrc = 'hgbrasil'; }
+      }
+      if (r && (r.company_name || r.name)) hgName = String(r.company_name || r.name);
+    } catch (error) {
+      console.error(`fundamentals-hg-${cands[0]}-error`, error);
+    }
+  }
+
   if (!bq && lpa == null && vpa == null) {
     return json(request, { error: "Fundamentos indisponiveis para este ativo.", code: "no_data" }, 404);
   }
-  const finnhubUsed = lpaSrc === 'finnhub' || vpaSrc === 'finnhub';
+  const fbSrc = [lpaSrc, vpaSrc].find((s) => s && s !== 'brapi') || 'brapi';
   const body = {
     ticker: cands[0],
     symbol: (bq && (bq.symbol || cands[0])) || cands[0],
-    name: (bq && (bq.longName || bq.shortName)) || null,
+    name: (bq && (bq.longName || bq.shortName)) || hgName || null,
     lpa,
     vpa,
     price: bq && Number.isFinite(Number(bq.regularMarketPrice)) ? Number(bq.regularMarketPrice) : null,
     currency: (bq && bq.currency) || null,
-    source: finnhubUsed ? "finnhub" : "brapi",
+    source: fbSrc,
     sourceDetail: { lpa: lpaSrc, vpa: vpaSrc },
     fetchedAt: new Date().toISOString(),
   };
