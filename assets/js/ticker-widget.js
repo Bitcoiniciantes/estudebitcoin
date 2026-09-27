@@ -551,6 +551,7 @@
         '<td><b>' + esc(h.ticker) + '</b></td>' +
         '<td>' + esc(fmtShortUSD(h.currentUSD)) + '</td>' +
         '<td>' + esc(fmtShortBRL(reais)) + '</td>' +
+        '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +
         '<td>' + esc(fmtShortUSD(h.fairUSD)) + '</td>' +
         '<td class="' + cls + '">' + esc(fmtPctSigned(h.upside)) + '</td>' +
         '<td><button type="button" class="tq-h-del" data-del="' + esc(symbolKey(h.ticker)) + '" title="Remover ' + esc(h.ticker) + ' do histórico" aria-label="Remover ' + esc(h.ticker) + '">✕</button></td></tr>';

@@ -231,4 +231,17 @@ describe('TTL por origem + prioridade (caminho real)', () => {
     assert.ok(TICKER_SRC.includes('broadcastQuotes(quotes); render(quotes);'), 'refresh transmite');
     assert.ok(TICKER_SRC.includes('refreshStocksBroadcast'), 'loop stocks');
   });
+
+  it('widget: tabela Graham com th/td em paridade (sem coluna deslocada)', () => {
+    // Regressão real: a célula Preço Justo R$ caiu e as colunas deslocaram.
+    const thead = TICKER_SRC.match(/<thead><tr>(.*?)<\/tr><\/thead>/);
+    assert.ok(thead, 'thead da tabela Graham existe');
+    const thCount = (thead[1].match(/<th>/g) || []).length;
+    const rowStart = TICKER_SRC.indexOf("'<tr data-ticker=\"'");
+    assert.ok(rowStart >= 0, 'template da linha existe');
+    const rowEnd = TICKER_SRC.indexOf('</tr>', rowStart);
+    const tdCount = (TICKER_SRC.slice(rowStart, rowEnd).match(/<td/g) || []).length;
+    assert.equal(tdCount, thCount, `td (${tdCount}) == th (${thCount})`);
+    assert.ok(TICKER_SRC.includes('fmtShortBRL(h.fairBRL)'), 'célula Preço Justo R$ presente');
+  });
 });
