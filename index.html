@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="assets/css/widgets.css?v=17" />
   <link rel="stylesheet" href="assets/css/login.css?v=1" />
   <link rel="stylesheet" href="assets/css/painel-ativos.css?v=1" />
-  <link rel="stylesheet" href="assets/css/graham.css?v=1" />
+  <link rel="stylesheet" href="assets/css/graham.css?v=2" />
 
   <style>
     body { background: #ffffff; color: #1a1a1a; scroll-behavior: smooth; padding-top: 52px; }
@@ -853,6 +853,7 @@
     text-transform: uppercase;
   }
   .tq-graham-bar input:focus { outline: none; border-color: #54b85a; }
+  .tq-graham-bar input#tq-graham-name { width: 220px; max-width: 220px; text-transform: none; }
   .tq-graham-bar button {
     background: #54b85a;
     border: 1px solid #54b85a;
@@ -876,7 +877,8 @@
     background: transparent;
     font-variant-numeric: tabular-nums;
   }
-  .tq-graham-hist th:first-child, .tq-graham-hist td:first-child { text-align: left; }
+  .tq-graham-hist th:first-child, .tq-graham-hist td:first-child,
+  .tq-graham-hist th:nth-child(2), .tq-graham-hist td:nth-child(2) { text-align: left; }
   .tq-graham-hist thead th {
     font-size: .64rem; text-transform: uppercase; letter-spacing: .06em;
     color: #6b7f72;
@@ -1892,7 +1894,7 @@
 <script defer src="assets/js/projections.js"></script>
 <script defer src="assets/js/conversor.js?v=17"></script>
 <script defer src="assets/js/analista-ia.js?v=13"></script>
-<script defer src="assets/js/ticker-widget.js?v=20"></script>
+<script defer src="assets/js/ticker-widget.js?v=21"></script>
 
 <!-- Push Notifications -->
 <script src="assets/js/push-config.js"></script>
@@ -1905,10 +1907,10 @@
 <script src="assets/js/portfolio/portfolioService.js?v=1"></script>
 <script src="assets/js/portfolio/portfolioDemo.js?v=2"></script>
 <script src="assets/js/portfolio/firebasePortfolio.js?v=1"></script>
-<script defer src="assets/js/portfolio/painel-ativos-ui.js?v=5"></script>
+<script defer src="assets/js/portfolio/painel-ativos-ui.js?v=6"></script>
 <script defer src="assets/js/portfolio/portfolioLive.js?v=1"></script>
 <script defer src="assets/js/portfolio/portfolioExport.js?v=1"></script>
-<script defer src="assets/js/portfolio/graham.js?v=1"></script>
+<script defer src="assets/js/portfolio/graham.js?v=2"></script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(function () {});

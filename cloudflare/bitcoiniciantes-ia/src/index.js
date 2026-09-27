@@ -659,12 +659,60 @@ async function assetQuotes(request) {
   return json(request, body);
 }
 
+// ---------- Busca de ticker por nome de empresa (brapi, catálogo B3) ----------
+const TICKER_SEARCH_PREFIX = "https://bitcoiniciantes-ia.workers.dev/_cache/tickersearch/";
+const TICKER_SEARCH_TTL_MS = 24 * 60 * 60 * 1000;
+
+async function assetTickerSearch(request, rawName, env) {
+  const token = String((env && env.BRAPI_TOKEN) || "");
+  if (!token) return json(request, { error: "Busca indisponivel (token nao configurado).", code: "no_token" }, 503);
+  const q = String(rawName || "").trim().slice(0, 40);
+  if (q.length < 2) return json(request, { error: "Informe ao menos 2 letras." }, 400);
+  const cacheKey = TICKER_SEARCH_PREFIX + encodeURIComponent(q.toUpperCase());
+  try {
+    const cached = await caches.default.match(cacheKey);
+    if (cached && (Date.now() - (Number(cached.headers.get("X-Cached-At")) || 0)) <= TICKER_SEARCH_TTL_MS) {
+      return json(request, await cached.json());
+    }
+  } catch {
+    // cache opcional
+  }
+  let results = [];
+  try {
+    const response = await fetchWithTimeout(
+      `https://brapi.dev/api/v2/tickers?search=${encodeURIComponent(q)}`,
+      10000,
+      { Authorization: `Bearer ${token}` }
+    );
+    const payload = await response.json();
+    const raw = Array.isArray(payload) ? payload
+      : Array.isArray(payload && payload.tickers) ? payload.tickers
+      : Array.isArray(payload && payload.results) ? payload.results
+      : Array.isArray(payload && payload.stocks) ? payload.stocks : [];
+    results = raw.slice(0, 8).map((it) => ({
+      ticker: String((it && (it.symbol || it.ticker || it.stock)) || "").trim().toUpperCase(),
+      name: String((it && (it.longName || it.shortName || it.name)) || "").trim() || null,
+    })).filter((it) => it.ticker);
+  } catch (error) {
+    console.error(`tickersearch-${q}-error`, error);
+  }
+  const body = { query: q.toUpperCase(), results, fetchedAt: new Date().toISOString() };
+  try {
+    await caches.default.put(cacheKey, new Response(JSON.stringify(body), {
+      headers: { "Content-Type": "application/json", "X-Cached-At": String(Date.now()) },
+    }));
+  } catch {
+    // cache opcional
+  }
+  return json(request, body);
+}
+
 // ---------- Fundamentos (LPA/VPA p/ Preço Justo de Graham) ----------
 // Brapi com token no secret BRAPI_TOKEN (nunca no código). Cache 24h
 // (fundamentos mudam 1x/trimestre). Sem token: 503 code=no_token e o
 // front-end usa o fallback anônimo (só LPA, B3).
 const FUND_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const FUND_CACHE_PREFIX = "https://bitcoiniciantes-ia.workers.dev/_cache/fundamentals/v3/";
+const FUND_CACHE_PREFIX = "https://bitcoiniciantes-ia.workers.dev/_cache/fundamentals/v4/";
 
 function normFundSymbol(raw) {
   return String(raw || "").trim().toUpperCase().replace(/[\s_\/]/g, "-").slice(0, 16);
@@ -715,8 +763,13 @@ async function assetFundamentals(request, rawSymbol, env) {
       };
       const price = Number.isFinite(Number(q.regularMarketPrice)) ? Number(q.regularMarketPrice) : null;
       let vpa = pickNum(q.bookValuePerShare, q.bookValue, q.bvps);
-      // Sem VPA direto: tenta o endpoint de estatísticas (P/VP, VPA, LPA...)
-      // e, em último caso, deriva VPA = preço / P/VP.
+      // Sem VPA direto na cotação: deriva de P/VP (VPA = preço / P/VP)...
+      if (vpa == null && price != null) {
+        const pvps = pickNum(q.priceToBook, q.price_to_book);
+        if (pvps) vpa = price / pvps;
+      }
+      // ...ou busca no endpoint de estatísticas (objeto OU série).
+      // VPA = preço / P/VP.
       if (vpa == null) {
         try {
           const statRes = await fetchWithTimeout(
@@ -726,20 +779,24 @@ async function assetFundamentals(request, rawSymbol, env) {
           );
           const statPayload = await statRes.json();
           const list = statPayload && Array.isArray(statPayload.results) ? statPayload.results : [];
-          const data = list.length && list[0] && typeof list[0].data === 'object' && list[0].data ? list[0].data : null;
-          if (data) {
+          const raw = list.length ? list[0].data : null;
+          // data pode ser objeto (current) ou série (history: array).
+          const entries = Array.isArray(raw) ? raw.slice().reverse() : (raw && typeof raw === 'object' ? [raw] : []);
+          for (const data of entries) {
+            if (!data || typeof data !== 'object') continue;
             const flat = {};
             for (const k of Object.keys(data)) {
               flat[String(k).toLowerCase().replace(/[^a-z]/g, '')] = data[k];
             }
             vpa = pickNum(
               flat.bookvaluepershare, flat.bookvalue, flat.bvps, flat.vpa,
-              flat.valorpatrimonialporacao, flat.patrimonioliquidoPorAcao
+              flat.valorpatrimonialporacao, flat.patrimonioliquidopora
             );
             if (vpa == null && price != null) {
               const pvps = pickNum(flat.pricetobook, flat.pvp, flat.pvpvp);
               if (pvps) vpa = price / pvps;
             }
+            if (vpa != null) break;
           }
         } catch (statError) {
           console.error(`fundamentals-stats-${sym}-error`, statError);
@@ -1154,6 +1211,9 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/api/fundamentals") {
       return assetFundamentals(request, url.searchParams.get("symbol"), env);
+    }
+    if (request.method === "GET" && url.pathname === "/api/tickers/search") {
+      return assetTickerSearch(request, url.searchParams.get("name"), env);
     }
     if (request.method === "GET" && url.pathname === "/api/candles") {
       return assetCandles(request, url.searchParams.get("asset"), url.searchParams.get("period"));

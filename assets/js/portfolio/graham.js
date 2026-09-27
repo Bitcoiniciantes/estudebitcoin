@@ -26,6 +26,7 @@
   }
 
   var WORKER = 'https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/fundamentals';
+  var WORKER_SEARCH = 'https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/tickers/search';
   var BRAPI_ANON = 'https://brapi.dev/api/quote/';
   var CACHE_TTL_MS = 24 * 60 * 60 * 1000;
   var VERDICT_TOLERANCE = 0.02; // ±2% = "preço justo"
@@ -134,6 +135,23 @@
     if (!hit) return null;
     if ((Date.now() - hit.at) > CACHE_TTL_MS) { delete cache[ticker]; return null; }
     return hit.data;
+  }
+
+  // Resolve nome da empresa -> ticker (catálogo B3 via Worker). Retorna
+  // {ticker, name} do primeiro resultado ou null.
+  function resolveTicker(rawName) {
+    var q = String(rawName == null ? '' : rawName).trim();
+    if (q.length < 2) return Promise.resolve(null);
+    return fetchJSON(WORKER_SEARCH + '?name=' + encodeURIComponent(q))
+      .then(function (payload) {
+        var list = payload && Array.isArray(payload.results) ? payload.results : [];
+        for (var i = 0; i < list.length; i++) {
+          var t = normTicker(list[i] && list[i].ticker).replace(/-/g, '');
+          if (t) return { ticker: t, name: list[i].name || null };
+        }
+        return null;
+      })
+      .catch(function () { return null; });
   }
 
   function getFundamentals(rawTicker) {
@@ -347,6 +365,7 @@
     calcularPrecoJustoGraham: calcularPrecoJustoGraham,
     verdict: verdict,
     getFundamentals: getFundamentals,
+    resolveTicker: resolveTicker,
     open: open,
     close: closeModal,
     // Superfície de teste (sem efeito no comportamento normal).

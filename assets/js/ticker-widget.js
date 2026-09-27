@@ -269,6 +269,10 @@
   function updateLivePrice(symbol, price, volume, changePct) {
     livePrices[symbol] = price;
     if (typeof price === "number" && Number.isFinite(price) && price > 0) cardPrices[symbol] = price;
+    // Dólar atualizou: repinta a coluna Reais do histórico (só aba STOCKS).
+    if (symbol === "USDT-BRL" && grahamHistory.length && activeTab === "stocks") {
+      try { renderGrahamHistory(); } catch (e) {}
+    }
     // INTEGRAÇÃO RISK ENGINE (aditivo, sem efeito sobre o ticker): expõe cada
     // tick via evento para o adapter (risk-engine-adapter.js), que encaminha
     // o preço ao RiskEngine.calcularRisco(). Justificativa: nenhum mecanismo
@@ -503,6 +507,7 @@
   grahamBar.style.display = "none";
   grahamBar.innerHTML = '<span class="tq-graham-label">&#9878; Preço justo (Graham):</span>' +
     '<input id="tq-graham-input" placeholder="TICKER (ex: PETR4, AAPL)" maxlength="14" autocomplete="off" spellcheck="false" value="ITUB4" />' +
+    '<input id="tq-graham-name" placeholder="EMPRESA (ex: Usiminas)" maxlength="40" autocomplete="off" spellcheck="false" value="Itau Unibanco Holding SA Pfd" />' +
     '<button type="button" id="tq-graham-go">Consultar</button>';
   grid.parentNode.insertBefore(grahamBar, grid.nextSibling);
 
@@ -532,13 +537,19 @@
 
   function renderGrahamHistory() {
     if (!grahamHistory.length) { grahamHistEl.innerHTML = ""; return; }
-    var html = '<table><thead><tr><th>Ticker</th><th>Atual</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th></tr></thead><tbody>';
+    var html = '<table><thead><tr><th>Empresa</th><th>Ticker</th><th>Hoje</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th></tr></thead><tbody>';
+    // Taxa p/ a coluna Reais (Atual USD → BRL): vem do próprio ticker USDT-BRL.
+    var rate = Number(cardPrices["USDT-BRL"]);
+    if (!Number.isFinite(rate) || rate <= 0) rate = null;
     for (var i = 0; i < grahamHistory.length; i++) {
       var h = grahamHistory[i];
       var cls = h.upside == null ? "" : (h.upside > 0 ? "tq-h-up" : (h.upside < 0 ? "tq-h-down" : ""));
+      var reais = (rate != null && h.currentUSD != null) ? h.currentUSD * rate : null;
       html += '<tr data-ticker="' + esc(symbolKey(h.ticker)) + '">' +
+        '<td>' + esc(h.name || '—') + '</td>' +
         '<td><b>' + esc(h.ticker) + '</b></td>' +
         '<td>' + esc(fmtShortUSD(h.currentUSD)) + '</td>' +
+        '<td>' + esc(fmtShortBRL(reais)) + '</td>' +
         '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +
         '<td>' + esc(fmtShortUSD(h.fairUSD)) + '</td>' +
         '<td class="' + cls + '">' + esc(fmtPctSigned(h.upside)) + '</td></tr>';
@@ -549,6 +560,9 @@
   function logGrahamHistory(result) {
     try {
       if (!result || !result.ticker) return;
+      // Trava: ticker não reconhecido (fonte sem nenhum dado) não
+      // alimenta a tabela — o modal já informa a indisponibilidade.
+      if (!result.fund) return;
       var t = String(result.ticker).trim().toUpperCase();
       var cur = Number(result.current);
       var fair = Number(result.fairUSD);
@@ -560,7 +574,7 @@
       var fairBRL = (result.fund && result.fund.currency === "BRL" &&
         Number.isFinite(Number(result.fair)) && Number(result.fair) > 0)
         ? Number(result.fair) : null;
-      var entry = { ticker: t, currentUSD: (Number.isFinite(cur) && cur > 0) ? cur : null, fairBRL: fairBRL, fairUSD: (Number.isFinite(fair) && fair > 0) ? fair : null, upside: up };
+      var entry = { ticker: t, name: (result.fund && result.fund.name) || null, currentUSD: (Number.isFinite(cur) && cur > 0) ? cur : null, fairBRL: fairBRL, fairUSD: (Number.isFinite(fair) && fair > 0) ? fair : null, upside: up };
       var idx = -1;
       for (var i = 0; i < grahamHistory.length; i++) {
         if (grahamHistory[i].ticker === t) { idx = i; break; }
@@ -592,11 +606,27 @@
 
   function submitGrahamSearch() {
     var input = document.getElementById("tq-graham-input");
+    var nameInput = document.getElementById("tq-graham-name");
+    var goBtn = document.getElementById("tq-graham-go");
     var ticker = input ? String(input.value).trim().toUpperCase() : "";
     if (input && input.value !== ticker) input.value = ticker;
-    if (ticker && window.Graham && window.Graham.open) {
-      window.Graham.open(ticker, { onDone: logGrahamHistory });
+    if (ticker) {
+      if (window.Graham && window.Graham.open) window.Graham.open(ticker, { onDone: logGrahamHistory });
+      return;
     }
+    // Sem ticker: tenta resolver pelo nome da empresa (primeiro resultado).
+    var name = nameInput ? String(nameInput.value).trim() : "";
+    if (!name || !window.Graham || !window.Graham.resolveTicker) return;
+    if (goBtn) { goBtn.disabled = true; goBtn.textContent = "Buscando…"; }
+    window.Graham.resolveTicker(name).then(function (hit) {
+      if (goBtn) { goBtn.disabled = false; goBtn.textContent = "Consultar"; }
+      if (hit && hit.ticker) {
+        if (input) input.value = hit.ticker;
+        window.Graham.open(hit.ticker, { onDone: logGrahamHistory });
+      } else if (nameInput) {
+        nameInput.title = "Empresa não encontrada — tente o ticker direto.";
+      }
+    });
   }
 
   var grahamGo = document.getElementById("tq-graham-go");
@@ -604,6 +634,49 @@
   var grahamInput = document.getElementById("tq-graham-input");
   if (grahamInput) grahamInput.addEventListener("keydown", function (event) {
     if (event.key === "Enter") { event.preventDefault(); submitGrahamSearch(); }
+  });
+  var grahamName = document.getElementById("tq-graham-name");
+  if (grahamName) grahamName.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") { event.preventDefault(); submitGrahamSearch(); }
+  });
+  // Digitou a empresa: limpa o ticker p/ a consulta ir pela resolução
+  // do nome (ticker preenchido sempre venceria e ignoraria o nome).
+  if (grahamName) grahamName.addEventListener("input", function () {
+    try {
+      var tick = document.getElementById("tq-graham-input");
+      if (tick && String(tick.value).trim() !== "") tick.value = "";
+    } catch (e) {}
+  });
+
+  // Ao digitar o ticker, busca o nome da empresa e preenche o campo.
+  // Ticker não reconhecido → "Verifique ticker". Com debounce p/ não
+  // disparar a cada tecla; nunca mexe no que o usuário digitou no campo
+  // empresa enquanto ele está com foco nele.
+  var grahamNameTimer = null;
+  var grahamNameLast = "";
+  function lookupGrahamName() {
+    try {
+      var input = document.getElementById("tq-graham-input");
+      var nameInput = document.getElementById("tq-graham-name");
+      if (!input || !nameInput || !window.Graham || !window.Graham.getFundamentals) return;
+      var ticker = String(input.value).trim().toUpperCase();
+      if (ticker.length < 2 || ticker === grahamNameLast) return;
+      grahamNameLast = ticker;
+      window.Graham.getFundamentals(ticker).then(function (fund) {
+        try {
+          var cur = document.getElementById("tq-graham-input");
+          var nm = document.getElementById("tq-graham-name");
+          if (!cur || !nm) return;
+          if (String(cur.value).trim().toUpperCase() !== ticker) return; // corrida: usuário já mudou
+          if (document.activeElement === nm) return; // não atropela digitação
+          nm.value = (fund && fund.name) ? fund.name : "Verifique ticker";
+        } catch (e) {}
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  if (grahamInput) grahamInput.addEventListener("input", function () {
+    if (grahamNameTimer) window.clearTimeout(grahamNameTimer);
+    grahamNameTimer = window.setTimeout(lookupGrahamName, 700);
   });
 
   refresh(true);
