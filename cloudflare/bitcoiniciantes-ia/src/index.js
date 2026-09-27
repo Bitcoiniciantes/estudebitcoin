@@ -708,11 +708,12 @@ async function assetTickerSearch(request, rawName, env) {
 }
 
 // ---------- Fundamentos (LPA/VPA p/ Preço Justo de Graham) ----------
-// Brapi com token no secret BRAPI_TOKEN (nunca no código). Cache 24h
-// (fundamentos mudam 1x/trimestre). Sem token: 503 code=no_token e o
-// front-end usa o fallback anônimo (só LPA, B3).
+// Brapi PRIMEIRO (secret BRAPI_TOKEN); Finnhub como FALLBACK campo a campo
+// (secret FINNHUB_TOKEN — ausente = caminho dorme, sem quebrar nada).
+// Regra inviolável: Finnhub NUNCA sobrescreve dado válido da brapi — só
+// preenche campo ausente/inválido. Cache 24h do normalizado final (v5).
 const FUND_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const FUND_CACHE_PREFIX = "https://bitcoiniciantes-ia.workers.dev/_cache/fundamentals/v4/";
+const FUND_CACHE_PREFIX = "https://bitcoiniciantes-ia.workers.dev/_cache/fundamentals/v5/";
 
 function normFundSymbol(raw) {
   return String(raw || "").trim().toUpperCase().replace(/[\s_\/]/g, "-").slice(0, 16);
@@ -726,6 +727,58 @@ function fundCandidates(raw) {
   if (/^[A-Z]{4}\d{1,2}$/.test(base)) out.push(base + ".SA");
   else if (/^[A-Z]{1,5}$/.test(base)) out.push(base + "34");
   return [...new Set(out)];
+}
+
+// Primeiro número finito da lista (ou null). Usado nas extrações brapi.
+function pickNum(...vals) {
+  for (const v of vals) {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+// Varredura defensiva do mapa `metric` do Finnhub (/stock/metric?metric=all).
+// Não assume nomes exatos: prioriza chaves conhecidas, depois qualquer chave
+// com 'eps'/'bookvalue' (excluindo crescimento/estimativas). Retorna {lpa, vpa}
+// com null no que não achar — nunca inventa número.
+function scanFinnhubMetric(metric) {
+  const flat = {};
+  try {
+    for (const k of Object.keys(metric || {})) {
+      flat[String(k).toLowerCase().replace(/[^a-z]/g, '')] = metric[k];
+    }
+  } catch { return { lpa: null, vpa: null }; }
+  const num = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const pick = (names) => {
+    for (const n of names) {
+      const v = num(flat[n]);
+      if (v != null) return v;
+    }
+    return null;
+  };
+  let lpa = pick(['earningspersharedilutedttm', 'earningspersharettm', 'epsdilutedttm', 'epsttm', 'dilutedepsttm', 'basicepsttm', 'eps', 'earningspershare']);
+  if (lpa == null) {
+    for (const k of Object.keys(flat)) {
+      if (!k.includes('eps')) continue;
+      if (/growth|est|surprise|target|forecast|revision/.test(k)) continue;
+      const v = num(flat[k]);
+      if (v != null) { lpa = v; break; }
+    }
+  }
+  let vpa = pick(['bookvaluepersharettm', 'bookvaluepershare', 'bookvalue', 'bvps']);
+  if (vpa == null) {
+    for (const k of Object.keys(flat)) {
+      if (!k.includes('bookvalue')) continue;
+      if (/growth|ratio/.test(k)) continue;
+      const v = num(flat[k]);
+      if (v != null) { vpa = v; break; }
+    }
+  }
+  return { lpa, vpa };
 }
 
 async function assetFundamentals(request, rawSymbol, env) {
@@ -742,7 +795,9 @@ async function assetFundamentals(request, rawSymbol, env) {
   } catch {
     // cache opcional
   }
-  let body = null;
+  // ---- 1) BRAPI (fonte primária, fluxo inalterado) ----
+  let bq = null;
+  let bvpa = null;
   for (const sym of cands) {
     try {
       const response = await fetchWithTimeout(
@@ -754,13 +809,6 @@ async function assetFundamentals(request, rawSymbol, env) {
       const q = payload && Array.isArray(payload.results) ? payload.results[0] : null;
       const lpa = Number(q && q.earningsPerShare);
       if (!q || !Number.isFinite(lpa)) continue;
-      const pickNum = (...vals) => {
-        for (const v of vals) {
-          const n = Number(v);
-          if (Number.isFinite(n)) return n;
-        }
-        return null;
-      };
       const price = Number.isFinite(Number(q.regularMarketPrice)) ? Number(q.regularMarketPrice) : null;
       let vpa = pickNum(q.bookValuePerShare, q.bookValue, q.bvps);
       // Sem VPA direto na cotação: deriva de P/VP (VPA = preço / P/VP)...
@@ -802,23 +850,61 @@ async function assetFundamentals(request, rawSymbol, env) {
           console.error(`fundamentals-stats-${sym}-error`, statError);
         }
       }
-      body = {
-        ticker: cands[0],
-        symbol: q.symbol || sym,
-        name: q.longName || q.shortName || null,
-        lpa,
-        vpa,
-        price,
-        currency: q.currency || null,
-        source: "brapi",
-        fetchedAt: new Date().toISOString(),
-      };
+      bq = q;
+      bvpa = vpa;
       break;
     } catch (error) {
       console.error(`fundamentals-${sym}-error`, error);
     }
   }
-  if (!body) return json(request, { error: "Fundamentos indisponiveis para este ativo.", code: "no_data" }, 404);
+
+  const good = (v) => Number.isFinite(v) && v > 0;
+  const blpa = bq ? Number(bq.earningsPerShare) : NaN;
+  let lpa = good(blpa) ? blpa : null;
+  let vpa = good(bvpa) ? bvpa : null;
+  let lpaSrc = lpa != null ? 'brapi' : null;
+  let vpaSrc = vpa != null ? 'brapi' : null;
+
+  // ---- 2) FINNHUB (fallback, SOMENTE se algo faltar) ----
+  // Matriz: brapi completa → nem chama; brapi incompleta/timeout/5xx/4xx/429
+  // → tenta; sem FINNHUB_TOKEN → caminho dorme.
+  const finnhubToken = String((env && env.FINNHUB_TOKEN) || "");
+  if ((!lpa || !vpa) && finnhubToken) {
+    for (const sym of cands) {
+      try {
+        const response = await fetchWithTimeout(
+          `https://finnhub.io/api/v1/stock/metric?symbol=${encodeURIComponent(sym)}&metric=all&token=${encodeURIComponent(finnhubToken)}`,
+          10000
+        );
+        const payload = await response.json();
+        const found = scanFinnhubMetric(payload && payload.metric);
+        if (found.lpa == null && found.vpa == null) continue;
+        // Anti-substituição: só preenche o que a brapi não entregou válido.
+        if (!lpa && found.lpa != null) { lpa = found.lpa; lpaSrc = 'finnhub'; }
+        if (!vpa && found.vpa != null) { vpa = found.vpa; vpaSrc = 'finnhub'; }
+        if (lpa && vpa) break;
+      } catch (error) {
+        console.error(`fundamentals-finnhub-${sym}-error`, error);
+      }
+    }
+  }
+
+  if (!bq && lpa == null && vpa == null) {
+    return json(request, { error: "Fundamentos indisponiveis para este ativo.", code: "no_data" }, 404);
+  }
+  const finnhubUsed = lpaSrc === 'finnhub' || vpaSrc === 'finnhub';
+  const body = {
+    ticker: cands[0],
+    symbol: (bq && (bq.symbol || cands[0])) || cands[0],
+    name: (bq && (bq.longName || bq.shortName)) || null,
+    lpa,
+    vpa,
+    price: bq && Number.isFinite(Number(bq.regularMarketPrice)) ? Number(bq.regularMarketPrice) : null,
+    currency: (bq && bq.currency) || null,
+    source: finnhubUsed ? "finnhub" : "brapi",
+    sourceDetail: { lpa: lpaSrc, vpa: vpaSrc },
+    fetchedAt: new Date().toISOString(),
+  };
   try {
     await caches.default.put(cacheKey, new Response(JSON.stringify(body), {
       headers: { "Content-Type": "application/json", "X-Cached-At": String(Date.now()) },
