@@ -595,8 +595,9 @@
 
   // Opts padrão do modal Graham: salva SÓ via Monitorar; informa se o
   // ticker já está na tabela + contagem/limite p/ os estados do botão.
-  function grahamModalOpts(price) {
-    return {
+  // onSettled opcional: {ticker, fund, err} quando a consulta termina.
+  function grahamModalOpts(price, onSettled) {
+    var opts = {
       price: price,
       onMonitor: logGrahamHistory,
       isMonitored: function (t) {
@@ -608,6 +609,8 @@
       },
       monitorInfo: function () { return { count: grahamHistory.length, limit: GRAHAM_HIST_MAX }; }
     };
+    if (onSettled) opts.onSettled = onSettled;
+    return opts;
   }
 
   function logGrahamHistory(result) {
@@ -684,6 +687,26 @@
     grahamHistEl.style.display = show ? "" : "none";
   }
 
+  // Preenche o campo empresa SÓ após Consultar/Enter retornar (zero
+  // chamadas enquanto digita). Nome da fonte; dados válidos sem nome →
+  // o próprio ticker (nunca mensagem de erro); erro → mensagem classificada.
+  function fillGrahamName(settled) {
+    try {
+      if (!settled) return;
+      var cur = document.getElementById("tq-graham-input");
+      var nm = document.getElementById("tq-graham-name");
+      if (!cur || !nm) return;
+      if (String(cur.value).trim().toUpperCase() !== settled.ticker) return; // usuário já mudou
+      if (document.activeElement === nm) return; // não atropela digitação
+      var fund = settled.fund || null;
+      if (fund && fund.name) { nm.value = fund.name; return; }
+      if (fund && (fund.lpa != null || fund.vpa != null || fund.price != null)) { nm.value = settled.ticker; return; }
+      if (settled.err && window.Graham && window.Graham.messageForKind) {
+        nm.value = window.Graham.messageForKind(settled.err.kind);
+      }
+    } catch (e) {}
+  }
+
   function submitGrahamSearch() {
     var input = document.getElementById("tq-graham-input");
     var nameInput = document.getElementById("tq-graham-name");
@@ -691,7 +714,7 @@
     var ticker = input ? String(input.value).trim().toUpperCase() : "";
     if (input && input.value !== ticker) input.value = ticker;
     if (ticker) {
-      if (window.Graham && window.Graham.open) window.Graham.open(ticker, grahamModalOpts(null));
+      if (window.Graham && window.Graham.open) window.Graham.open(ticker, grahamModalOpts(null, fillGrahamName));
       return;
     }
     // Sem ticker: tenta resolver pelo nome da empresa (primeiro resultado).
@@ -702,7 +725,7 @@
       if (goBtn) { goBtn.disabled = false; goBtn.textContent = "Consultar"; }
       if (hit && hit.ticker) {
         if (input) input.value = hit.ticker;
-        window.Graham.open(hit.ticker, grahamModalOpts(null));
+        window.Graham.open(hit.ticker, grahamModalOpts(null, fillGrahamName));
       } else if (nameInput) {
         nameInput.title = "Empresa não encontrada — tente o ticker direto.";
       }
@@ -728,35 +751,37 @@
     } catch (e) {}
   });
 
-  // Ao digitar o ticker, busca o nome da empresa e preenche o campo.
-  // Ticker não reconhecido → "Verifique ticker". Com debounce p/ não
-  // disparar a cada tecla; nunca mexe no que o usuário digitou no campo
-  // empresa enquanto ele está com foco nele.
-  var grahamNameTimer = null;
-  var grahamNameLast = "";
-  function lookupGrahamName() {
+  // Busca ao vivo do nome (B3): usa /api/tickers/search (SEM rate limit
+  // diário) — nunca /api/fundamentals. Preenche SÓ em match exato do
+  // ticker; sem match não escreve nada (erro só no Consultar, com as
+  // mensagens classificadas). <2 letras nem consulta. Fora do catálogo
+  // (ex.: EUA), o campo fica vazio até o Consultar. Nunca mexe no que o
+  // usuário digitou no campo empresa enquanto ele está com foco nele.
+  var grahamLiveTimer = null;
+  var grahamLiveLast = "";
+  function lookupGrahamNameLive() {
     try {
       var input = document.getElementById("tq-graham-input");
       var nameInput = document.getElementById("tq-graham-name");
-      if (!input || !nameInput || !window.Graham || !window.Graham.getFundamentals) return;
+      if (!input || !nameInput || !window.Graham || !window.Graham.lookupTickerName) return;
       var ticker = String(input.value).trim().toUpperCase();
-      if (ticker.length < 2 || ticker === grahamNameLast) return;
-      grahamNameLast = ticker;
-      window.Graham.getFundamentals(ticker).then(function (fund) {
+      if (ticker.length < 2 || ticker === grahamLiveLast) return;
+      grahamLiveLast = ticker;
+      window.Graham.lookupTickerName(ticker).then(function (name) {
         try {
           var cur = document.getElementById("tq-graham-input");
           var nm = document.getElementById("tq-graham-name");
           if (!cur || !nm) return;
           if (String(cur.value).trim().toUpperCase() !== ticker) return; // corrida: usuário já mudou
           if (document.activeElement === nm) return; // não atropela digitação
-          nm.value = (fund && fund.name) ? fund.name : "Verifique ticker";
+          if (name) nm.value = name; // match exato; sem match: intocado
         } catch (e) {}
       }).catch(function () {});
     } catch (e) {}
   }
   if (grahamInput) grahamInput.addEventListener("input", function () {
-    if (grahamNameTimer) window.clearTimeout(grahamNameTimer);
-    grahamNameTimer = window.setTimeout(lookupGrahamName, 700);
+    if (grahamLiveTimer) window.clearTimeout(grahamLiveTimer);
+    grahamLiveTimer = window.setTimeout(lookupGrahamNameLive, 700);
   });
 
   refresh(true);

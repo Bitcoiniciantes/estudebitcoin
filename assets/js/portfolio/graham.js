@@ -71,7 +71,57 @@
     return /^[A-Z]{4}\d{1,2}(-UNIT)?$/.test(String(t || ''));
   }
 
+  /* ---------- 3b. Erros classificados (UX, sem tocar no cálculo) ----------
+     429/rate_limited → limite do dia; 404/inexistente → ticker inválido;
+     resto (5xx, rede, timeout) → falha temporária. */
+
+  var MSG_RATE_LIMITED = 'Muitas consultas hoje, tente novamente mais tarde.';
+  var MSG_NOT_FOUND = 'Verifique ticker.';
+  var MSG_TRANSIENT = 'Não foi possível carregar os dados. Tente novamente.';
+
+  function isRateLimited(err) {
+    return !!err && (err.code === 'rate_limited' || err.status === 429);
+  }
+
+  // Precedência: se o Worker disse rate_limited, esse é o erro final —
+  // mesmo que o fallback (brapi anônima) falhe com 404 (ela não cobre EUA).
+  function classifyFundError(workerErr, anonErr) {
+    if (isRateLimited(workerErr)) return 'rate_limited';
+    if (workerErr && workerErr.status != null) {
+      return workerErr.status >= 500 ? 'transient' : 'not_found';
+    }
+    // Worker respondeu 200 sem LPA/VPA (code 'empty') ≈ ticker sem cobertura.
+    if (workerErr && workerErr.code === 'empty') return 'not_found';
+    void anonErr;
+    return 'transient'; // sem status: rede/timeout no Worker
+  }
+
+  function messageForKind(kind) {
+    if (kind === 'rate_limited') return MSG_RATE_LIMITED;
+    if (kind === 'not_found') return MSG_NOT_FOUND;
+    return MSG_TRANSIENT;
+  }
+
+  function fundError(kind, workerErr) {
+    var err = new Error(kind);
+    err.kind = kind;
+    if (workerErr) {
+      if (workerErr.status != null) err.status = workerErr.status;
+      if (workerErr.code != null) err.code = workerErr.code;
+    }
+    return err;
+  }
+
   /* ---------- 3. Busca de fundamentos ---------- */
+
+  // Erro HTTP com status/code preservados (ex.: 429 + code
+  // 'rate_limited'). Sem isso, todo erro vira "Verifique ticker".
+  function httpError(status, code) {
+    var err = new Error('HTTP ' + status);
+    err.status = status;
+    if (code != null && code !== '') err.code = code;
+    return err;
+  }
 
   function fetchJSON(url) {
     var ctrl = null;
@@ -84,7 +134,17 @@
     } catch (e) {}
     return fetch(url, ctrl ? { signal: ctrl.signal, cache: 'no-store' } : { cache: 'no-store' }).then(function (res) {
       if (timer) clearTimeout(timer);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) {
+        var status = res.status;
+        if (res.json && typeof res.json === 'function') {
+          return res.json().then(function (body) {
+            throw httpError(status, body && (body.code || body.error_code));
+          }, function () {
+            throw httpError(status, null); // corpo não-JSON: status preservado
+          });
+        }
+        throw httpError(status, null);
+      }
       return res.json();
     }).catch(function (err) {
       if (timer) clearTimeout(timer);
@@ -154,6 +214,29 @@
       .catch(function () { return null; });
   }
 
+  // Busca ao vivo ticker -> nome (catálogo B3 via Worker, SEM rate limit
+  // diário — nunca toca /api/fundamentals). Retorna o name SOMENTE em
+  // match exato do ticker; sem match, null (o campo empresa fica intocado,
+  // sem mensagem de erro — erro só aparece no Consultar). <2 letras: nem
+  // consulta. Fora do catálogo (ex.: EUA): null até o Consultar.
+  function lookupTickerName(rawTicker) {
+    var ticker = normTicker(rawTicker).replace(/-/g, '');
+    if (ticker.length < 2) return Promise.resolve(null);
+    return fetchJSON(WORKER_SEARCH + '?name=' + encodeURIComponent(ticker))
+      .then(function (payload) {
+        var list = payload && Array.isArray(payload.results) ? payload.results : [];
+        for (var i = 0; i < list.length; i++) {
+          var t = normTicker(list[i] && list[i].ticker).replace(/-/g, '');
+          if (t && t === ticker) {
+            var nm = list[i].name;
+            return (typeof nm === 'string' && nm.trim()) ? nm.trim() : null;
+          }
+        }
+        return null;
+      })
+      .catch(function () { return null; });
+  }
+
   function getFundamentals(rawTicker) {
     var ticker = normTicker(rawTicker);
     if (!ticker) return Promise.resolve(null);
@@ -167,11 +250,16 @@
           cache[ticker] = { data: data, at: Date.now() };
           return data;
         }
-        throw new Error('sem fundamentos no worker');
+        var empty = new Error('sem fundamentos no worker');
+        empty.code = 'empty'; // 200 sem LPA/VPA: tenta anônima, senão null (sem erro)
+        throw empty;
       })
-      .catch(function () {
+      .catch(function (workerErr) {
         // 2) Fallback: brapi anônima (B3, só LPA — sem VPA o Graham
         // retorna null e o modal explica; nunca finge resultado).
+        // Worker 200 sem dados (code 'empty') = ticker reconhecido sem
+        // cobertura: mantém o null antigo, sem classificar como erro.
+        var workerFailed = !(workerErr && workerErr.code === 'empty');
         var b3 = ticker.replace(/-/g, '');
         return fetchJSON(BRAPI_ANON + encodeURIComponent(b3))
           .then(function (payload) {
@@ -182,7 +270,12 @@
             }
             return null;
           })
-          .catch(function () { return null; });
+          .catch(function (anonErr) {
+            if (!workerFailed) return null;
+            // Falha total: rejeita com erro CLASSIFICADO (nunca null
+            // silencioso). rate_limited do Worker vence o 404 do fallback.
+            throw fundError(classifyFundError(workerErr, anonErr), workerErr);
+          });
       });
   }
 
@@ -344,7 +437,7 @@
 
   // Abre o modal p/ QUALQUER ticker. opts: {price (atual, USD),
   // onMonitor(resultado), isMonitored(ticker)->bool,
-  // monitorInfo()->{count, limit}}.
+  // monitorInfo()->{count, limit}, onSettled({ticker, fund, err})}.
   // A tabela SÓ recebe o ativo via botão Monitorar — fechar/X/Esc/clique
   // fora apenas fecha, sem salvar. Se price não vier, tenta o preço que
   // acompanha os fundamentos.
@@ -408,9 +501,16 @@
       closeModal();
     });
 
+    function notifySettled(fund, err) {
+      try {
+        if (opts.onSettled) opts.onSettled({ ticker: ticker, fund: fund, err: err || null });
+      } catch (e) {}
+    }
+
     var optPrice = Number(opts.price);
     getFundamentals(ticker).then(function (fund) {
       if (!overlay) return; // fechado durante o fetch
+      notifySettled(fund, null);
       var current = Number.isFinite(optPrice) && optPrice > 0 ? optPrice
         : (fund && fund.price > 0 ? (fund.currency === 'BRL' ? toUSD(fund.price, 'BRL') : fund.price) : null);
       // Preço vindo dos fundamentos em BRL é convertido p/ USD p/ comparar.
@@ -457,9 +557,10 @@
       } else {
         setMonitor('ready');
       }
-    }).catch(function () {
+    }).catch(function (err) {
       if (!overlay) return;
-      body.innerHTML = '<p class="gb-note">Não foi possível carregar os fundamentos agora. Tente novamente.</p>';
+      notifySettled(null, err);
+      body.innerHTML = '<p class="gb-note">' + esc(messageForKind(err && err.kind)) + '</p>';
     });
   }
 
@@ -621,8 +722,10 @@
     podeMonitorar: podeMonitorar,
     getFundamentals: getFundamentals,
     resolveTicker: resolveTicker,
+    lookupTickerName: lookupTickerName, // ao vivo (search, sem rate limit)
     open: open,
     close: closeModal,
+    messageForKind: messageForKind, // 'rate_limited'|'not_found'|'transient' -> texto
     Cloud: GrahamCloud,
     // Superfície de teste (sem efeito no comportamento normal).
     _test: {
@@ -630,6 +733,8 @@
       normTicker: normTicker,
       looksB3: looksB3,
       toUSD: toUSD,
+      fetchJSON: fetchJSON,
+      classifyFundError: classifyFundError,
       setRate: function (r) { usdBrlRate = r; },
       clearCache: function () { cache = {}; }
     }
