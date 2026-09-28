@@ -89,6 +89,36 @@ async function openModal(ticker, opts) {
   return { doc, monitor: doc._parts.monitor };
 }
 
+describe('podeMonitorar (trava na gravação)', () => {
+  const fundOk = { lpa: 10, vpa: 40 };
+  const mkList = (n) => {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push({ ticker: 'T' + i });
+    return out;
+  };
+
+  it('7. lista vazia + justo ok → ok', () => {
+    assert.deepEqual(G.podeMonitorar([], { ticker: 'X', fund: fundOk }, 30), { ok: true, reason: null });
+  });
+  it('8. já monitorado → monitored', () => {
+    assert.deepEqual(
+      G.podeMonitorar([{ ticker: 'X' }], { ticker: 'x', fund: fundOk }, 30),
+      { ok: false, reason: 'monitored' });
+  });
+  it('9. sem fundo/sem LPA/VPA → missing', () => {
+    assert.equal(G.podeMonitorar([], { ticker: 'X', fund: null }, 30).reason, 'missing');
+    assert.equal(G.podeMonitorar([], { ticker: 'X', fund: { lpa: 10, vpa: null } }, 30).reason, 'missing');
+  });
+  it('10. negativo/zero → negative', () => {
+    assert.equal(G.podeMonitorar([], { ticker: 'X', fund: { lpa: -1, vpa: 40 } }, 30).reason, 'negative');
+    assert.equal(G.podeMonitorar([], { ticker: 'X', fund: { lpa: 10, vpa: 0 } }, 30).reason, 'negative');
+  });
+  it('11. 30 itens → limit; 29 → ok', () => {
+    assert.equal(G.podeMonitorar(mkList(30), { ticker: 'NEW', fund: fundOk }, 30).reason, 'limit');
+    assert.equal(G.podeMonitorar(mkList(29), { ticker: 'NEW', fund: fundOk }, 30).ok, true);
+  });
+});
+
 describe('botão Monitorar (sem API)', () => {
   beforeEach(() => {
     stubFetch();

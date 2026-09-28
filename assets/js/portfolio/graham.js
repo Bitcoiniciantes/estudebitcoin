@@ -300,6 +300,35 @@
     return html;
   }
 
+  // Validação da gravação (trava real, além do botão desabilitado).
+  // Pura e testável: recebe a lista atual + resultado do modal + limite.
+  // Retorna {ok:true} ou {ok:false, reason:'monitored'|'missing'|'negative'|'limit'}.
+  function podeMonitorar(list, result, limit) {
+    var items = Array.isArray(list) ? list : [];
+    var max = Number(limit) > 0 ? Number(limit) : 30;
+    var t = result && result.ticker ? String(result.ticker).trim().toUpperCase() : '';
+    if (!t) return { ok: false, reason: 'missing' };
+    for (var i = 0; i < items.length; i++) {
+      if (items[i] && String(items[i].ticker || '').trim().toUpperCase() === t) {
+        return { ok: false, reason: 'monitored' };
+      }
+    }
+    var fund = result.fund || null;
+    var toNum = function (v) {
+      if (v == null || v === '') return NaN; // null ≠ 0 (Number(null) === 0!)
+      return Number(v);
+    };
+    var lpa = toNum(fund && fund.lpa);
+    var vpa = toNum(fund && fund.vpa);
+    var hasLpa = Number.isFinite(lpa);
+    var hasVpa = Number.isFinite(vpa);
+    if (!hasLpa || !hasVpa) return { ok: false, reason: 'missing' };
+    if (lpa <= 0 || vpa <= 0) return { ok: false, reason: 'negative' };
+    if (calcularPrecoJustoGraham(lpa, vpa) == null) return { ok: false, reason: 'missing' };
+    if (items.length >= max) return { ok: false, reason: 'limit' };
+    return { ok: true, reason: null };
+  }
+
   function toast(msg) {
     try {
       var el = document.createElement('div');
@@ -586,6 +615,7 @@
   var api = {
     calcularPrecoJustoGraham: calcularPrecoJustoGraham,
     verdict: verdict,
+    podeMonitorar: podeMonitorar,
     getFundamentals: getFundamentals,
     resolveTicker: resolveTicker,
     open: open,

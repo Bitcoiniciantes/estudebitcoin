@@ -544,14 +544,13 @@
     if (!grahamHistory.length) { grahamHistEl.innerHTML = ""; return; }
     // Ordem alfabética por empresa (pt-BR, sem acento/maiúsculas);
     // sem nome → ticker; desempate por ticker. Só visual.
-    var sorted = grahamHistory.slice().sort(function (a, b) {
-      var na = (a.name || a.ticker || '').toString();
+    var sorted = grahamHistory.slice().sort(function (a, b) {      var na = (a.name || a.ticker || '').toString();
       var nb = (b.name || b.ticker || '').toString();
       var c = na.localeCompare(nb, 'pt-BR', { sensitivity: 'base' });
       if (c !== 0) return c;
       return String(a.ticker || '').localeCompare(String(b.ticker || ''), 'pt-BR', { sensitivity: 'base' });
     });
-    var html = '<table><thead><tr><th>Empresa</th><th>Ticker</th><th>Hoje</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th><th></th></tr></thead><tbody>';
+    var html = '<div class="tq-graham-hist-title">Ativos monitorados</div><table><thead><tr><th>Empresa</th><th>Ticker</th><th>Hoje</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th><th></th></tr></thead><tbody>';
     // Taxa p/ a coluna Reais (Atual USD → BRL): vem do próprio ticker USDT-BRL.
     var rate = Number(cardPrices["USDT-BRL"]);
     if (!Number.isFinite(rate) || rate <= 0) rate = null;
@@ -559,9 +558,12 @@
       var h = sorted[i];
       var cls = h.upside == null ? "" : (h.upside > 0 ? "tq-h-up" : (h.upside < 0 ? "tq-h-down" : ""));
       var reais = (rate != null && h.currentUSD != null) ? h.currentUSD * rate : null;
+      // Selo p/ linhas antigas sem justo calculável (só visual, sem apagar).
+      var flag = (h.fairUSD == null && h.fairBRL == null)
+        ? ' <span class="tq-h-flag">dados incompletos</span>' : '';
       html += '<tr data-ticker="' + esc(symbolKey(h.ticker)) + '">' +
         '<td>' + esc(h.name || '—') + '</td>' +
-        '<td><b>' + esc(h.ticker) + '</b></td>' +
+        '<td><b>' + esc(h.ticker) + '</b>' + flag + '</td>' +
         '<td>' + esc(fmtShortUSD(h.currentUSD)) + '</td>' +
         '<td>' + esc(fmtShortBRL(reais)) + '</td>' +
         '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +
@@ -614,6 +616,13 @@
       // Trava: ticker não reconhecido (fonte sem nenhum dado) não
       // alimenta a tabela — o modal já informa a indisponibilidade.
       if (!result.fund) return;
+      // Trava real (além do botão): só grava via podeMonitorar.
+      try {
+        var host = (typeof window !== 'undefined') ? window : null;
+        var chk = host && host.Graham && host.Graham.podeMonitorar
+          ? host.Graham.podeMonitorar(grahamHistory, result, GRAHAM_HIST_MAX) : { ok: true };
+        if (!chk || !chk.ok) return;
+      } catch (e) { return; }
       var t = String(result.ticker).trim().toUpperCase();
       var cur = Number(result.current);
       var fair = Number(result.fairUSD);
