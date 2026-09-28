@@ -103,4 +103,10 @@ describe('símbolos e moeda (_test)', () => {
     G._test.setRate(null);
     assert.equal(G._test.toUSD(100, 'BRL'), null); // sem taxa: sem conversão
   });
+  it('17. toUSD nunca retorna 0 para ausente (Number(null) === 0)', () => {
+    assert.equal(G._test.toUSD(null, 'USD'), null);
+    assert.equal(G._test.toUSD(undefined, 'USD'), null);
+    assert.equal(G._test.toUSD('', 'USD'), null);
+    assert.equal(G._test.toUSD(NaN, 'BRL'), null);
+  });
 });

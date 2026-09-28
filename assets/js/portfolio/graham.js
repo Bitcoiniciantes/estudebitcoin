@@ -201,6 +201,7 @@
   }
 
   function toUSD(value, currency) {
+    if (value == null || value === '') return null; // Number(null) === 0!
     var v = Number(value);
     if (!Number.isFinite(v)) return null;
     if (!currency || currency === 'USD') return v;
@@ -258,20 +259,22 @@
     var fairUSD = fair != null ? toUSD(fair, fairCur) : null;
     var curUSD = toUSD(currentPrice, 'USD');
     var v = (curUSD != null && fairUSD != null) ? verdict(curUSD, fairUSD) : null;
+    // Ausente (null) → "Dados ausentes". Zero/negativo é dado real e aparece
+    // como número (com a mensagem explicativa própria abaixo). O Preço justo
+    // mantém o traço "—" original.
+    var showLpa = fund && fund.lpa != null;
+    var showVpa = fund && fund.vpa != null;
+    var miss = '<span class="gb-miss">Dados ausentes</span>';
 
     var html = '';
     html += '<div class="gb-rows">';
-    // LPA/VPA zerados (ex.: brapi EUA devolve 0 como placeholder) valem
-    // como ausentes na exibição — a fórmula já os rejeita no cálculo.
-    var showLpa = fund && fund.lpa != null && fund.lpa > 0;
-    var showVpa = fund && fund.vpa != null && fund.vpa > 0;
-    html += '<div class="gb-row"><span>LPA — lucro por ação</span><strong>' + (showLpa ? esc(fmtMoney(fund.lpa, fairCur)) : '—') + '</strong></div>';
-    html += '<div class="gb-row"><span>VPA — valor patrimonial por ação</span><strong>' + (showVpa ? esc(fmtMoney(fund.vpa, fairCur)) : '—') + '</strong></div>';
+    html += '<div class="gb-row"><span>LPA — lucro por ação</span><strong>' + (showLpa ? esc(fmtMoney(fund.lpa, fairCur)) : miss) + '</strong></div>';
+    html += '<div class="gb-row"><span>VPA — valor patrimonial por ação</span><strong>' + (showVpa ? esc(fmtMoney(fund.vpa, fairCur)) : miss) + '</strong></div>';
     html += '<div class="gb-row gb-total"><span>Preço justo (Graham)</span><strong>' + (fair != null ? esc(fmtMoney(fair, fairCur)) : '—') + '</strong></div>';
     if (fair != null && fairCur && fairCur !== 'USD' && fairUSD != null) {
       html += '<div class="gb-row"><span>Preço justo em USD</span><strong>' + esc(fmtMoney(fairUSD, 'USD')) + '</strong></div>';
     }
-    html += '<div class="gb-row"><span>Preço atual</span><strong>' + (curUSD != null ? esc(fmtMoney(curUSD, 'USD')) : '—') + '</strong></div>';
+    html += '<div class="gb-row"><span>Preço atual</span><strong>' + (curUSD != null ? esc(fmtMoney(curUSD, 'USD')) : miss) + '</strong></div>';
     html += '</div>';
 
     if (v) {

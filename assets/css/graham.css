@@ -84,6 +84,7 @@
 .gb-chip.gb-justo { color: #22d3ee; border-color: rgba(34, 211, 238, 0.5); background: rgba(34, 211, 238, 0.1); }
 .gb-note { font-size: 12px; line-height: 1.55; color: #9aa5b1; margin: 10px 0 0; }
 .gb-src { font-size: 11px; color: #6b7683; margin: 12px 0 0; }
+.gb-miss { font-size: 12px; font-weight: 400; color: #9aa5b1; white-space: nowrap; }
 .gb-foot {
   display: flex;
   gap: 10px;
