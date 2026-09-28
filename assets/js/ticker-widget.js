@@ -687,9 +687,20 @@
     grahamHistEl.style.display = show ? "" : "none";
   }
 
+  // Ticker cujo nome está exibido no campo empresa (default do HTML ou
+  // último preenchimento). Divergiu → o nome exibido é obsoleto e o campo
+  // é limpo ao digitar (nunca exibe nome de outra empresa ao lado do novo
+  // ticker). Inicializa com o valor default da barra (ex.: ITUB4).
+  var lastNameTicker = "";
+  try {
+    var lastNameInit = document.getElementById("tq-graham-input");
+    if (lastNameInit) lastNameTicker = String(lastNameInit.value).trim().toUpperCase();
+  } catch (e) {}
+
   // Preenche o campo empresa SÓ após Consultar/Enter retornar (zero
   // chamadas enquanto digita). Nome da fonte; dados válidos sem nome →
   // o próprio ticker (nunca mensagem de erro); erro → mensagem classificada.
+  // Todo preenchimento com sucesso atualiza lastNameTicker.
   function fillGrahamName(settled) {
     try {
       if (!settled) return;
@@ -699,8 +710,8 @@
       if (String(cur.value).trim().toUpperCase() !== settled.ticker) return; // usuário já mudou
       if (document.activeElement === nm) return; // não atropela digitação
       var fund = settled.fund || null;
-      if (fund && fund.name) { nm.value = fund.name; return; }
-      if (fund && (fund.lpa != null || fund.vpa != null || fund.price != null)) { nm.value = settled.ticker; return; }
+      if (fund && fund.name) { nm.value = fund.name; lastNameTicker = settled.ticker; return; }
+      if (fund && (fund.lpa != null || fund.vpa != null || fund.price != null)) { nm.value = settled.ticker; lastNameTicker = settled.ticker; return; }
       if (settled.err && window.Graham && window.Graham.messageForKind) {
         nm.value = window.Graham.messageForKind(settled.err.kind);
       }
@@ -774,12 +785,23 @@
           if (!cur || !nm) return;
           if (String(cur.value).trim().toUpperCase() !== ticker) return; // corrida: usuário já mudou
           if (document.activeElement === nm) return; // não atropela digitação
-          if (name) nm.value = name; // match exato; sem match: intocado
+          if (name) { nm.value = name; lastNameTicker = ticker; } // match exato; sem match: intocado
         } catch (e) {}
       }).catch(function () {});
     } catch (e) {}
   }
   if (grahamInput) grahamInput.addEventListener("input", function () {
+    // Nome obsoleto: ticker divergiu do ticker resolvido → limpa o campo
+    // (exceto com foco nele, p/ não apagar digitação do nome da empresa).
+    try {
+      var curTyped = document.getElementById("tq-graham-input");
+      var nmShown = document.getElementById("tq-graham-name");
+      if (curTyped && nmShown &&
+          String(curTyped.value).trim().toUpperCase() !== lastNameTicker &&
+          document.activeElement !== nmShown) {
+        nmShown.value = "";
+      }
+    } catch (e) {}
     if (grahamLiveTimer) window.clearTimeout(grahamLiveTimer);
     grahamLiveTimer = window.setTimeout(lookupGrahamNameLive, 700);
   });

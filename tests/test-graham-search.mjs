@@ -88,7 +88,7 @@ function loadWidget() {
   vm.createContext(sandbox);
   const src = fs.readFileSync(path.join(ROOT, 'assets/js/ticker-widget.js'), 'utf8');
   vm.runInContext(src, sandbox, { filename: 'ticker-widget.js' });
-  return { els, timers, fetchUrls, grahamStub, fire, flush: () => new Promise((r) => setImmediate(r)), runTimers };
+  return { els, timers, fetchUrls, grahamStub, fire, flush: () => new Promise((r) => setImmediate(r)), runTimers, doc: fakeDocument };
 
   function fire(el, type, extra) {
     const list = (el._listeners[type] || []).slice();
@@ -151,6 +151,32 @@ describe('busca Graham ao vivo (search, sem rate limit)', () => {
     assert.deepEqual(H.grahamStub.lookupCalls, ['AAPL'], 'consultou a search');
     assert.equal(H.els['tq-graham-name'].value, '', 'sem match: sem erro no campo');
     assert.ok(!H.fetchUrls.some((u) => u.includes('fundamentals')), 'sem match: ainda zero fundamentals');
+  });
+  it('5d. trocar de ticker limpa nome obsoleto na hora (sem esperar debounce)', async () => {
+    reset();
+    H.grahamStub.lookupResult = 'Petróleo Brasileiro S.A. - Petrobras';
+    typeTicker('PETR4');
+    H.runTimers();
+    await H.flush();
+    assert.equal(H.els['tq-graham-name'].value, 'Petróleo Brasileiro S.A. - Petrobras');
+    H.grahamStub.lookupResult = null;
+    typeTicker('AAPL'); // só o input, sem rodar timers
+    assert.equal(H.els['tq-graham-name'].value, '', 'nome de outra empresa não fica parado');
+    H.runTimers();
+    await H.flush();
+    assert.equal(H.els['tq-graham-name'].value, '', 'sem match: continua vazio, sem erro');
+  });
+  it('5e. foco no campo empresa protege digitação manual do nome', async () => {
+    reset();
+    H.grahamStub.lookupResult = 'Petróleo Brasileiro S.A. - Petrobras';
+    typeTicker('PETR4');
+    H.runTimers();
+    await H.flush();
+    H.els['tq-graham-name'].value = 'Minha anotação';
+    H.doc.activeElement = H.els['tq-graham-name']; // usuário digitando o nome
+    typeTicker('AAPL');
+    assert.equal(H.els['tq-graham-name'].value, 'Minha anotação', 'não apaga digitação');
+    H.doc.activeElement = null;
   });
 });
 
