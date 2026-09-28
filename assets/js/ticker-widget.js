@@ -514,6 +514,9 @@
 
   // Histórico da sessão (só memória; some ao recarregar). Tabela abaixo da
   // busca, visível só na aba STOCKS. Linha clicável reabre o modal.
+  // Trava anti-abuso (site público): máx. 30 linhas, FIFO silencioso —
+  // a consulta nunca é bloqueada, só o histórico rotaciona.
+  var GRAHAM_HIST_MAX = 30;
   var grahamHistory = []; // [{ticker, currentUSD, fairUSD, upside}]
   var grahamHistEl = document.createElement("div");
   grahamHistEl.className = "tq-graham-hist";
@@ -602,6 +605,7 @@
       }
       if (idx >= 0) grahamHistory[idx] = entry;
       else grahamHistory.push(entry);
+      while (grahamHistory.length > GRAHAM_HIST_MAX) grahamHistory.shift();
       renderGrahamHistory();
       // Persistência (só logados; anônimo: memória da sessão).
       try {

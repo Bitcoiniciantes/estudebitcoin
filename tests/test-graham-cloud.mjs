@@ -102,12 +102,12 @@ describe('GrahamCloud', () => {
     assert.deepEqual(view, [], 'nuvem vazia do uid-B → visão vazia');
   });
 
-  it('7. cleanItems: cap 50, descarta lixo, preserva campos', () => {
+  it('7. cleanItems: cap 30, descarta lixo, preserva campos', () => {
     const big = [];
-    for (let i = 0; i < 60; i++) big.push(entry('T' + i));
+    for (let i = 0; i < 40; i++) big.push(entry('T' + i));
     big.push(null, 'x', {}, { ticker: '' }, { ticker: 'OK', name: '  Nome  ', currentUSD: -5, fairUSD: 'abc', upside: NaN });
     const cleaned = G.Cloud._test.cleanItems(big);
-    assert.equal(cleaned.length, 50, 'cap');
+    assert.equal(cleaned.length, 30, 'cap');
     assert.ok(cleaned.every((h) => h.ticker), 'sem ticker vazio');
   });
 

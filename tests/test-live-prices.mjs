@@ -244,4 +244,9 @@ describe('TTL por origem + prioridade (caminho real)', () => {
     assert.equal(tdCount, thCount, `td (${tdCount}) == th (${thCount})`);
     assert.ok(TICKER_SRC.includes('fmtShortBRL(h.fairBRL)'), 'célula Preço Justo R$ presente');
   });
+
+  it('widget: histórico Graham limitado a 30 (FIFO anti-abuso)', () => {
+    assert.ok(TICKER_SRC.includes('GRAHAM_HIST_MAX = 30'), 'cap nomeado em 30');
+    assert.ok(TICKER_SRC.includes('while (grahamHistory.length > GRAHAM_HIST_MAX) grahamHistory.shift();'), 'evicção FIFO');
+  });
 });

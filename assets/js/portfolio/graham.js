@@ -368,7 +368,7 @@
      Tudo silencioso: falha de rede/permissão nunca quebra a consulta. */
 
   var GrahamCloud = (function () {
-    var MAX_ITEMS = 50;
+    var MAX_ITEMS = 30; // mesmo cap da tabela (anti-abuso, site público)
     var PUSH_DEBOUNCE_MS = 2000;
     var cbs = null; // {getHistory, setHistory}
     var uid = null;
