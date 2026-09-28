@@ -732,10 +732,27 @@ da sessão com upside em USD); cobertura real: B3 completa, EUA parcial
 | `assets/js/ticker-widget.js` | Botão ⚖ nos cards STOCKS, busca avulsa + tabela (só aba STOCKS), fiação Cloud |
 
 **Nuvem do histórico (SÓ logados):** `GrahamCloud` salva
-`users/{uid}/panels/graham` (`{items[] cap 50, updatedAt}`, debounce 2s,
-falha silenciosa; herda rules por dono, sem mudança no console). Anônimo =
-só memória (sem localStorage). Login → pull (nuvem vence); logout/troca de
-conta → limpa a visão. Testes: `tests/test-graham.mjs` (16) e
+`users/{uid}/panels/graham` (`{items[] cap 30, updatedAt}`, debounce 2s,
+falha silenciosa; herda rules por dono, sem mudança no console). Tabela
+local com o mesmo cap 30 (FIFO silencioso, anti-abuso — site público).
+Anônimo = só memória (sem localStorage). Login → pull (nuvem vence);
+logout/troca de conta → limpa a visão. Testes: `tests/test-graham.mjs` (16) e
 `tests/test-graham-cloud.mjs` (8, firebase/auth stubados).
+
+**Rate limit de `/api/fundamentals` (só IP, sem teto global):** 50 consultas
+upstream (cache-miss) por IP/dia, chave `fund:rl:{YYYY-MM-DD}:{IP}` no
+`PUBLIC_MARKERS` existente (sem binding novo), `expirationTtl` até a virada
+UTC (mínimo 60s). Ordem: cache 24h → hit não toca KV; miss → GET, `>= 50`
+devolve `429 {error, code: "rate_limited"}`, senão PUT+1 antes do upstream
+(conta mesmo se as fontes falharem). Fail-open total (KV fora → segue +
+`console.error`). GET→incremento→PUT não é atômico + KV eventual ⇒ rajadas
+podem estourar em margem pequena (anti-abuso aproximado, sem D.O.).
+**caches.default é por datacenter** (não "global"): o mesmo ticker pode dar
+cache-miss em locais diferentes — estimativa por miss: 1 GET + 1 PUT KV.
+Cota KV free (1.000 writes/dia) é da conta (disputa com `ALERTAS_KV`, cujo
+cron faz 0 PUTs típicos, 1 em ciclos com evento). Front intocado.
+**PENDENTE:** proteção contra rotação de IP fora desta versão — revisitar só
+com abuso real, com mecanismo fora do KV. Teste:
+`cloudflare/bitcoiniciantes-ia/test/test-ratelimit.mjs` (9, KV/fetch stubados).
 
 

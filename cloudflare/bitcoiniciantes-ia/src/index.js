@@ -729,7 +729,42 @@ function fundCandidates(raw) {
   return [...new Set(out)];
 }
 
-// Primeiro número finito da lista (ou null). Usado nas extrações brapi.
+// ---------- Rate limit de /api/fundamentals (anti-abuso APROXIMADO) ----------
+// Limite: 50 consultas UPSTREAM (cache-miss) por IP por dia. Chave
+// fund:rl:{YYYY-MM-DD}:{IP} no PUBLIC_MARKERS existente (sem binding novo).
+// IMPORTANTE:
+// - GET → incremento → PUT NÃO é atômico e o KV tem consistência eventual:
+//   rajadas concorrentes podem ultrapassar o limite em pequena margem.
+// - caches.default é POR DATACENTER: o mesmo ticker pode gerar cache-miss
+//   (e consumir contador) em locais diferentes. A estimativa de consumo
+//   por cache-miss é: 1 GET KV + 1 PUT KV.
+// - Sem contador global nesta versão (a cota de writes é agregada à conta;
+//   2 PUTs por consulta dobraria o consumo). Proteção contra rotação de IP:
+//   PENDENTE (revisitar só com abuso real, com mecanismo fora do KV).
+const FUND_RL_LIMIT = 50;
+
+function rlKeyFor(ip, nowMs) {
+  const day = new Date(nowMs).toISOString().slice(0, 10); // UTC: YYYY-MM-DD
+  return `fund:rl:${day}:${ip}`;
+}
+
+// Segundos até a próxima virada UTC. KV rejeita expirationTtl < 60,
+// então o mínimo é 60 (cobre requests nos últimos segundos do dia).
+function rlTtlSeconds(nowMs) {
+  const d = new Date(nowMs);
+  const nextMidnight = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+  return Math.max(60, Math.floor((nextMidnight - nowMs) / 1000));
+}
+
+function rlClientIp(request) {
+  try {
+    return String(request.headers.get("CF-Connecting-IP") || "").trim().slice(0, 64);
+  } catch {
+    return "";
+  }
+}
+
+export { rlKeyFor, rlTtlSeconds, FUND_RL_LIMIT };
 function pickNum(...vals) {
   for (const v of vals) {
     const n = Number(v);
@@ -794,6 +829,33 @@ async function assetFundamentals(request, rawSymbol, env) {
     }
   } catch {
     // cache opcional
+  }
+  // ---- Rate limit por IP (SOMENTE em cache-miss; hit acima já retornou) ----
+  // Fail-open: qualquer exceção no KV → segue p/ o upstream normalmente.
+  const rlIp = rlClientIp(request);
+  const rlKey = rlIp ? rlKeyFor(rlIp, Date.now()) : null;
+  let rlCount = 0;
+  let rlEnforced = false;
+  if (rlKey && env.PUBLIC_MARKERS) {
+    try {
+      const raw = await env.PUBLIC_MARKERS.get(rlKey);
+      const n = Number(raw);
+      rlCount = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+      rlEnforced = true;
+    } catch (error) {
+      console.error(`fundamentals-rl-get-error`, error);
+    }
+  }
+  if (rlEnforced && rlCount >= FUND_RL_LIMIT) {
+    return json(request, { error: "rate limit exceeded", code: "rate_limited" }, 429);
+  }
+  // Incremento ANTES do upstream: consome mesmo se todas as fontes falharem.
+  if (rlEnforced) {
+    try {
+      await env.PUBLIC_MARKERS.put(rlKey, String(rlCount + 1), { expirationTtl: rlTtlSeconds(Date.now()) });
+    } catch (error) {
+      console.error(`fundamentals-rl-put-error`, error);
+    }
   }
   // ---- 1) BRAPI (fonte primária, fluxo inalterado) ----
   let bq = null;
