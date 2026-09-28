@@ -497,7 +497,7 @@
     event.preventDefault();
     var sym = gEl.getAttribute("data-graham");
     if (sym && window.Graham && window.Graham.open) {
-      window.Graham.open(sym, { price: cardPrices[sym] || null, onDone: logGrahamHistory });
+      window.Graham.open(sym, grahamModalOpts(cardPrices[sym] || null));
     }
   }, true);
 
@@ -514,10 +514,11 @@
 
   // Histórico da sessão (só memória; some ao recarregar). Tabela abaixo da
   // busca, visível só na aba STOCKS. Linha clicável reabre o modal.
-  // Trava anti-abuso (site público): máx. 30 linhas, FIFO silencioso —
-  // a consulta nunca é bloqueada, só o histórico rotaciona.
+  // Lista é ESCOLHA do usuário (só entra via Monitorar): sem FIFO —
+  // no limite, o botão desabilita em vez de expulsar. Ordem alfabética
+  // por empresa aplicada SÓ na renderização (armazenamento intacto).
   var GRAHAM_HIST_MAX = 30;
-  var grahamHistory = []; // [{ticker, currentUSD, fairUSD, upside}]
+  var grahamHistory = []; // [{ticker, name, currentUSD, fairBRL, fairUSD, upside}]
   var grahamHistEl = document.createElement("div");
   grahamHistEl.className = "tq-graham-hist";
   grahamHistEl.style.display = "none";
@@ -541,12 +542,21 @@
 
   function renderGrahamHistory() {
     if (!grahamHistory.length) { grahamHistEl.innerHTML = ""; return; }
+    // Ordem alfabética por empresa (pt-BR, sem acento/maiúsculas);
+    // sem nome → ticker; desempate por ticker. Só visual.
+    var sorted = grahamHistory.slice().sort(function (a, b) {
+      var na = (a.name || a.ticker || '').toString();
+      var nb = (b.name || b.ticker || '').toString();
+      var c = na.localeCompare(nb, 'pt-BR', { sensitivity: 'base' });
+      if (c !== 0) return c;
+      return String(a.ticker || '').localeCompare(String(b.ticker || ''), 'pt-BR', { sensitivity: 'base' });
+    });
     var html = '<table><thead><tr><th>Empresa</th><th>Ticker</th><th>Hoje</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th><th></th></tr></thead><tbody>';
     // Taxa p/ a coluna Reais (Atual USD → BRL): vem do próprio ticker USDT-BRL.
     var rate = Number(cardPrices["USDT-BRL"]);
     if (!Number.isFinite(rate) || rate <= 0) rate = null;
-    for (var i = 0; i < grahamHistory.length; i++) {
-      var h = grahamHistory[i];
+    for (var i = 0; i < sorted.length; i++) {
+      var h = sorted[i];
       var cls = h.upside == null ? "" : (h.upside > 0 ? "tq-h-up" : (h.upside < 0 ? "tq-h-down" : ""));
       var reais = (rate != null && h.currentUSD != null) ? h.currentUSD * rate : null;
       html += '<tr data-ticker="' + esc(symbolKey(h.ticker)) + '">' +
@@ -581,6 +591,23 @@
     } catch (e) {}
   }
 
+  // Opts padrão do modal Graham: salva SÓ via Monitorar; informa se o
+  // ticker já está na tabela + contagem/limite p/ os estados do botão.
+  function grahamModalOpts(price) {
+    return {
+      price: price,
+      onMonitor: logGrahamHistory,
+      isMonitored: function (t) {
+        var k = String(t || '').trim().toUpperCase();
+        for (var i = 0; i < grahamHistory.length; i++) {
+          if (grahamHistory[i].ticker === k) return true;
+        }
+        return false;
+      },
+      monitorInfo: function () { return { count: grahamHistory.length, limit: GRAHAM_HIST_MAX }; }
+    };
+  }
+
   function logGrahamHistory(result) {
     try {
       if (!result || !result.ticker) return;
@@ -605,7 +632,7 @@
       }
       if (idx >= 0) grahamHistory[idx] = entry;
       else grahamHistory.push(entry);
-      while (grahamHistory.length > GRAHAM_HIST_MAX) grahamHistory.shift();
+      // Sem FIFO: no limite, o botão Monitorar desabilita (a lista é escolha).
       renderGrahamHistory();
       // Persistência (só logados; anônimo: memória da sessão).
       try {
@@ -638,7 +665,7 @@
       if (grahamHistory[i].ticker === sym) { price = grahamHistory[i].currentUSD; break; }
     }
     if (sym && window.Graham && window.Graham.open) {
-      window.Graham.open(sym, { price: price, onDone: logGrahamHistory });
+      window.Graham.open(sym, grahamModalOpts(price));
     }
   });
 
@@ -655,7 +682,7 @@
     var ticker = input ? String(input.value).trim().toUpperCase() : "";
     if (input && input.value !== ticker) input.value = ticker;
     if (ticker) {
-      if (window.Graham && window.Graham.open) window.Graham.open(ticker, { onDone: logGrahamHistory });
+      if (window.Graham && window.Graham.open) window.Graham.open(ticker, grahamModalOpts(null));
       return;
     }
     // Sem ticker: tenta resolver pelo nome da empresa (primeiro resultado).
@@ -666,7 +693,7 @@
       if (goBtn) { goBtn.disabled = false; goBtn.textContent = "Consultar"; }
       if (hit && hit.ticker) {
         if (input) input.value = hit.ticker;
-        window.Graham.open(hit.ticker, { onDone: logGrahamHistory });
+        window.Graham.open(hit.ticker, grahamModalOpts(null));
       } else if (nameInput) {
         nameInput.title = "Empresa não encontrada — tente o ticker direto.";
       }

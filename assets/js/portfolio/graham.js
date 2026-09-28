@@ -281,9 +281,18 @@
       else html += '<p class="gb-note">O preço atual está próximo (±2%) do preço justo calculado.</p>';
     } else if (fair != null && curUSD == null) {
       html += '<p class="gb-note">Sem preço atual disponível para comparar.</p>';
+    } else if (!fund) {
+      html += '<p class="gb-note">Não foi possível carregar os fundamentos deste ativo agora. Tente novamente.</p>';
     } else {
-      html += '<p class="gb-note">Dados insuficientes para o cálculo (LPA e VPA precisam ser positivos). ' +
-        'Isso é comum em criptoativos e empresas com prejuízo ou patrimônio líquido negativo.</p>';
+      var negLpa = fund.lpa != null && fund.lpa <= 0;
+      var negVpa = fund.vpa != null && fund.vpa <= 0;
+      if (negLpa || negVpa) {
+        html += '<p class="gb-note">LPA ou VPA negativos (prejuízo ou patrimônio líquido negativo): ' +
+          'a fórmula de Graham não se aplica a este ativo.</p>';
+      } else {
+        html += '<p class="gb-note">A fonte não forneceu LPA e VPA para este ativo, ' +
+          'então o preço justo não pode ser calculado.</p>';
+      }
     }
 
     html += '<p class="gb-src">Fonte: ' + esc((fund && fund.source) || '—') +
@@ -291,11 +300,22 @@
     return html;
   }
 
-  // Abre o modal p/ QUALQUER ticker. opts: {price (atual, USD), autoPrice=true,
-  // onDone(resultado)} — onDone é opcional e só informa o resultado
-  // {ticker, fund, fair, fairUSD, current} p/ camadas de exibição
-  // (ex.: histórico de sessão). Não altera modal nem cálculo.
-  // Se price não vier, tenta o preço que acompanha os fundamentos.
+  function toast(msg) {
+    try {
+      var el = document.createElement('div');
+      el.className = 'gb-toast';
+      el.textContent = String(msg == null ? '' : msg);
+      document.body.appendChild(el);
+      setTimeout(function () { try { el.parentNode.removeChild(el); } catch (e) {} }, 2600);
+    } catch (e) {}
+  }
+
+  // Abre o modal p/ QUALQUER ticker. opts: {price (atual, USD),
+  // onMonitor(resultado), isMonitored(ticker)->bool,
+  // monitorInfo()->{count, limit}}.
+  // A tabela SÓ recebe o ativo via botão Monitorar — fechar/X/Esc/clique
+  // fora apenas fecha, sem salvar. Se price não vier, tenta o preço que
+  // acompanha os fundamentos.
   function open(rawTicker, opts) {
     var ticker = normTicker(rawTicker);
     if (!ticker || typeof document === 'undefined' || !document.body) return;
@@ -314,15 +334,47 @@
         '<p class="gb-sub">√(22,5 × LPA × VPA) — valor intrínseco estimado a partir do lucro e do patrimônio por ação. Conteúdo educativo, não é recomendação de investimento.</p></div>' +
         '<button type="button" class="gb-close" aria-label="Fechar">✕</button></div>' +
         '<div class="gb-body"><p class="gb-loading">Buscando fundamentos…</p></div>' +
+        '<div class="gb-foot"><button type="button" class="gb-btn">Fechar</button>' +
+        '<button type="button" class="gb-btn gb-primary" disabled>Monitorar</button></div>' +
       '</div>';
     document.body.appendChild(overlay);
 
     var card = overlay.querySelector('.gb-card');
     var body = overlay.querySelector('.gb-body');
+    var btnMonitor = overlay.querySelector('.gb-primary');
+    // Sem onMonitor (ex.: modal aberto da carteira): só consulta, sem botão.
+    if (!opts.onMonitor && btnMonitor) btnMonitor.style.display = 'none';
     overlay.querySelector('.gb-close').addEventListener('click', closeModal);
+    overlay.querySelector('.gb-foot .gb-btn:not(.gb-primary)').addEventListener('click', closeModal);
     overlay.addEventListener('click', function (ev) { if (ev.target === overlay) closeModal(); });
     document.addEventListener('keydown', onKeyDown);
     if (card) card.addEventListener('click', function (ev) { ev.stopPropagation(); });
+
+    function setMonitor(state, title) {
+      try {
+        if (!btnMonitor) return;
+        if (state === 'ready') {
+          btnMonitor.disabled = false;
+          btnMonitor.textContent = 'Monitorar';
+          btnMonitor.removeAttribute('title');
+        } else {
+          btnMonitor.disabled = true;
+          btnMonitor.textContent = state === 'monitored' ? 'Já monitorado' : 'Monitorar';
+          if (title) btnMonitor.setAttribute('title', title);
+          else btnMonitor.removeAttribute('title');
+        }
+      } catch (e) {}
+    }
+
+    var lastResult = null;
+    if (btnMonitor) btnMonitor.addEventListener('click', function () {
+      if (btnMonitor.disabled || !lastResult || !opts.onMonitor) return;
+      try {
+        if (opts.onMonitor) opts.onMonitor(lastResult);
+      } catch (e) {}
+      toast(ticker + ' adicionado');
+      closeModal();
+    });
 
     var optPrice = Number(opts.price);
     getFundamentals(ticker).then(function (fund) {
@@ -343,17 +395,35 @@
           }
         } catch (e) {}
       }
-      if (opts.onDone) {
-        try {
-          var f2 = fund ? calcularPrecoJustoGraham(fund.lpa, fund.vpa) : null;
-          opts.onDone({
-            ticker: ticker,
-            fund: fund,
-            fair: f2,
-            fairUSD: f2 != null ? toUSD(f2, fund && fund.currency) : null,
-            current: current
-          });
-        } catch (e) {}
+      // Resultado guardado p/ o botão Monitorar (sem auto-save).
+      var f2 = fund ? calcularPrecoJustoGraham(fund.lpa, fund.vpa) : null;
+      lastResult = {
+        ticker: ticker,
+        fund: fund,
+        fair: f2,
+        fairUSD: f2 != null ? toUSD(f2, fund && fund.currency) : null,
+        current: current
+      };
+      // Estados do botão Monitorar.
+      var monitored = false;
+      try { monitored = !!(opts.isMonitored && opts.isMonitored(ticker)); } catch (e) {}
+      var info = { count: 0, limit: 30 };
+      try {
+        var got = opts.monitorInfo ? opts.monitorInfo() : null;
+        if (got && Number.isFinite(Number(got.count))) info.count = Number(got.count);
+        if (got && Number.isFinite(Number(got.limit)) && Number(got.limit) > 0) info.limit = Number(got.limit);
+      } catch (e) {}
+      if (monitored) {
+        setMonitor('monitored');
+      } else if (f2 == null) {
+        var neg = fund && ((fund.lpa != null && fund.lpa <= 0) || (fund.vpa != null && fund.vpa <= 0));
+        setMonitor('nofair', neg
+          ? 'LPA ou VPA negativos: a fórmula de Graham não se aplica.'
+          : 'A fonte não forneceu LPA e VPA para este ativo.');
+      } else if (info.count >= info.limit) {
+        setMonitor('limit', 'Limite de ' + info.limit + ' ativos: remova um para adicionar.');
+      } else {
+        setMonitor('ready');
       }
     }).catch(function () {
       if (!overlay) return;
