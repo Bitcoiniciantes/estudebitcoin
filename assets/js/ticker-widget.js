@@ -508,7 +508,7 @@
   grahamBar.style.display = "none";
   grahamBar.innerHTML = '<span class="tq-graham-label">&#9878; Preço justo (Graham):</span>' +
     '<input id="tq-graham-input" placeholder="TICKER (ex: PETR4, AAPL)" maxlength="14" autocomplete="off" spellcheck="false" value="ITUB4" />' +
-    '<input id="tq-graham-name" placeholder="EMPRESA (ex: Usiminas)" maxlength="40" autocomplete="off" spellcheck="false" value="Itau Unibanco Holding SA Pfd" />' +
+    '<input id="tq-graham-name" placeholder="EMPRESA (ex: Petrobras)" maxlength="40" autocomplete="off" spellcheck="false" value="Itau Unibanco Holding SA Pfd" />' +
     '<button type="button" id="tq-graham-go">Consultar</button>';
   grid.parentNode.insertBefore(grahamBar, grid.nextSibling);
 
