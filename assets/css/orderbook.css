@@ -1,0 +1,46 @@
+/* =====================================================================
+   Order Book visual BTCUSDT — EstudeBitcoin
+   Tema escuro. Grid 2 colunas (candles | concentração) no desktop,
+   empilha em 1 coluna no mobile. Sem dependências.
+   Mostra SOMENTE ordens reais do book (sem OI, liquidação ou alavancagem).
+   ===================================================================== */
+.ob__wrap { background: #111; border-radius: 20px; padding: 20px; color: #e8e8e8; }
+.ob__head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+.ob__title { font-size: 1rem; font-weight: 800; letter-spacing: .02em; color: #fff; margin: 0; }
+.ob__meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: #aaa; align-items: center; }
+.ob__price { color: #F7931A; font-weight: 800; font-size: 15px; }
+.ob__dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: #888; margin-right: 5px; vertical-align: 1px; }
+.ob__dot--on { background: #4caf50; }
+.ob__dot--warn { background: #ff9800; }
+.ob__dot--off { background: #f44336; }
+.ob__controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 12px; }
+.ob__seg { display: inline-flex; gap: 4px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 3px; }
+.ob__seg button { background: transparent; border: 0; color: #ccc; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+.ob__seg button.ativo { background: rgba(247,147,26,.2); color: #F7931A; }
+.ob__warn { font-size: 12px; color: #ffcc80; background: rgba(255,152,0,.08); border: 1px solid rgba(255,152,0,.25); border-radius: 8px; padding: 8px 12px; margin: 0 0 12px; }
+.ob__disclaimer { font-size: 12px; color: #999; margin: 0 0 12px; }
+.ob__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; position: relative; }
+.ob__panel { background: #0d0d0d; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 12px; min-height: 320px; position: relative; overflow: hidden; }
+.ob__panel h3 { font-size: 12px; letter-spacing: .08em; color: #888; margin: 0 0 8px; font-weight: 800; }
+.ob__panel canvas { width: 100%; height: 300px; display: block; }
+.ob__rows { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.ob__row { display: grid; grid-template-columns: 96px 1fr auto; gap: 8px; align-items: center; }
+.ob__bucket { color: #bbb; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ob__bar-track { background: rgba(255,255,255,.05); border-radius: 4px; height: 14px; position: relative; overflow: hidden; }
+.ob__bar-fill { display: block; height: 100%; min-width: 2px; border-radius: 4px; }
+.ob__bar-fill--ask { background: rgba(244,67,54,.75); }
+.ob__bar-fill--bid { background: rgba(33,150,243,.75); }
+.ob__bar-fill--top { outline: 1px solid rgba(255,255,255,.45); }
+.ob__usd { color: #ddd; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ob__max { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 6px; margin-left: 6px; white-space: nowrap; }
+.ob__max--ask { color: #ff8a80; background: rgba(244,67,54,.15); border: 1px solid rgba(244,67,54,.55); }
+.ob__max--bid { color: #90caf9; background: rgba(33,150,243,.15); border: 1px solid rgba(33,150,243,.55); }
+.ob__midline { display: flex; align-items: center; gap: 8px; margin: 6px 0; color: #F7931A; font-size: 12px; font-weight: 800; }
+.ob__midline::before, .ob__midline::after { content: ""; flex: 1; border-top: 1px dashed rgba(247,147,26,.6); }
+.ob__empty, .ob__loading { color: #888; font-size: 13px; text-align: center; padding: 40px 10px; }
+.ob__tip { position: fixed; z-index: 9999; pointer-events: none; background: #1e1e1e; border: 1px solid rgba(255,255,255,.15); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: #eee; display: none; max-width: 240px; }
+@media (max-width: 860px) {
+  .ob__grid { grid-template-columns: 1fr; }
+  .ob__row { grid-template-columns: 86px 1fr auto; }
+  .ob__bar-track { min-width: 36px; }
+}
