@@ -18,7 +18,15 @@
 .ob__seg button { background: transparent; border: 0; color: #ccc; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
 .ob__seg button.ativo { background: rgba(247,147,26,.2); color: #F7931A; }
 .ob__warn { font-size: 12px; color: #ffcc80; background: rgba(255,152,0,.08); border: 1px solid rgba(255,152,0,.25); border-radius: 8px; padding: 8px 12px; margin: 0 0 12px; }
-.ob__disclaimer { font-size: 12px; color: #999; margin: 0 0 12px; }
+.ob__disclaimer { font-size: 12px; color: #999; margin: 0 0 8px; }
+.ob__legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: #bbb; margin: 0 0 6px; }
+.ob__lg { display: inline-flex; align-items: center; gap: 6px; }
+.ob__dotlg { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+.ob__dotlg--ask { background: rgba(244,67,54,.85); }
+.ob__dotlg--bid { background: rgba(33,150,243,.85); }
+.ob__help { font-size: 12px; color: #bbb; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 8px 12px; margin: 0 0 12px; }
+.ob__help summary { cursor: pointer; color: #F7931A; font-weight: 700; }
+.ob__help p { margin: 8px 0 0; line-height: 1.5; }
 .ob__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; position: relative; }
 .ob__panel { background: #0d0d0d; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 12px; min-height: 320px; position: relative; overflow: hidden; }
 .ob__panel h3 { font-size: 12px; letter-spacing: .08em; color: #888; margin: 0 0 8px; font-weight: 800; }

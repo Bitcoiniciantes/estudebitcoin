@@ -119,8 +119,18 @@
         '<div class="ob__seg" id="ob-bkseg" role="group" aria-label="Tamanho da faixa"></div>' +
       '</div>' +
       '<p class="ob__warn" id="ob-warn" hidden></p>' +
+      '<p class="ob__legend"><span class="ob__lg"><i class="ob__dotlg ob__dotlg--ask"></i>VENDAS (vermelho, acima do preço)</span>' +
+      '<span class="ob__lg"><i class="ob__dotlg ob__dotlg--bid"></i>COMPRAS (azul, abaixo do preço)</span></p>' +
       '<p class="ob__disclaimer">Ordens reais do book neste momento — não são liquidações futuras. ' +
       'Profundidade limitada a 1000 níveis por lado; faixas sem ordens não geram barras.</p>' +
+      '<details class="ob__help"><summary>O que é isso?</summary>' +
+      '<p>Antes de comprar ou vender Bitcoin, a pessoa deixa uma <strong>ordem</strong> avisando o preço que ela quer. ' +
+      'Este painel soma todo o dinheiro dessas ordens por faixa de preço.</p>' +
+      '<p><strong style="color:#ff8a80">Barras vermelhas</strong> (acima do preço atual): ordens de <strong>venda</strong> — ' +
+      'onde tem muita barra vermelha, tem muita gente querendo vender (isso pode segurar a subida do preço).</p>' +
+      '<p><strong style="color:#90caf9">Barras azuis</strong> (abaixo do preço atual): ordens de <strong>compra</strong> — ' +
+      'onde tem muita barra azul, tem muita gente querendo comprar (isso pode segurar a queda do preço).</p>' +
+      '<p>Conteúdo educativo: mostra onde o dinheiro está posicionado, não diz para onde o preço vai.</p></details>' +
       '<div class="ob__grid">' +
         '<div class="ob__panel"><h3>CANDLES · <span id="ob-tflabel">1m</span></h3><canvas id="ob-candles"></canvas></div>' +
         '<div class="ob__panel"><h3>CONCENTRAÇÃO · faixa US$ <span id="ob-bklabel">50</span></h3><div class="ob__rows" id="ob-rows"><div class="ob__loading">Carregando book…</div></div></div>' +
@@ -483,7 +493,10 @@
     ctx.clearRect(0, 0, w, h);
     var pad = 8;
     function y(p) { return pad + (1 - (p - lo) / (hi - lo)) * (h - pad * 2); }
-    var cw = (w - 10) / vis.length;
+    // Eixo de preço à direita: área dos candles + gutter da escala.
+    var axisW = 56;
+    var plotW = Math.max(50, w - axisW);
+    var cw = (plotW - 10) / vis.length;
     vis.forEach(function (c, i) {
       var up = c.close >= c.open;
       ctx.strokeStyle = up ? '#4caf50' : '#f44336';
@@ -494,13 +507,36 @@
       var yO = y(c.open), yC = y(c.close);
       ctx.fillRect(x - b / 2, Math.min(yO, yC), b, Math.max(1, Math.abs(yC - yO)));
     });
-    // Linha do preço atual atravessando o painel de candles.
+    // Linha do preço atual atravessando os candles + escala de valores à direita.
+    ctx.font = '10px sans-serif';
+    ctx.textBaseline = 'middle';
+    var t;
+    for (t = 0; t <= 4; t++) {
+      var pv = hi - (hi - lo) * t / 4;
+      var py = y(pv);
+      ctx.strokeStyle = 'rgba(255,255,255,.07)';
+      ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(plotW, py); ctx.stroke();
+      ctx.fillStyle = '#888';
+      ctx.fillText(fmtAxis(pv), plotW + 5, py);
+    }
     if (currentPrice >= lo && currentPrice <= hi) {
+      var cpy = y(currentPrice);
       ctx.strokeStyle = 'rgba(247,147,26,.8)';
       ctx.setLineDash([5, 4]);
-      ctx.beginPath(); ctx.moveTo(0, y(currentPrice)); ctx.lineTo(w, y(currentPrice)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, cpy); ctx.lineTo(plotW, cpy); ctx.stroke();
       ctx.setLineDash([]);
+      // Etiqueta do preço atual no gutter do eixo.
+      var tag = fmtAxis(currentPrice);
+      ctx.fillStyle = '#F7931A';
+      ctx.fillRect(plotW + 2, cpy - 9, axisW - 4, 18);
+      ctx.fillStyle = '#111';
+      ctx.fillText(tag, plotW + 7, cpy);
     }
+  }
+
+  // Rótulo compacto do eixo (pt-BR, sem decimais nessa magnitude).
+  function fmtAxis(v) {
+    return v.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
   }
 
   // Mensagens de estado: só tocam o DOM na TRANSIÇÃO (nunca a cada render).
