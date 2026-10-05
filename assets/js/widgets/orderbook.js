@@ -61,7 +61,7 @@
   // ---- Constantes configuráveis ----
   var SYMBOL = 'BTCUSDT';
   var BUCKET_CHOICES = [1, 5, 10, 25, 50, 100];
-  var DEFAULT_BUCKET = 50;
+  var DEFAULT_BUCKET = 25;
   // Painel compacto: mostra as N faixas MAIS PRÓXIMAS do preço em cada lado,
   // independente do volume (mesmo as pequenas aparecem, com min-width).
   // Só apresentação: não toca no book, sync, cobertura ou validação.
@@ -179,7 +179,7 @@
       'é só outra forma de mostrar o mesmo dinheiro, sem mudar nenhum dado.</p></details>' +
       '<div class="ob__grid">' +
         '<div class="ob__panel"><h3>CANDLES · <span id="ob-tflabel">1m</span></h3><canvas id="ob-candles"></canvas></div>' +
-        '<div class="ob__panel"><h3>CONCENTRAÇÃO · faixa US$ <span id="ob-bklabel">50</span></h3><div class="ob__rows" id="ob-rows"><div class="ob__loading">Carregando book…</div></div></div>' +
+        '<div class="ob__panel"><h3>CONCENTRAÇÃO · faixa US$ <span id="ob-bklabel">25</span></h3><div class="ob__rows" id="ob-rows"><div class="ob__loading">Carregando book…</div></div></div>' +
       '</div>' +
     '</div>' +
     '<div class="ob__tip" id="ob-tip"></div>';
