@@ -649,7 +649,14 @@
       // DISPLAY-ONLY: cotação viva do card p/ exibição; o snapshot em
       // h.currentUSD / h.upside / h.fairUSD / h.fairBRL nunca é sobrescrito.
       var seenLive = Number(cardPrices[h.ticker]);
-      var livePrice = (Number.isFinite(seenLive) && seenLive > 0) ? seenLive : h.currentUSD;
+      var isLive = Number.isFinite(seenLive) && seenLive > 0;
+      var livePrice = isLive ? seenLive : h.currentUSD;
+      // Dot verde idêntico ao do Painel Pessoal quando o HOJE exibido
+      // é cotação viva; cinza (pa-stale) no snapshot — mesmo span sempre,
+      // para as linhas não desalinharem. Verde = ao vivo, cinza = Monitorar.
+      var dotHtml = isLive
+        ? ' <span class="pa-live" title="Preço ao vivo"></span>'
+        : ' <span class="pa-live pa-stale" title="Cotação do Monitorar (sem atualização)"></span>';
       var fairNum = Number(h.fairUSD);
       var liveNum = Number(livePrice);
       // UPSIDE display-only, recalculado do preço vivo sobre o justo
@@ -664,7 +671,7 @@
       html += '<tr data-ticker="' + esc(symbolKey(h.ticker)) + '">' +
         '<td>' + esc(h.name || '—') + '</td>' +
         '<td><b>' + esc(h.ticker) + '</b>' + flag + '</td>' +
-        '<td><b>' + esc(fmtShortUSD(livePrice)) + '</b></td>' +
+        '<td><b>' + esc(fmtShortUSD(livePrice)) + '</b>' + dotHtml + '</td>' +
         '<td>' + esc(fmtShortBRL(reais)) + '</td>' +
         '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +
         '<td><b>' + esc(fmtShortUSD(h.fairUSD)) + '</b></td>' +
@@ -686,6 +693,9 @@
           setHistory: function (list) {
             grahamHistory = Array.isArray(list) ? list : [];
             renderGrahamHistory();
+            // Histórico chegou da nuvem: cotar os sem-card já, sem
+            // esperar o próximo ciclo de 60s (a réplica no load pegou vazio).
+            try { refreshMonitoredBroadcast(); } catch (e) {}
           }
         });
         grahamCloudReady = true;
@@ -746,6 +756,8 @@
       else grahamHistory.push(entry);
       // Sem FIFO: no limite, o botão Monitorar desabilita (a lista é escolha).
       renderGrahamHistory();
+      // Novo monitorado: cotar os sem-card já, sem esperar o ciclo de 60s.
+      try { refreshMonitoredBroadcast(); } catch (e) {}
       // Persistência (só logados; anônimo: memória da sessão).
       try {
         if (window.Graham && window.Graham.Cloud && window.Graham.Cloud.pushSoon) {

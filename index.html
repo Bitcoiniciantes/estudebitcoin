@@ -904,6 +904,18 @@
   /* Só o Upside tem cor de destaque (paleta ganho/perda do site). */
   .tq-graham-hist td.tq-h-up { color: #16c784; font-weight: 800; }
   .tq-graham-hist td.tq-h-down { color: #ea3943; font-weight: 800; }
+  /* Dot de preço ao vivo: idêntico ao do Painel Pessoal (#pa-tbody .pa-live).
+     Cinza (pa-stale) no snapshot — verde = ao vivo, cinza = Monitorar. */
+  .tq-graham-hist .pa-live {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #4ade80;
+    margin-left: 5px;
+    vertical-align: middle;
+  }
+  .tq-graham-hist .pa-live.pa-stale { background: #cbd5e1; }
   .tq-h-del {
     background: transparent;
     border: 0;
