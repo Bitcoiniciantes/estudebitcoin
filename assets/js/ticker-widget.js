@@ -432,10 +432,66 @@
   function refreshStocksBroadcast() {
     try {
       fetchStocks().then(function (quotes) { broadcastQuotes(quotes); }).catch(function () {});
+      refreshMonitoredBroadcast();
     } catch (e) {}
   }
   window.setInterval(refreshStocksBroadcast, 60000);
   refreshStocksBroadcast();
+
+  // Réplica do mecanismo do Painel Pessoal (portfolioLive) SÓ p/ os
+  // monitorados sem card (ex.: ITUB4, PETR4): batch no MESMO Worker, no
+  // MESMO intervalo de 60s, sem tocar no painel. B3 vai como *.SA (Yahoo)
+  // e volta convertida p/ USD pela taxa USDT-BRL em memória; sem taxa,
+  // mantém snapshot (fail-safe). Monitorado com fluxo vivo é pulado.
+  function yahooSymbolFor(ticker) {
+    var t = String(ticker || "").trim().toUpperCase();
+    if (/^[A-Z]{4}\d{1,2}$/.test(t)) return t + ".SA";
+    return t;
+  }
+  function refreshMonitoredBroadcast() {
+    try {
+      if (!grahamHistory.length) return;
+      var covered = {};
+      for (var s = 0; s < STOCKS.length; s++) covered[STOCKS[s]] = true;
+      var wanted = [];
+      var wantMap = {}; // símbolo Yahoo -> ticker puro
+      for (var i = 0; i < grahamHistory.length; i++) {
+        var t = String((grahamHistory[i] && grahamHistory[i].ticker) || "").trim().toUpperCase();
+        if (!t || covered[t]) continue;
+        covered[t] = true;
+        var live = Number(cardPrices[t]);
+        if (Number.isFinite(live) && live > 0) continue; // já tem fluxo vivo
+        var y = yahooSymbolFor(t);
+        wantMap[y] = t;
+        wanted.push(y);
+      }
+      if (!wanted.length) return;
+      fetch(WORKER + "?assets=" + encodeURIComponent(wanted.join(",")) + "&window=24h", { cache: "no-store" })
+        .then(function (response) { return response.ok ? response.json() : null; })
+        .then(function (payload) {
+          if (!payload || !Array.isArray(payload.quotes)) return;
+          var rate = Number(cardPrices["USDT-BRL"]);
+          if (!Number.isFinite(rate) || rate <= 0) rate = null;
+          var touched = false;
+          for (var k = 0; k < payload.quotes.length; k++) {
+            var q = payload.quotes[k] || {};
+            var pure = wantMap[String(q.symbol || "").trim().toUpperCase()];
+            if (!pure) continue;
+            var px = Number(q.price);
+            if (!Number.isFinite(px) || px <= 0) continue;
+            if (String(q.currency || "").trim().toUpperCase() === "BRL") {
+              if (rate == null) continue;
+              px = px / rate;
+            }
+            if (!Number.isFinite(px) || px <= 0) continue;
+            cardPrices[pure] = px;
+            touched = true;
+          }
+          if (touched && activeTab === "stocks") { try { renderGrahamHistory(); } catch (e) {} }
+        })
+        .catch(function () {});
+    } catch (e) {}
+  }
 
   /* ── S/R Dinâmico — Alertas visuais nos cards ── */
   var alertDirection = {};
@@ -477,6 +533,35 @@
     if (detail && detail.symbol) {
       applyAlertVisual(detail.symbol, false);
     }
+  });
+
+  // Réplica de LEITURA do barramento do Painel Pessoal (portfolioLive):
+  // alimenta cardPrices SÓ de tickers monitorados, sem tocar no painel
+  // nem nos cards. Cobre de graça todo monitorado que já tem fluxo vivo
+  // (card próprio ou evento da carteira). Sem fluxo, vale o snapshot.
+  window.addEventListener("estudebitcoin:ticker-price", function (event) {
+    try {
+      var d = event && event.detail;
+      var p = d && Number(d.price);
+      if (!d || !Number.isFinite(p) || p <= 0) return;
+      var sym = String(d.symbol || "").trim().toUpperCase();
+      var pure = sym;
+      var isBRL = false;
+      if (/\.SA$/.test(sym)) { pure = sym.replace(/\.SA$/, ""); isBRL = true; }
+      var watched = false;
+      for (var i = 0; i < grahamHistory.length; i++) {
+        if (grahamHistory[i] && grahamHistory[i].ticker === pure) { watched = true; break; }
+      }
+      if (!watched) return;
+      var px = p;
+      if (isBRL) {
+        var rate = Number(cardPrices["USDT-BRL"]);
+        if (!Number.isFinite(rate) || rate <= 0) return; // sem taxa: mantém snapshot
+        px = p / rate;
+      }
+      cardPrices[pure] = px;
+      if (activeTab === "stocks" && grahamHistory.length) { try { renderGrahamHistory(); } catch (e) {} }
+    } catch (e) {}
   });
 
   // CORREÇÃO 6: Handler permanente do sino
