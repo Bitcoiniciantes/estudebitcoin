@@ -66,6 +66,12 @@
   // independente do volume (mesmo as pequenas aparecem, com min-width).
   // Só apresentação: não toca no book, sync, cobertura ou validação.
   var VISIBLE_BANDS_PER_SIDE = 5;
+  // Auto-faixa (padrão ligado): escolhe o maior bucket com >=5 completas
+  // nos dois lados. Subida só com folga (span/bucket >= margem nos dois
+  // lados) mantida por N renders (histerese); descida imediata ao faltar
+  // faixa completa. Troca (auto ou manual) nunca dispara fetch/resync.
+  var AUTO_UP_MARGIN = 5.5;
+  var AUTO_HYSTERESIS_RENDERS = 3;
   // Unidade de exibição (SOMENTE apresentação): 'USD' | 'BTC'. Trocar de
   // unidade só redesenha as barras (nunca fetch/resync/rebuild do book).
   // Para voltar US$ como padrão, trocar só esta constante (sem lógica).
@@ -107,6 +113,9 @@
   var bucketSize = DEFAULT_BUCKET;
   var timeframe = DEFAULT_TF;
   var unit = DEFAULT_UNIT; // unidade selecionada no render ('USD' | 'BTC')
+  var autoMode = true; // Auto-faixa ligado por padrão; bucket manual desliga
+  var autoUpStreak = 0; // renders consecutivos com folga p/ subir
+  var lastAutoSwitch = null; // {to, reason, at} da última troca automática
   var candles = [];          // {time, open, high, low, close}
   var currentPrice = 0;      // preço cru do kline; o EXIBIDO é displayPrice (item 12)
   var displayPrice = 0;      // preço único, fixado 1x por ciclo de render
@@ -136,9 +145,18 @@
   var bootSeq = 0; // geração do boot atual: esperas/fetches antigos se anulam
   var bootTime = Date.now(); // início p/ uptime da auditoria
   var lastBuckets = null; // último cálculo {unit, peakUSD, peakBTC, ask:{}, bid:{}}
+  var lastOmitted = null; // faixas de borda omitidas {ask:{}, bid:{}} (só auditoria)
+  var lastShown = { ask: [], bid: [] }; // chaves exibidas (top-N) no último render
+  // Termômetro compras × vendas (Etapa termômetro, SOMENTE apresentação):
+  // distância igual nos dois lados a partir dos extremos CONGELADOS do
+  // snapshot; D <= 0 ou D < THERMO_MIN_D_USD (ou book não pronto/cruzado)
+  // → estado vazio ("—"), sem fetch, sem resync, sem erro.
+  var THERMO_MIN_D_USD = 10;
+  var lastThermo = null; // último cálculo p/ auditoria + hook de QA
   var renderQueued = false;
   // Pool de linhas das barras: atualização NO LUGAR (sem rebuild/pisca).
   var askRowEls = new Map(), bidRowEls = new Map(), midEl = null, rowsMsg = '';
+  var partAskPool = new Map(), partBidPool = new Map(); // 1 faixa parcial por lado
   var lastCandleSig = '';
   var lastUpdateTime = 0;
 
@@ -176,10 +194,17 @@
       '<p>A profundidade é <strong>limitada</strong> ao que o book mostra (1000 níveis por lado); ' +
       'faixas sem ordens não geram barras.</p>' +
       '<p>Os valores podem ser vistos em <strong>US$ ou BTC</strong> (botões acima do painel): ' +
-      'é só outra forma de mostrar o mesmo dinheiro, sem mudar nenhum dado.</p></details>' +
+      'é só outra forma de mostrar o mesmo dinheiro, sem mudar nenhum dado.</p>' +
+      '<p>O <strong>termômetro</strong> no fim do painel soma todas as compras e todas as vendas ' +
+      'a igual distância dos melhores preços (independente da faixa escolhida): ' +
+      'é outra forma de ver o mesmo book, não uma previsão.</p></details>' +
       '<div class="ob__grid">' +
         '<div class="ob__panel"><h3>CANDLES · <span id="ob-tflabel">1m</span></h3><canvas id="ob-candles"></canvas></div>' +
-        '<div class="ob__panel"><h3>CONCENTRAÇÃO · faixa US$ <span id="ob-bklabel">25</span></h3><div class="ob__rows" id="ob-rows"><div class="ob__loading">Carregando book…</div></div></div>' +
+        '<div class="ob__panel"><h3>CONCENTRAÇÃO · faixa US$ <span id="ob-bklabel">25</span></h3><div class="ob__shortnote" id="ob-shortnote"></div><div class="ob__rows" id="ob-rows"><div class="ob__loading">Carregando book…</div></div>' +
+      '<div class="ob__thermo" id="ob-thermo"><div class="ob__thermo-bar" id="ob-thermo-bar"><span class="ob__thermo-fill ob__thermo-fill--bid" id="ob-thermo-bid"></span><span class="ob__thermo-fill ob__thermo-fill--ask" id="ob-thermo-ask"></span><span class="ob__thermo-mid" id="ob-thermo-mid"></span></div>' +
+      '<div class="ob__thermo-diff" id="ob-thermo-diff"></div>' +
+      '<div class="ob__thermo-labels" id="ob-thermo-labels"><span class="ob__thermo-buy" id="ob-thermo-buy">—</span><span class="ob__thermo-sell" id="ob-thermo-sell"></span></div>' +
+      '<div class="ob__thermo-legend" id="ob-thermo-legend">—</div></div></div>' +
       '</div>' +
     '</div>' +
     '<div class="ob__tip" id="ob-tip"></div>';
@@ -189,8 +214,17 @@
   var statusEl = document.getElementById('ob-status');
   var updatedEl = document.getElementById('ob-updated');
   var coverageEl = document.getElementById('ob-coverage');
+  var thermoBar = document.getElementById('ob-thermo-bar');
+  var thermoBid = document.getElementById('ob-thermo-bid');
+  var thermoAsk = document.getElementById('ob-thermo-ask');
+  var thermoBuyEl = document.getElementById('ob-thermo-buy');
+  var thermoSellEl = document.getElementById('ob-thermo-sell');
+  var thermoLegend = document.getElementById('ob-thermo-legend');
+  var thermoDiff = document.getElementById('ob-thermo-diff');
   var warnEl = document.getElementById('ob-warn');
   var rowsEl = document.getElementById('ob-rows');
+  var shortEl = document.getElementById('ob-shortnote');
+  var shortEl = document.getElementById('ob-shortnote');
   var canvas = document.getElementById('ob-candles');
   var tipEl = document.getElementById('ob-tip');
   var tfSeg = document.getElementById('ob-tfseg');
@@ -242,13 +276,18 @@
   // Tooltip: unidade selecionada como principal + a outra unidade.
   // Ex.: "130,4 BTC · US$ 11,32M · 0,60% do preço". O % de distância é a
   // métrica já existente (não muda com a unidade).
-  function tipHTML(bLo, usd, btc, side) {
+  function tipHTML(bLo, usd, btc, side, isPartial) {
     var dist = ((bLo + bucketSize / 2 - displayPrice) / displayPrice * 100).toFixed(2).replace('.', ',');
     var main = unit === 'BTC' ? fmtBTC(btc) + ' · ' + fmtUSD(usd) : fmtUSD(usd) + ' · ' + fmtBTC(btc);
-    return 'Faixa: US$ ' + bLo.toLocaleString('pt-BR') + '–' + (bLo + bucketSize).toLocaleString('pt-BR') +
+    var tip = 'Faixa: US$ ' + bLo.toLocaleString('pt-BR') + '–' + (bLo + bucketSize).toLocaleString('pt-BR') +
       '<br>Tipo: ' + (side === 'ask' ? 'VENDAS' : 'COMPRAS') +
       '<br>Ordens: ' + main +
       '<br>Distância do preço: ' + (dist > 0 ? '+' : '') + dist + '%';
+    if (isPartial) {
+      tip += '<br>Valor mínimo (≥): só soma níveis visíveis no snapshot; ' +
+        'abaixo/acima da borda é desconhecido.';
+    }
+    return tip;
   }
 
   function copyBuckets(map) {
@@ -273,21 +312,113 @@
     });
     tfSeg.appendChild(b);
   });
+  // Botão Auto + faixas: escolha manual desliga o Auto; Auto religa.
+  var autoBtn = document.createElement('button');
+  autoBtn.type = 'button';
+  autoBtn.textContent = 'Auto';
+  bkSeg.appendChild(autoBtn);
   BUCKET_CHOICES.forEach(function (bk) {
     var b = document.createElement('button');
     b.type = 'button';
     b.textContent = 'US$ ' + bk;
-    if (bk === bucketSize) b.className = 'ativo';
+    b.setAttribute('data-bucket', String(bk));
     b.addEventListener('click', function () {
-      if (bucketSize === bk) return;
-      bucketSize = bk;
-      document.getElementById('ob-bklabel').textContent = String(bk);
-      Array.prototype.forEach.call(bkSeg.children, function (x) { x.className = ''; });
-      b.className = 'ativo';
-      queueRender();
+      applyBucketManual(bk);
     });
     bkSeg.appendChild(b);
   });
+  autoBtn.addEventListener('click', function () {
+    setAutoMode(true);
+  });
+  // Pinta seg de faixa + título ("faixa US$ 25 · auto" no modo Auto).
+  function refreshBucketUI() {
+    document.getElementById('ob-bklabel').textContent =
+      String(bucketSize) + (autoMode ? ' · auto' : '');
+    Array.prototype.forEach.call(bkSeg.children, function (x) {
+      var isAuto = x === autoBtn;
+      var on = isAuto ? autoMode :
+        (!autoMode && x.getAttribute('data-bucket') === String(bucketSize));
+      x.className = on ? 'ativo' : '';
+      x.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+  function applyBucketManual(bk) {
+    if (bucketSize === bk && !autoMode) return;
+    setAutoMode(false);
+    bucketSize = bk;
+    refreshBucketUI();
+    queueRender(); // só redesenha; nunca fetch/resync
+  }
+  function setAutoMode(on) {
+    if (autoMode === on) return;
+    autoMode = on;
+    autoUpStreak = 0;
+    if (on) {
+      lastAutoSwitch = null;
+      autoEvaluate();
+    }
+    refreshBucketUI();
+    queueRender();
+  }
+  // Conta faixas COMPLETAS (regra de borda do snapshot) com níveis, num
+  // bucket candidato. Só apresentação (não toca sync/cobertura).
+  function countComplete(side, B) {
+    if (!snapBestBid || !snapBestAsk) return 0;
+    var seen = {}, n = 0;
+    function consider(p) {
+      var bLo = Math.floor(p / B) * B;
+      if (seen[bLo]) return;
+      var complete = side === 'bid'
+        ? (bLo >= snapMinBid)
+        : (bLo + B <= snapMaxAsk);
+      if (complete) { seen[bLo] = 1; n++; }
+    }
+    var map = side === 'bid' ? bids : asks;
+    map.forEach(function (_, p) { consider(+p); });
+    return n;
+  }
+  // Avalia o Auto no ritmo do render: descida IMEDIATA ao faltar faixa;
+  // subida só com folga (span/B >= margem) N renders seguidos.
+  function autoEvaluate() {
+    if (!autoMode || !bids.size || !asks.size || !snapBestBid || !snapBestAsk) return;
+    var order = BUCKET_CHOICES.slice().sort(function (a, b) { return a - b; });
+    var cur = order.indexOf(bucketSize);
+    if (cur < 0) cur = 0;
+    var down = cur;
+    while (down > 0 &&
+      (countComplete('bid', order[down]) < VISIBLE_BANDS_PER_SIDE ||
+       countComplete('ask', order[down]) < VISIBLE_BANDS_PER_SIDE)) {
+      down--;
+    }
+    if (down !== cur) {
+      bucketSize = order[down];
+      autoUpStreak = 0;
+      lastAutoSwitch = { to: bucketSize, reason: 'downscale-missing', at: new Date().toISOString() };
+      refreshBucketUI();
+      return; // agregação abaixo usa o novo bucket no MESMO render
+    }
+    if (cur < order.length - 1) {
+      var B2 = order[cur + 1];
+      var spanB = snapBestBid - snapMinBid, spanA = snapMaxAsk - snapBestAsk;
+      var ok = countComplete('bid', B2) >= VISIBLE_BANDS_PER_SIDE &&
+               countComplete('ask', B2) >= VISIBLE_BANDS_PER_SIDE &&
+               spanB / B2 >= AUTO_UP_MARGIN && spanA / B2 >= AUTO_UP_MARGIN;
+      if (ok) {
+        autoUpStreak++;
+        if (autoUpStreak >= AUTO_HYSTERESIS_RENDERS) {
+          bucketSize = B2;
+          autoUpStreak = 0;
+          lastAutoSwitch = { to: B2, reason: 'upscale-margin', at: new Date().toISOString() };
+          refreshBucketUI();
+        }
+      } else {
+        autoUpStreak = 0;
+      }
+    } else {
+      autoUpStreak = 0;
+    }
+  }
+  refreshBucketUI();
   // Seletor de unidade US$ | BTC (SOMENTE apresentação): trocar redesenha
   // a partir dos buckets já calculados. Sem fetch, sem resync, sem rebuild
   // do book, sem tocar cobertura/sync. Padrão = DEFAULT_UNIT ('USD').
@@ -774,6 +905,7 @@
     checkCoverage(); // cobertura por span avaliada no ritmo do render
     drawCandles();
     drawBuckets();
+    drawThermo(); // termômetro: só leitura do book, mesmo ciclo, sem pisca
     // Auditoria do preço único: lê de volta o que foi pintado no ciclo.
     var midTxt = (typeof midEl !== 'undefined' && midEl) ? midEl.textContent : null;
     var hNum = (priceEl.textContent.match(/[\d.]+/) || [])[0] || null;
@@ -841,8 +973,15 @@
     var xi;
     for (xi = 0; xi < 4; xi++) {
       var ci = Math.min(vis.length - 1, Math.round(xi * (vis.length - 1) / 3));
+      var tLbl = fmtClock(vis[ci].time);
+      // (i) primeiro rótulo era cortado ("6:20" em vez de "06:20"):
+      // prende o centro dentro da área do gráfico.
+      var cx = 5 + ci * cw + cw / 2;
+      var tw = ctx.measureText(tLbl).width;
+      if (cx - tw / 2 < 2) cx = 2 + tw / 2;
+      if (cx + tw / 2 > plotW - 2) cx = plotW - 2 - tw / 2;
       ctx.fillStyle = '#666';
-      ctx.fillText(fmtClock(vis[ci].time), 5 + ci * cw + cw / 2, h - 7);
+      ctx.fillText(tLbl, cx, h - 7);
     }
     ctx.textAlign = 'left';
     if (displayPrice >= lo && displayPrice <= hi) {
@@ -884,7 +1023,11 @@
     if (rowsMsg === kind) return;
     rowsMsg = kind;
     rowsEl.innerHTML = html;
-    askRowEls.clear(); bidRowEls.clear(); midEl = null;
+    askRowEls.clear(); bidRowEls.clear();
+    partAskPool.forEach(function (e) { e.el.remove(); });
+    partBidPool.forEach(function (e) { e.el.remove(); });
+    partAskPool.clear(); partBidPool.clear();
+    midEl = null;
   }
 
   function drawBuckets() {
@@ -893,6 +1036,7 @@
       showRowsMsg('loading', '<div class="ob__loading">Carregando book…</div>');
       return;
     }
+    autoEvaluate(); // Auto-faixa: pode ajustar bucketSize antes de agregar
     var lo = scale.lo, hi = scale.hi;
     // P1 item 11: bucket de COMPRAS só se bucketLow >= snapMinBid; de VENDAS
     // só se bucketHigh <= snapMaxAsk. Fora disso: OMITIDO (nunca parcial).
@@ -901,6 +1045,7 @@
     // como antes) e btc = soma das quantidades (o book já cotiza em BTC).
     // A unidade é escolhida SOMENTE no render; trocar não toca no book.
     var bidBuckets = new Map(), askBuckets = new Map();
+    var omitBid = new Map(), omitAsk = new Map(); // borda omitida: só p/ auditoria
     function addToBucket(map, bLo, price, q) {
       var e = map.get(bLo);
       if (!e) { e = { usd: 0, btc: 0 }; map.set(bLo, e); }
@@ -911,17 +1056,17 @@
       var price = +p;
       if (price < lo || price > hi) return; // recorta ao range dos candles
       var bLo = Math.floor(price / bucketSize) * bucketSize;
-      if (!(bLo >= snapMinBid)) return; // borda → OMITIDO (P1 item 11)
+      if (!(bLo >= snapMinBid)) { addToBucket(omitBid, bLo, price, q); return; } // borda → OMITIDO (P1 item 11)
       addToBucket(bidBuckets, bLo, price, q);
     });
     asks.forEach(function (q, p) {
       var price = +p;
       if (price < lo || price > hi) return;
       var bLo = Math.floor(price / bucketSize) * bucketSize;
-      if (!(bLo + bucketSize <= snapMaxAsk)) return; // borda → OMITIDO (P1 item 11)
+      if (!(bLo + bucketSize <= snapMaxAsk)) { addToBucket(omitAsk, bLo, price, q); return; } // borda → OMITIDO (P1 item 11)
       addToBucket(askBuckets, bLo, price, q);
     });
-    if (!bidBuckets.size && !askBuckets.size) {
+    if (!bidBuckets.size && !askBuckets.size && !omitBid.size && !omitAsk.size) {
       showRowsMsg('nobuckets', '<div class="ob__empty">Sem buckets completos no range visível.</div>');
       return;
     }
@@ -929,15 +1074,32 @@
     if (rowsMsg !== 'data') {
       rowsMsg = 'data';
       rowsEl.innerHTML = '';
-      askRowEls.clear(); bidRowEls.clear(); midEl = null;
+      askRowEls.clear(); bidRowEls.clear();
+      partAskPool.forEach(function (e) { e.el.remove(); });
+      partBidPool.forEach(function (e) { e.el.remove(); });
+      partAskPool.clear(); partBidPool.clear();
+      midEl = null;
     }
     // Escala ÚNICA por unidade: 100% = maior bucket entre os EXIBIDOS
     // (os N mais próximos do preço, de cada lado, na unidade selecionada).
     // Seleção primeiro, escala depois — proporções sempre honestas.
+    // Faixa parcial de borda: só aparece quando o lado tem menos de 5
+    // completas; entra na escala pelo valor-piso, nunca leva o chip, e o
+    // total por lado nunca excede 5 barras.
+    var askFull = askBuckets.size, bidFull = bidBuckets.size;
     var askNear = Array.from(askBuckets.keys()).sort(function (a, b) { return a - b; })
       .slice(0, VISIBLE_BANDS_PER_SIDE);
     var bidNear = Array.from(bidBuckets.keys()).sort(function (a, b) { return b - a; })
       .slice(0, VISIBLE_BANDS_PER_SIDE);
+    var partAskK = null, partBidK = null;
+    if (askFull < VISIBLE_BANDS_PER_SIDE && omitAsk.size) {
+      partAskK = Math.min.apply(null, Array.from(omitAsk.keys()));
+    }
+    if (bidFull < VISIBLE_BANDS_PER_SIDE && omitBid.size) {
+      partBidK = Math.max.apply(null, Array.from(omitBid.keys()));
+    }
+    var partAskE = partAskK === null ? null : omitAsk.get(partAskK);
+    var partBidE = partBidK === null ? null : omitBid.get(partBidK);
     var peakUSD = 0, peakBTC = 0;
     function trackPeak(e) {
       if (e.usd > peakUSD) peakUSD = e.usd;
@@ -945,6 +1107,8 @@
     }
     askNear.forEach(function (k) { trackPeak(askBuckets.get(k)); });
     bidNear.forEach(function (k) { trackPeak(bidBuckets.get(k)); });
+    if (partAskE) trackPeak(partAskE);
+    if (partBidE) trackPeak(partBidE);
     var peak = unit === 'BTC' ? peakBTC : peakUSD;
     if (!peak) return;
     function valOf(e) { return unit === 'BTC' ? e.btc : e.usd; }
@@ -955,9 +1119,22 @@
     // Cópia p/ o hook de QA (bucketsSnapshot): usd+btc do último cálculo.
     lastBuckets = { unit: unit, peakUSD: peakUSD, peakBTC: peakBTC,
       ask: copyBuckets(askBuckets), bid: copyBuckets(bidBuckets) };
+    lastOmitted = { ask: copyBuckets(omitAsk), bid: copyBuckets(omitBid) };
     // Ordem de exibição: asks desc (maior no topo), bids desc (maior em cima).
     var askKeys = askNear.slice().sort(function (a, b) { return b - a; });
     var bidKeys = bidNear.slice().sort(function (a, b) { return b - a; });
+    lastShown = { ask: askKeys.slice(), bid: bidKeys.slice() };
+    if (partAskK !== null) lastShown.ask.push(partAskK);
+    if (partBidK !== null) lastShown.bid.push(partBidK);
+    // Rótulo "só N faixas completas" quando algum lado exibir menos de 5.
+    var shortTxt = '';
+    if (askFull < VISIBLE_BANDS_PER_SIDE || bidFull < VISIBLE_BANDS_PER_SIDE) {
+      var parts = [];
+      if (bidFull < VISIBLE_BANDS_PER_SIDE) parts.push('só ' + bidFull + ' faixas completas em compras');
+      if (askFull < VISIBLE_BANDS_PER_SIDE) parts.push('só ' + askFull + ' faixas completas em vendas');
+      shortTxt = parts.join(' · ');
+    }
+    setText(shortEl, shortTxt);
     if (!midEl) {
       midEl = document.createElement('div');
       midEl.className = 'ob__midline';
@@ -965,11 +1142,11 @@
     }
     // Linha persistente: cria uma vez, depois só atualiza largura/texto/chip
     // quando mudam. Mover nó existente (insertBefore/appendChild) não pisca.
-    function syncRow(pool, key, bLo, entry, side, isMax) {
+    function syncRow(pool, key, bLo, entry, side, isMax, isPartial) {
       var usd = entry.usd, btc = entry.btc;
       var val = valOf(entry);
       var pct = (val / peak * 100).toFixed(1);
-      var valTxt = fmtVal(usd, btc);
+      var valTxt = (isPartial ? '≥ ' : '') + fmtVal(usd, btc);
       var e = pool.get(key);
       if (!e) {
         var d = document.createElement('div');
@@ -986,25 +1163,27 @@
           tipEl.style.display = 'block';
           tipEl.style.left = (ev.clientX + 12) + 'px';
           tipEl.style.top = (ev.clientY + 12) + 'px';
-          tipEl.innerHTML = tipHTML(dt.bLo, dt.usd, dt.btc, dt.side);
+          tipEl.innerHTML = tipHTML(dt.bLo, dt.usd, dt.btc, dt.side, dt.partial);
         });
         d.addEventListener('mouseleave', function () { tipEl.style.display = 'none'; });
         pool.set(key, e);
       }
-      e.data = { bLo: bLo, usd: usd, btc: btc, side: side };
+      e.data = { bLo: bLo, usd: usd, btc: btc, side: side, partial: !!isPartial };
       if (e.bs !== bucketSize || e.un !== unit) {
         e.bs = bucketSize; e.un = unit;
         e.bucket.textContent = bLo.toLocaleString('pt-BR') + '–' + (bLo + bucketSize).toLocaleString('pt-BR');
       }
       var wStr = pct + '%';
       if (e.w !== wStr) { e.fill.style.width = wStr; e.w = wStr; }
-      var cls = 'ob__bar-fill ' + (side === 'ask' ? 'ob__bar-fill--ask' : 'ob__bar-fill--bid') + (val === peak ? ' ob__bar-fill--top' : '');
+      var cls = 'ob__bar-fill ' + (side === 'ask' ? 'ob__bar-fill--ask' : 'ob__bar-fill--bid') +
+        (val === peak && !isPartial ? ' ob__bar-fill--top' : '') +
+        (isPartial ? ' ob__bar-fill--partial' : '');
       if (e.c !== cls) { e.fill.className = cls; e.c = cls; }
       var html = valTxt;
       if (e.html !== html) { e.usdEl.innerHTML = html; e.html = html; }
-      // Etiqueta de máxima DENTRO do gráfico: overlay no canto direito da
-      // trilha (sempre visível por inteiro, mesmo em barra fina).
-      var chipTxt = isMax
+      // Etiqueta de máxima DENTRO do gráfico: overlay no início da trilha
+      // (ponta da barra livre). Nunca aponta para parcial.
+      var chipTxt = (isMax && !isPartial)
         ? bLo.toLocaleString('pt-BR') + ' | ' + valTxt +
           (side === 'ask' ? ' (VENDAS)' : ' (COMPRAS)')
         : '';
@@ -1028,10 +1207,152 @@
     askRowEls.forEach(function (e, k) { if (!askShown[k]) { e.el.remove(); askRowEls.delete(k); } });
     bidRowEls.forEach(function (e, k) { if (!bidShown[k]) { e.el.remove(); bidRowEls.delete(k); } });
     // Reposiciona na ordem (mover não recria: sem pisca).
-    askKeys.forEach(function (k) { rowsEl.insertBefore(syncRow(askRowEls, k, k, askBuckets.get(k), 'ask', k === maxAskK), midEl); });
+    askKeys.forEach(function (k) { rowsEl.insertBefore(syncRow(askRowEls, k, k, askBuckets.get(k), 'ask', k === maxAskK, false), midEl); });
+    // Parcial de venda: acima das completas (é a faixa mais alta).
+    // Poda a parcial obsoleta (ex.: mudou o bucket ou sumiu a borda).
+    partAskPool.forEach(function (e, k) {
+      if (partAskK === null || k !== 'p' + partAskK) { e.el.remove(); partAskPool.delete(k); }
+    });
+    if (partAskK !== null && partAskE) {
+      var firstAsk = askKeys.length ? askRowEls.get(askKeys[0]).el : midEl;
+      rowsEl.insertBefore(syncRow(partAskPool, 'p' + partAskK, partAskK, partAskE, 'ask', false, true), firstAsk);
+    } else {
+      partAskPool.forEach(function (e) { e.el.remove(); });
+      partAskPool.clear();
+    }
     var midTxt = 'PREÇO US$ ' + displayPrice.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
     if (midEl.textContent !== midTxt) midEl.textContent = midTxt;
-    bidKeys.forEach(function (k) { rowsEl.appendChild(syncRow(bidRowEls, k, k, bidBuckets.get(k), 'bid', k === maxBidK)); });
+    bidKeys.forEach(function (k) { rowsEl.appendChild(syncRow(bidRowEls, k, k, bidBuckets.get(k), 'bid', k === maxBidK, false)); });
+    // Parcial de compra: abaixo das completas (é a faixa mais baixa).
+    partBidPool.forEach(function (e, k) {
+      if (partBidK === null || k !== 'p' + partBidK) { e.el.remove(); partBidPool.delete(k); }
+    });
+    if (partBidK !== null && partBidE) {
+      rowsEl.appendChild(syncRow(partBidPool, 'p' + partBidK, partBidK, partBidE, 'bid', false, true));
+    } else {
+      partBidPool.forEach(function (e) { e.el.remove(); });
+      partBidPool.clear();
+    }
+  }
+
+  // ================= TERMÔMETRO compras × vendas (só apresentação) =================
+  // Lê os NÍVEIS individuais do book local (não os buckets). Janela com
+  // distância IGUAL nos dois lados, dos extremos CONGELADOS do snapshot:
+  //   bidSpan = bestBid − snapshotMinBid; askSpan = snapshotMaxAsk − bestAsk
+  //   D = min(bidSpan, askSpan), em US$ de preço, independente da unidade.
+  // Compras: bestBid − D <= preço <= bestBid.
+  // Vendas: bestAsk <= preço <= bestAsk + D.
+  // O preço do kline NÃO entra no cálculo (só exibição). Spread nunca vira
+  // volume: a faixa (bestBid, bestAsk) não pertence a nenhum lado. Níveis
+  // fora de [snapshotMinBid, snapshotMaxAsk] não entram. Book cruzado
+  // (bestBid >= bestAsk) → vazio. Percentuais SEMPRE de btc (invariantes à
+  // unidade); valores exibidos seguem a unidade (fmtUSD/fmtBTC aprovados).
+  function computeThermo() {
+    if (!depthReady) return { empty: true, reason: 'book-ausente' };
+    var lb = bestBid(), la = bestAsk();
+    if (!lb || !la) return { empty: true, reason: 'best-ausente' };
+    if (lb >= la) return { empty: true, reason: 'cruzado' };
+    if (!snapMinBid || !snapMaxAsk) return { empty: true, reason: 'sem-snapshot' };
+    var bidSpan = lb - snapMinBid, askSpan = snapMaxAsk - la;
+    var D = Math.min(bidSpan, askSpan);
+    if (!(D > 0) || D < THERMO_MIN_D_USD) return { empty: true, reason: 'janela-curta' };
+    var buyBtc = 0, buyUsd = 0, sellBtc = 0, sellUsd = 0, nBid = 0, nAsk = 0;
+    var buyLo = lb - D, sellHi = la + D;
+    bids.forEach(function (q, p) {
+      var v = +p;
+      if (v < buyLo || v > lb) return;
+      if (v < snapMinBid) return; // fora da janela do snapshot: fora
+      buyBtc += q; buyUsd += v * q; nBid++;
+    });
+    asks.forEach(function (q, p) {
+      var v = +p;
+      if (v < la || v > sellHi) return;
+      if (v > snapMaxAsk) return; // fora da janela do snapshot: fora
+      sellBtc += q; sellUsd += v * q; nAsk++;
+    });
+    var tot = buyBtc + sellBtc;
+    if (!(tot > 0)) return { empty: true, reason: 'sem-volume' };
+    var t = { empty: false, bestBid: lb, bestAsk: la, price: displayPrice,
+      bidSpan: bidSpan, askSpan: askSpan, D: D,
+      buyBtc: buyBtc, sellBtc: sellBtc, buyUsd: buyUsd, sellUsd: sellUsd,
+      buyPct: buyBtc / tot * 100, sellPct: sellBtc / tot * 100,
+      nBid: nBid, nAsk: nAsk, unit: unit,
+      buyTop: lb, buyBottom: buyLo, sellBottom: la, sellTop: sellHi,
+      bands: buildBands(lb - D, lb, la, la + D) };
+    return t;
+  }
+
+  // Faixas dentro de ±D com totais e marcação exibida/omitida por borda
+  // (p/ __obAudit). "Exibida" = está no top-N visível do último render.
+  function buildBands(bidLo, bidHi, askLo, askHi) {
+    var out = { bid: [], ask: [] };
+    function push(side, store, shownKeys, wLo, wHi, edgeOmitted) {
+      Object.keys(store).forEach(function (ks) {
+        var k = +ks, e = store[ks];
+        var bLo = k, bHi = k + bucketSize;
+        var overlaps = bLo <= wHi && bHi >= wLo;
+        if (!overlaps) return;
+        var isShown = shownKeys.indexOf(k) >= 0;
+        out[side].push({ lo: bLo, hi: bHi, usd: e.usd, btc: e.btc,
+          shown: isShown, omittedByEdge: !!edgeOmitted });
+      });
+      out[side].sort(function (a, b) { return a.lo - b.lo; });
+    }
+    if (lastBuckets) {
+      push('bid', lastBuckets.bid, lastShown.bid, bidLo, bidHi, false);
+      push('ask', lastBuckets.ask, lastShown.ask, askLo, askHi, false);
+    }
+    if (lastOmitted) {
+      push('bid', lastOmitted.bid, lastShown.bid, bidLo, bidHi, true);
+      push('ask', lastOmitted.ask, lastShown.ask, askLo, askHi, true);
+    }
+    return out;
+  }
+
+  function fmtD(d) {
+    return '±US$ ' + d.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+  }
+
+  // Desenha no mesmo ciclo de render, sem rebuild: só larguras e textos.
+  // Altura reservada no CSS mesmo vazia (sem salto de layout).
+  function drawThermo() {
+    var t = computeThermo();
+    lastThermo = t;
+    if (t.empty) {
+      setThermoBar(0, 0);
+      setText(thermoBuyEl, '—');
+      setText(thermoSellEl, '');
+      setText(thermoLegend, '—');
+      setText(thermoDiff, '');
+      thermoBar.removeAttribute('title');
+      return;
+    }
+    setThermoBar(t.buyPct, t.sellPct);
+    var buyTxt = unit === 'BTC' ? fmtBTC(t.buyBtc) : fmtUSD(t.buyUsd);
+    var sellTxt = unit === 'BTC' ? fmtBTC(t.sellBtc) : fmtUSD(t.sellUsd);
+    // (iii) rótulos alinhados a cada cor: compras à esquerda (azul),
+    // vendas à direita (vermelho), mesmo texto de antes.
+    setText(thermoBuyEl, 'Compras ' + buyTxt + ' · ' + Math.round(t.buyPct) + '%');
+    setText(thermoSellEl, Math.round(t.sellPct) + '% · ' + sellTxt + ' Vendas');
+    setText(thermoLegend,
+      'calculado em ' + fmtD(t.D) + ' do melhor preço de compra e de venda (independente da faixa escolhida)');
+    // Marca central em 50%: texto curto com a diferença (só exibição).
+    var lead = t.buyPct >= t.sellPct ? 'compras' : 'vendas';
+    var diffPp = Math.abs(Math.round(t.buyPct - 50));
+    setText(thermoDiff, diffPp === 0 ? 'equilibrado' : lead + ' +' + diffPp + ' p.p.');
+    thermoBar.setAttribute('title',
+      'Soma das ordens limite do book até esta distância. Não é pressão garantida: ' +
+      'ordens podem ser canceladas e paredes grandes podem ser spoofing. Não são liquidações.');
+  }
+
+  function setThermoBar(buyPct, sellPct) {
+    var bw = buyPct.toFixed(1) + '%', sw = sellPct.toFixed(1) + '%';
+    if (thermoBid.style.width !== bw) thermoBid.style.width = bw;
+    if (thermoAsk.style.width !== sw) thermoAsk.style.width = sw;
+  }
+
+  function setText(el, txt) {
+    if (el.textContent !== txt) el.textContent = txt;
   }
 
   // ---- Boot (lazy: só quando visível; não toca nos sockets Spot) ----
@@ -1074,6 +1395,8 @@
         badge: coverageEl.textContent || null,
         snap: { bestBid: snapBestBid, minBid: snapMinBid, bestAsk: snapBestAsk, maxAsk: snapMaxAsk } },
       priceCheck: lastPriceCheck,
+      thermometer: lastThermo,
+      auto: { mode: autoMode ? 'auto' : 'manual', bucket: bucketSize, lastSwitch: lastAutoSwitch },
       book: { bids: bids.size, asks: asks.size, bestBid: lb, bestAsk: la,
         ready: depthReady, syncing: syncing, applied: appliedCount },
       sockets: {
@@ -1100,6 +1423,9 @@
     runValidation: validateBook,
     fmtBTC: fmtBTC, // formatação pura, só leitura
     tipHTML: tipHTML, // tooltip puro a partir de (bLo, usd, btc, side)
+    thermo: function () { // último cálculo (cópia); vazio registrado como vazio
+      return lastThermo ? JSON.parse(JSON.stringify(lastThermo)) : null;
+    },
     bucketsSnapshot: function () { return lastBuckets ? JSON.parse(JSON.stringify(lastBuckets)) : null; },
     setUnit: function (v) {
       if ((v === 'USD' || v === 'BTC') && unit !== v) {
@@ -1114,18 +1440,16 @@
       }
     },
     setBucket: function (v) {
-      if (BUCKET_CHOICES.indexOf(v) >= 0) {
-        bucketSize = v;
-        document.getElementById('ob-bklabel').textContent = String(v);
-        queueRender();
-      }
+      // Espelha o clique manual: desliga o Auto e aplica a faixa.
+      if (BUCKET_CHOICES.indexOf(v) >= 0) applyBucketManual(v);
     },
+    setAuto: function (on) { setAutoMode(!!on); },
     state: function () {
       return { depthReady: depthReady, syncing: syncing, lastUpdateId: lastUpdateId,
         bids: bids.size, asks: asks.size, applied: appliedCount, prevU: prevU,
         fetches: fetchSnapshots, strikes: validateStrikes,
         resyncTotal: resyncStats.total, coalesced: resyncStats.coalesced,
-        bootSeq: bootSeq, price: displayPrice,
+        bootSeq: bootSeq, price: displayPrice, bucket: bucketSize, auto: autoMode,
         bestBid: bestBid(), bestAsk: bestAsk(),
         snap: { bestBid: snapBestBid, minBid: snapMinBid, bestAsk: snapBestAsk, maxAsk: snapMaxAsk } };
     }
