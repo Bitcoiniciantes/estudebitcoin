@@ -17,6 +17,7 @@
 .ob__seg { display: inline-flex; gap: 4px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 3px; }
 .ob__seg button { background: transparent; border: 0; color: #ccc; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
 .ob__seg button.ativo { background: rgba(247,147,26,.2); color: #F7931A; }
+.ob__seg button:focus-visible { outline: 2px solid #F7931A; outline-offset: 1px; }
 .ob__warn { font-size: 12px; color: #ffcc80; background: rgba(255,152,0,.08); border: 1px solid rgba(255,152,0,.25); border-radius: 8px; padding: 8px 12px; margin: 0 0 12px; }
 .ob__disclaimer { font-size: 12px; color: #999; margin: 0 0 8px; }
 .ob__legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: #bbb; margin: 0 0 6px; }

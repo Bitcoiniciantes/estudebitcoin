@@ -6,46 +6,53 @@
    liquidação estimada, alavancagem ou qualquer estimativa — se uma
    faixa não tem ordens no book, ela simplesmente não aparece.
 
-   AGREGAÇÃO POR FAIXA (buckets 1/5/10/25 USD, padrão 10):
-     usd_por_nivel = preco * quantidade
-     bucket = floor(preco / faixa) * faixa   (ex.: faixa 10 → 84990–85000)
-     soma todos os níveis do book dentro de cada bucket, separando
-     bids (compras, abaixo do preço) e asks (vendas, acima do preço).
-     A largura das barras usa escala ÚNICA: 100% = maior bucket entre
-     os dois lados, para comparar compras × vendas visualmente.
-     Bucket que atravesse a borda da profundidade conhecida é OMITIDO
-     (nunca desenhado como parcial nem estendido).
+    AGREGAÇÃO POR FAIXA (buckets 1/5/10/25/50/100 USD, padrão 50;
+    opções congeladas por decisão do dono — não alterar sem confirmação):
+      usd_por_nivel = preco * quantidade
+      bucket = floor(preco / faixa) * faixa   (ex.: faixa 50 → 86450–86500)
+      soma todos os níveis do book dentro de cada bucket, separando
+      bids (compras, abaixo do preço) e asks (vendas, acima do preço).
+      Cada bucket guarda {usd, btc}; a unidade (US$|BTC, padrão US$) só
+      escolhe o que o render mostra — trocar nunca toca no book.
+      A largura das barras usa escala ÚNICA: 100% = maior bucket entre
+      os dois lados, para comparar compras × vendas visualmente.
+      Bucket de COMPRAS só se bucketLow >= snapMinBid; de VENDAS só se
+      bucketHigh <= snapMaxAsk (extremos do snapshot de origem).
+      Fora disso: OMITIDO (nunca parcial, nunca estendido).
 
-   SINCRONIZAÇÃO DO BOOK (ritual oficial USDⓈ-M "How to manage a local
-   order book correctly"):
-     1. abre o WS e bufferiza eventos depthUpdate;
-     2. busca snapshot REST (limit=1000) → lastUpdateId;
-     3. descarta eventos com u < lastUpdateId;
-     4. primeiro evento válido: U <= lastUpdateId && u >= lastUpdateId;
-        se todos os eventos em buffer tiverem U > lastUpdateId, busca
-        novo snapshot (o book andou durante o fetch);
-     5. do segundo evento aplicado em diante, exige pu === u anterior;
-        qualquer quebra → descarta todo o estado local e repete o ritual;
-     6. reconexão do WS → descarta estado e repete o ritual;
-     7. quantidade 0 remove o nível (inclusive níveis ausentes: normal).
-     Resnapshot periódico existe só como higiene opcional (5 min).
+    SINCRONIZAÇÃO DO BOOK (ritual oficial USDⓈ-M "How to manage a local
+    order book correctly" — NÃO a regra do Spot com +1):
+      1. abre o WS e bufferiza eventos depthUpdate;
+      2. espera determinística: NUNCA prossegue com buffer vazio;
+      3. busca snapshot REST (limit=1000, peso 20) → lastUpdateId;
+      4. descarta eventos com u < lastUpdateId; se restar só isso (ou
+         nada), continua aguardando; se surgir U > lastUpdateId sem
+         cobertura anterior → NOVO snapshot com o MESMO stream aberto;
+      5. primeiro evento válido: U <= lastUpdateId && u >= lastUpdateId;
+         do segundo em diante: pu === u anterior;
+      6. quebra/reconexão → repete o ritual (takeover, nunca em paralelo);
+      7. quantidade 0 remove o nível (inclusive níveis ausentes: normal).
+      Concorrência: bootSeq (geração) + trava syncing com coalescência;
+      book exibido só troca DE UMA VEZ (swap atômico, sem pisca).
 
-   COBERTURA (regra de representação do painel, NÃO do protocolo):
-     cobertura_lado = (níveis do snapshot de origem que permanecem
-                       conhecidos/vivos) / (níveis inicialmente
-                       recebidos naquele lado).
-     - Denominador congelado até o próximo resync; updates de
-       quantidade nunca o alteram; níveis fora da janela original
-       não entram no contador; contadores incrementais O(1).
-     - BOOK_MIN_LEVELS_PER_SIDE = 200 (única constante configurável).
-       Abaixo do mínimo em qualquer lado → badge "profundidade
-       limitada" + resync; se o novo snapshot também vier abaixo,
-       mantém o estado real sem fabricar profundidade.
+    COBERTURA por SPAN DE PREÇO (regra de representação, NÃO do protocolo;
+    ÚNICO critério — trocar de bucket nunca dispara resync):
+      coverageBid = (bestBid − snapMinBid) / (snapBestBid − snapMinBid)
+      coverageAsk = (snapMaxAsk − bestAsk) / (snapMaxAsk − snapBestAsk)
+      Extremos congelados no snapshot de origem. Cancelamentos/execuções
+      (qty 0) intermediários NÃO contam como perda. Span irrisório:
+      razão não avaliada (só console). COVERAGE_MIN_RATIO = 0.5 por lado;
+      abaixo → badge "profundidade limitada" + resync.
 
-   PREÇO: vem exclusivamente do kline de futuros (nunca do midpoint
-   do book). Eixo Y definido pelos candles; o book é recortado ao
-   range visível (nunca achata os candles).
-   ===================================================================== */
+    VALIDAÇÃO amostral (limit=100, peso 5; pausa com aba oculta): top 8
+    níveis/lado com tolerância de qty 20 %, priorizando níveis estáveis
+    (+2,5 s); absolutos (cruzado, qty inválida, fora da cobertura) na hora;
+    divergência de topo só após 2 strikes consecutivos.
+
+    PREÇO ÚNICO (displayPrice, do kline de futuros): cabeçalho, linha,
+    etiqueta do eixo e separador "PREÇO" pintados no mesmo ciclo. O book
+    nunca define o preço. Eixo Y com marcas arredondadas + horário no X.
+    ===================================================================== */
 (function () {
   'use strict';
 
@@ -53,16 +60,36 @@
   var SYMBOL = 'BTCUSDT';
   var BUCKET_CHOICES = [1, 5, 10, 25, 50, 100];
   var DEFAULT_BUCKET = 50;
+  // Unidade de exibição (SOMENTE apresentação): 'USD' | 'BTC'. Trocar de
+  // unidade só redesenha as barras (nunca fetch/resync/rebuild do book).
+  // Para tornar BTC o padrão, trocar só esta constante (sem lógica).
+  var DEFAULT_UNIT = 'USD';
   var TIMEFRAMES = ['1m', '5m', '15m', '1h'];
   var DEFAULT_TF = '1m';
-  var BOOK_MIN_LEVELS_PER_SIDE = 200; // única constante de cobertura
+  // ---- Cobertura por SPAN DE PREÇO (P1 item 10, único critério; trocar de
+  // bucket nunca dispara resync). Razão mínima configurável por lado.
+  var COVERAGE_MIN_RATIO = 0.5;
+  var MIN_SPAN_USD = 1.0; // span original irrisório: não avalia razão (só console)
   var SNAPSHOT_URL = 'https://fapi.binance.com/fapi/v1/depth?symbol=BTCUSDT&limit=1000';
   var KLINES_URL = 'https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=';
   var DEPTH_WS_URL = 'wss://fstream.binance.com/public/ws/btcusdt@depth';
   var KLINE_WS_BASE = 'wss://fstream.binance.com/market/ws/btcusdt@kline_';
   var RECONNECT_MS = 3000;
-  var HYGIENE_RESYNC_MS = 5 * 60 * 1000;
+  // Watchdog de resync (P1 item 7): monta o novo book em segundo plano e troca
+  // de uma vez (sem "carregando", sem pisca). NÃO é necessário para a
+  // sincronização — a continuidade por pu já cobre. Padrão DESATIVADO (0);
+  // para ativar, configurar intervalo em ms. Roda só com stream saudável
+  // (depthReady, sem sync em curso) e aba visível.
+  var WATCHDOG_RESYNC_MS = 0;
   var VALIDATE_MS = 60 * 1000;
+  // Validação amostral (P1 item 6): compara o topo do book local com um
+  // snapshot leve (limit=100 → peso 5 na doc oficial; 1000 → peso 20).
+  var VALIDATE_URL = 'https://fapi.binance.com/fapi/v1/depth?symbol=BTCUSDT&limit=100';
+  var VALIDATE_LEVELS = 8;    // níveis amostrados por lado no topo
+  var VALIDATE_QTY_TOL = 0.20; // tolerância relativa de quantidade (timing distinto)
+  var VALIDATE_MAX_MISMATCH = 3; // divergências p/ considerar o ciclo divergente
+  var VALIDATE_STABLE_MS = 2500; // nível local intocado há +X é "estável"
+  var VALIDATE_STRIKES_TO_RESYNC = 2; // divergências consecutivas p/ resync
   var MAX_CANDLES = 150;
   // Anti-flicker: o depth chega a ~4 eventos/s, mas o DOM (linhas + canvas)
   // é reconstruído no máximo 1x a cada 1,5s. Dados continuam ao vivo.
@@ -73,26 +100,36 @@
   // ---- Estado ----
   var bucketSize = DEFAULT_BUCKET;
   var timeframe = DEFAULT_TF;
+  var unit = DEFAULT_UNIT; // unidade selecionada no render ('USD' | 'BTC')
   var candles = [];          // {time, open, high, low, close}
-  var currentPrice = 0;
-  var bids = new Map();      // priceStr -> qty (números como string p/ chave estável)
+  var currentPrice = 0;      // preço cru do kline; o EXIBIDO é displayPrice (item 12)
+  var displayPrice = 0;      // preço único, fixado 1x por ciclo de render
+  var bids = new Map();      // priceStr -> qty (exibido; só trocado de uma vez)
   var asks = new Map();
+  var levelTs = new Map();   // priceStr -> timestamp da última atualização (validação)
   var lastUpdateId = -1;
   var prevU = -1;            // u do último evento aplicado (p/ checar pu)
   var appliedCount = 0;      // eventos aplicados desde o snapshot
   var depthBuffer = [];      // eventos recebidos antes do snapshot
-  var depthReady = false;
-  var originBids = new Set(); // níveis do snapshot de origem (lado bid)
-  var originAsks = new Set(); // níveis do snapshot de origem (lado ask)
-  var aliveBids = new Set();  // subconjunto de originBids ainda conhecido/vivo
-  var aliveAsks = new Set();
+  var depthReady = false;    // existe book utilizável exibido
+  var syncing = false;       // ciclo de sync em curso (trava P0 item 1)
+  var alignPending = null;   // snapshot aguardando 1º evento aplicável (P0 item 4)
+  // Extremos congelados no snapshot de origem (cobertura por span, P1 item 10).
+  var snapBestBid = 0, snapMinBid = 0, snapBestAsk = 0, snapMaxAsk = 0;
+  var coverageWarnedSeq = -1; // evita spam de console na mesma geração
+  var validateStrikes = 0;   // divergências consecutivas (P1 item 6)
+  var fetchSnapshots = 0;    // contador p/ QA (harness)
+  // Contador de resyncs (P2 item 16): total, coalescidos e por hora + motivo.
+  var resyncStats = { total: 0, coalesced: 0, byHour: {} };
   var depthSocket = null;
   var klineSocket = null;
   var depthTimer = null;
   var klineTimer = null;
-  var hygieneTimer = null;
+  var watchdogTimer = null;
   var validateTimer = null;
   var bootSeq = 0; // geração do boot atual: esperas/fetches antigos se anulam
+  var bootTime = Date.now(); // início p/ uptime da auditoria
+  var lastBuckets = null; // último cálculo {unit, peakUSD, peakBTC, ask:{}, bid:{}}
   var renderQueued = false;
   // Pool de linhas das barras: atualização NO LUGAR (sem rebuild/pisca).
   var askRowEls = new Map(), bidRowEls = new Map(), midEl = null, rowsMsg = '';
@@ -117,6 +154,7 @@
       '<div class="ob__controls">' +
         '<div class="ob__seg" id="ob-tfseg" role="group" aria-label="Tempo gráfico"></div>' +
         '<div class="ob__seg" id="ob-bkseg" role="group" aria-label="Tamanho da faixa"></div>' +
+      '<div class="ob__seg" id="ob-unitseg" role="group" aria-label="Unidade de valor"></div>' +
       '</div>' +
       '<p class="ob__warn" id="ob-warn" hidden></p>' +
       '<p class="ob__legend"><span class="ob__lg"><i class="ob__dotlg ob__dotlg--ask"></i>VENDAS (vermelho, acima do preço)</span>' +
@@ -124,13 +162,15 @@
       '<p class="ob__disclaimer">Ordens reais do book neste momento — não são liquidações futuras. ' +
       'Profundidade limitada a 1000 níveis por lado; faixas sem ordens não geram barras.</p>' +
       '<details class="ob__help"><summary>O que é isso?</summary>' +
-      '<p>Antes de comprar ou vender Bitcoin, a pessoa deixa uma <strong>ordem</strong> avisando o preço que ela quer. ' +
-      'Este painel soma todo o dinheiro dessas ordens por faixa de preço.</p>' +
-      '<p><strong style="color:#ff8a80">Barras vermelhas</strong> (acima do preço atual): ordens de <strong>venda</strong> — ' +
-      'onde tem muita barra vermelha, tem muita gente querendo vender (isso pode segurar a subida do preço).</p>' +
-      '<p><strong style="color:#90caf9">Barras azuis</strong> (abaixo do preço atual): ordens de <strong>compra</strong> — ' +
-      'onde tem muita barra azul, tem muita gente querendo comprar (isso pode segurar a queda do preço).</p>' +
-      '<p>Conteúdo educativo: mostra onde o dinheiro está posicionado, não diz para onde o preço vai.</p></details>' +
+      '<p>São <strong>ordens limite de verdade</strong>, que estão no book da Binance <strong>neste instante</strong> — ' +
+      'não são liquidações nem previsão de preço.</p>' +
+      '<p>Elas <strong>podem ser canceladas a qualquer momento</strong>: uma parede grande pode sumir segundos depois.</p>' +
+      '<p>Paredes grandes <strong>não garantem</strong> suporte ou resistência — existe <strong>spoofing</strong> ' +
+      '(gente fingindo comprar/vender para mover o preço).</p>' +
+      '<p>A profundidade é <strong>limitada</strong> ao que o book mostra (1000 níveis por lado); ' +
+      'faixas sem ordens não geram barras.</p>' +
+      '<p>Os valores podem ser vistos em <strong>US$ ou BTC</strong> (botões acima do painel): ' +
+      'é só outra forma de mostrar o mesmo dinheiro, sem mudar nenhum dado.</p></details>' +
       '<div class="ob__grid">' +
         '<div class="ob__panel"><h3>CANDLES · <span id="ob-tflabel">1m</span></h3><canvas id="ob-candles"></canvas></div>' +
         '<div class="ob__panel"><h3>CONCENTRAÇÃO · faixa US$ <span id="ob-bklabel">50</span></h3><div class="ob__rows" id="ob-rows"><div class="ob__loading">Carregando book…</div></div></div>' +
@@ -149,6 +189,7 @@
   var tipEl = document.getElementById('ob-tip');
   var tfSeg = document.getElementById('ob-tfseg');
   var bkSeg = document.getElementById('ob-bkseg');
+  var unitSeg = document.getElementById('ob-unitseg');
 
   function setStatus(mode, text) {
     dotEl.className = 'ob__dot' + (mode === 'on' ? ' ob__dot--on' : mode === 'warn' ? ' ob__dot--warn' : mode === 'off' ? ' ob__dot--off' : '');
@@ -159,6 +200,55 @@
     if (v >= 1e6) return 'US$ ' + (v / 1e6).toFixed(2).replace('.', ',') + 'M';
     if (v >= 1e3) return 'US$ ' + (v / 1e3).toFixed(1).replace('.', ',') + 'k';
     return 'US$ ' + v.toFixed(0);
+  }
+
+  // Formatação BTC em pt-BR (sem k/M, vírgula decimal, ponto de milhar).
+  // Aritmética inteira em satoshis p/ classificação consistente nas bordas:
+  // - valor cru < 0,01 BTC → '< 0,01 BTC' (ex.: 0,0096);
+  // - valor arredondado (half-up, 2 casas) >= 10 BTC → 1 casa ("10,0");
+  // - senão → 2 casas ("0,85", "0,01", "9,99").
+  function fmtBTC(v) {
+    if (!(v > 0)) return '< 0,01 BTC';
+    var sats = Math.round(v * 1e8);
+    if (sats < 1e6) return '< 0,01 BTC';
+    var cents = Math.floor((sats + 500000) / 1000000); // centésimos, half-up
+    var intPart, fracPart, fracLen;
+    if (cents >= 1000) {
+      var tenths = Math.floor((sats + 5e6) / 1e7); // décimos, half-up
+      intPart = Math.floor(tenths / 10);
+      fracPart = tenths % 10;
+      fracLen = 1;
+    } else {
+      intPart = Math.floor(cents / 100);
+      fracPart = cents % 100;
+      fracLen = 2;
+    }
+    var intTxt = intPart.toLocaleString('pt-BR');
+    var fracTxt = String(fracPart);
+    while (fracTxt.length < fracLen) fracTxt = '0' + fracTxt;
+    return intTxt + ',' + fracTxt + ' BTC';
+  }
+
+  function fmtVal(usd, btc) {
+    return unit === 'BTC' ? fmtBTC(btc) : fmtUSD(usd);
+  }
+
+  // Tooltip: unidade selecionada como principal + a outra unidade.
+  // Ex.: "130,4 BTC · US$ 11,32M · 0,60% do preço". O % de distância é a
+  // métrica já existente (não muda com a unidade).
+  function tipHTML(bLo, usd, btc, side) {
+    var dist = ((bLo + bucketSize / 2 - displayPrice) / displayPrice * 100).toFixed(2).replace('.', ',');
+    var main = unit === 'BTC' ? fmtBTC(btc) + ' · ' + fmtUSD(usd) : fmtUSD(usd) + ' · ' + fmtBTC(btc);
+    return 'Faixa: US$ ' + bLo.toLocaleString('pt-BR') + '–' + (bLo + bucketSize).toLocaleString('pt-BR') +
+      '<br>Tipo: ' + (side === 'ask' ? 'VENDAS' : 'COMPRAS') +
+      '<br>Ordens: ' + main +
+      '<br>Distância do preço: ' + (dist > 0 ? '+' : '') + dist + '%';
+  }
+
+  function copyBuckets(map) {
+    var o = {};
+    map.forEach(function (e, k) { o[k] = { usd: e.usd, btc: e.btc }; });
+    return o;
   }
 
   // ---- Controles (timeframe + faixa) ----
@@ -192,172 +282,309 @@
     });
     bkSeg.appendChild(b);
   });
+  // Seletor de unidade US$ | BTC (SOMENTE apresentação): trocar redesenha
+  // a partir dos buckets já calculados. Sem fetch, sem resync, sem rebuild
+  // do book, sem tocar cobertura/sync. Padrão = DEFAULT_UNIT ('USD').
+  [['USD', 'US$'], ['BTC', 'BTC']].forEach(function (pair) {
+    var val = pair[0], lbl = pair[1];
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = lbl;
+    if (val === unit) b.className = 'ativo';
+    b.setAttribute('aria-pressed', val === unit ? 'true' : 'false');
+    b.addEventListener('click', function () {
+      if (unit === val) return;
+      unit = val;
+      Array.prototype.forEach.call(unitSeg.children, function (x) {
+        x.className = '';
+        x.setAttribute('aria-pressed', 'false');
+      });
+      b.className = 'ativo';
+      b.setAttribute('aria-pressed', 'true');
+      queueRender(); // só redesenha (com throttle); book intacto
+    });
+    unitSeg.appendChild(b);
+  });
 
   // ================= DEPTH (book) =================
-  function resetBookState() {
-    bids.clear(); asks.clear();
-    originBids.clear(); originAsks.clear();
-    aliveBids.clear(); aliveAsks.clear();
-    depthBuffer = [];
-    depthReady = false;
-    lastUpdateId = -1; prevU = -1; appliedCount = 0;
+  // Ritual oficial USD-M Futures (NÃO a regra do Spot com +1):
+  // 1º evento: U <= lastUpdateId && u >= lastUpdateId; do 2º em diante:
+  // pu === u do evento anterior; qty 0 remove o nível.
+  //
+  // Concorrência (P0 item 1): bootSeq é a geração do ciclo. bootDepth()
+  // SEMPRE incrementa (cancela o anterior); startResync() COALESCECE
+  // quando já há sync em curso (nunca dois ciclos em paralelo). O book
+  // exibido (bids/asks) só é trocado DE UMA VEZ (swap) — durante o build
+  // o painel segue mostrando o book anterior, sem "carregando" e sem pisca.
+
+  // Contador de resyncs (P2 item 16): total, coalescidos e por hora + motivo.
+  // Histórico em anel p/ auditoria (somente leitura via __obAudit).
+  var resyncLog = [];
+  var staleDiscards = 0; // respostas/timers de ciclo antigo descartados
+  var valRuns = 0, valPassed = 0, valStruck = 0; // validações REST
+  var depthConns = 0, depthCloses = 0, klineConns = 0, klineCloses = 0;
+  var depthLastChange = 0, klineLastChange = 0;
+  var lastPriceCheck = null; // última verificação do preço único (render)
+  function logResync(reason) {
+    resyncStats.total++;
+    var now = new Date();
+    var hk = now.toISOString().slice(0, 13); // por hora (UTC)
+    resyncStats.byHour[hk] = (resyncStats.byHour[hk] || 0) + 1;
+    resyncLog.push({ t: now.toISOString(), reason: reason, bootSeq: bootSeq });
+    if (resyncLog.length > 50) resyncLog.shift();
+    console.log('[orderbook] resync #' + resyncStats.total + ' motivo=' + reason +
+      ' bootSeq=' + bootSeq);
+  }
+  // Resposta/timer de ciclo antigo: conta e descarta sem tocar em nada.
+  function noteStale(what) {
+    staleDiscards++;
+    console.log('[orderbook] ' + what + ': bootSeq antigo');
   }
 
-  function applyLevel(map, origin, alive, priceStr, qty) {
+  function applyLevel(map, priceStr, qty) {
     var q = parseFloat(qty);
     if (!isFinite(q) || q < 0) return 'invalid';
     var p = parseFloat(priceStr);
     if (!isFinite(p) || p <= 0) return 'invalid';
-    if (q === 0) {
-      map.delete(priceStr);
-      alive.delete(priceStr); // quantidade zero: deixa de contar na cobertura
-    } else {
-      map.set(priceStr, q);
-      // Níveis novos vindos de eventos NÃO entram no contador de origem:
-      // só níveis do snapshot de origem contam (denominador congelado).
-    }
+    if (q === 0) { map.delete(priceStr); levelTs.delete(priceStr); }
+    else { map.set(priceStr, q); levelTs.set(priceStr, Date.now()); }
     return 'ok';
   }
 
-  function applyDepthEvent(ev) {
-    // Primeiro evento após snapshot: U <= lastUpdateId && u >= lastUpdateId.
-    // Do segundo em diante: pu === u anterior.
-    if (!depthReady) return false;
-    var U = ev.U, u = ev.u, pu = ev.pu;
-    if (typeof U !== 'number' || typeof u !== 'number') return false;
-    if (appliedCount === 0) {
-      if (!(U <= lastUpdateId && u >= lastUpdateId)) return false;
-    } else {
-      if (typeof pu !== 'number' || pu !== prevU) return false; // quebra → resync
-    }
+  function applyLevelsTo(bmap, amap, ev) {
     var bad = false;
-    (ev.b || []).forEach(function (lv) { if (applyLevel(bids, originBids, aliveBids, lv[0], lv[1]) === 'invalid') bad = true; });
-    (ev.a || []).forEach(function (lv) { if (applyLevel(asks, originAsks, aliveAsks, lv[0], lv[1]) === 'invalid') bad = true; });
-    if (bad) return false;
+    (ev.b || []).forEach(function (lv) { if (applyLevel(bmap, lv[0], lv[1]) === 'invalid') bad = true; });
+    (ev.a || []).forEach(function (lv) { if (applyLevel(amap, lv[0], lv[1]) === 'invalid') bad = true; });
+    return !bad;
+  }
+
+  // Evento ao vivo (book já sincronizado): só pu encadeado.
+  function applyLiveEvent(ev) {
+    var u = ev.u, pu = ev.pu;
+    if (typeof ev.U !== 'number' || typeof u !== 'number') return false;
+    if (typeof pu !== 'number' || pu !== prevU) return false;
+    if (!applyLevelsTo(bids, asks, ev)) return false;
     prevU = u; appliedCount++;
-    checkCoverage();
     return true;
   }
 
-  function onDepthMessage(ev) {
+  function onDepthMessage(data, ws) {
+    // P0 item 3: guarda de socket + geração. Mensagem de socket trocado ou
+    // de geração antiga é ignorada (nunca toca estado nem DOM).
+    if (!ws || depthSocket !== ws) return;
+    if (typeof ws._seq === 'number' && ws._seq !== bootSeq) return;
+    var ev;
+    try { ev = (typeof data === 'string') ? JSON.parse(data) : data; } catch (e) { return; }
     if (!ev || ev.e !== 'depthUpdate') return;
-    if (!depthReady) { depthBuffer.push(ev); return; } // bufferiza pré-snapshot
-    if (!applyDepthEvent(ev)) startResync('quebra de sequência');
-    else queueRender();
+    lastUpdateTime = Date.now();
+    updatedEl.textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+    if (syncing || !depthReady) {
+      depthBuffer.push(ev); // bufferiza; o alinhamento decide (tryAlign)
+      if (alignPending) tryAlign(bootSeq);
+      return;
+    }
+    // P0 item 3: após pedir resync, return imediato (sem aplicar nem renderizar).
+    if (!applyLiveEvent(ev)) { startResync('quebra de sequência'); return; }
+    queueRender();
   }
 
-  function startResync(reason) {
-    resetBookState();
-    setStatus('warn', 'Ressincronizando…');
+  function startResync(reason, opts) {
+    opts = opts || {};
+    if (syncing) {
+      // P0 item 1: pedido durante sync em curso é COALESCIDO (o ciclo atual
+      // continua valendo); nunca dois ciclos em paralelo.
+      resyncStats.coalesced++;
+      console.log('[orderbook] resync coalescido (sync em curso) motivo=' + reason);
+      return;
+    }
+    logResync(reason);
+    if (!opts.quiet) {
+      setStatus('warn', 'Ressincronizando…');
+      if (reason) { warnEl.hidden = false; warnEl.textContent = 'Ressincronizando book (' + reason + ').'; }
+    }
     bootDepth();
-    if (reason) warnEl.hidden = false, warnEl.textContent = 'Ressincronizando book (' + reason + ').';
-    else warnEl.hidden = true;
   }
 
-  function bootDepth() {
-    bootSeq++; // invalida esperas/fetches de boots anteriores
+  function bootDepth(opts) {
+    opts = opts || {};
+    bootSeq++; // P0 item 1: cancela o ciclo anterior (nunca em paralelo)
     var seq = bootSeq;
+    syncing = true;
     clearTimeout(depthTimer); depthTimer = null;
-    resetBookState();
-    // 1. Abre o WS primeiro e bufferiza (ritual oficial).
-    connectDepthSocket();
-    // 1b. Aguarda ao menos 1 evento em buffer ANTES do snapshot (até 3s).
-    // Sem isso, o snapshot pode nascer defasado: o primeiro evento ao vivo
-    // chegaria com U > lastUpdateId e o sync falharia em loop eterno.
-    var waited = 0;
+    // P0 item 5: buffer antigo descartado a cada boot. Com keepSocket, o
+    // socket é adotado na geração nova e os PRÓXIMOS eventos acumulam.
+    depthBuffer = [];
+    alignPending = null;
+    lastUpdateId = -1; prevU = -1; appliedCount = 0;
+    if (opts.keepSocket && depthSocket) {
+      depthSocket._seq = seq; // adota o stream aberto (P0 item 4: stream continua)
+    } else {
+      connectDepthSocket(seq);
+    }
+    // P0 item 4: espera DETERMINÍSTICA — o timeout NUNCA prossegue com
+    // buffer vazio; sem evento, continua aguardando (o stream empurra).
     (function waitBuf() {
       if (seq !== bootSeq) return; // boot superado: aborta
-      if (depthBuffer.length > 0 || waited >= 3000) { fetchSnapshot(seq); return; }
-      waited += 120;
+      if (depthBuffer.length > 0) { fetchSnapshot(seq); return; }
       setTimeout(waitBuf, 120);
     })();
   }
 
   function fetchSnapshot(seq) {
-    // 2. Snapshot REST (só vale para o boot que o pediu).
+    // 2. Snapshot REST (só vale para o boot que o pediu). Constrói o book em
+    // cópias temporárias: o exibido só troca DE UMA VEZ no commit (sem pisca).
+    fetchSnapshots++; // contador p/ QA
     fetch(SNAPSHOT_URL, { cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (snap) {
-        if (seq !== bootSeq) return; // boot superado: descarta resposta tardia
+        if (seq !== bootSeq) { noteStale('snapshot descartado'); return; }
         if (!snap || typeof snap.lastUpdateId !== 'number' || !Array.isArray(snap.bids) || !Array.isArray(snap.asks)) {
           throw new Error('snapshot inválido');
         }
-        lastUpdateId = snap.lastUpdateId;
+        var nb = new Map(), na = new Map(), now = Date.now();
+        var minB = Infinity, maxB = -Infinity, minA = Infinity, maxA = -Infinity;
         snap.bids.forEach(function (lv) {
           var p = String(lv[0]), q = parseFloat(lv[1]);
           if (isFinite(parseFloat(p)) && isFinite(q) && q > 0) {
-            bids.set(p, q); originBids.add(p); aliveBids.add(p);
+            nb.set(p, q); levelTs.set(p, now);
+            var v = +p; if (v < minB) minB = v; if (v > maxB) maxB = v;
           }
         });
         snap.asks.forEach(function (lv) {
           var p = String(lv[0]), q = parseFloat(lv[1]);
           if (isFinite(parseFloat(p)) && isFinite(q) && q > 0) {
-            asks.set(p, q); originAsks.add(p); aliveAsks.add(p);
+            na.set(p, q); levelTs.set(p, now);
+            var v = +p; if (v < minA) minA = v; if (v > maxA) maxA = v;
           }
         });
-        if (originBids.size === 0 || originAsks.size === 0) throw new Error('snapshot vazio');
-        depthReady = true;
-        // 3. Descarta u < lastUpdateId; procura o primeiro U <= lastUpdateId <= u.
-        var buf = depthBuffer; depthBuffer = [];
-        buf = buf.filter(function (ev) { return ev.u >= lastUpdateId; });
-        var start = -1;
-        for (var i = 0; i < buf.length; i++) {
-          if (buf[i].U <= lastUpdateId && buf[i].u >= lastUpdateId) { start = i; break; }
-        }
-        if (buf.length && start === -1) {
-          // Todos os eventos têm U > lastUpdateId: o book andou → novo snapshot.
-          startResync('snapshot defasado');
-          return;
-        }
-        for (var j = Math.max(0, start); j < buf.length; j++) {
-          if (!applyDepthEvent(buf[j])) { startResync('eventos em buffer inconsistentes'); return; }
-        }
-        warnEl.hidden = true;
-        setStatus('on', 'Conectado');
-        checkCoverage();
-        queueRender();
+        if (!nb.size || !na.size) throw new Error('snapshot vazio');
+        // Congela os extremos DESTE snapshot (cobertura por span, P1 item 10).
+        alignPending = { lastUpdateId: snap.lastUpdateId, bids: nb, asks: na,
+          bestBid: maxB, minBid: minB, bestAsk: minA, maxAsk: maxA };
+        pruneLevelTs();
+        tryAlign(seq);
       })
       .catch(function () {
         if (seq !== bootSeq) return;
         setStatus('off', 'Falha no snapshot — tentando de novo');
-        setTimeout(bootDepth, RECONNECT_MS);
+        var s = bootSeq;
+        // P0 item 2: este timer pertence ao ciclo de sync → respeita bootSeq.
+        setTimeout(function () { if (s === bootSeq) bootDepth(); }, RECONNECT_MS);
       });
   }
 
-  function connectDepthSocket() {
+  // P0 item 4 — alinhamento DETERMINÍSTICO do buffer contra o snapshot:
+  // descarta u < lastUpdateId; se restar só isso (ou nada), NÃO aplica nada
+  // e continua aguardando; se surgir U > lastUpdateId sem cobertura anterior,
+  // o snapshot não sincroniza mais → NOVO snapshot com o stream aberto.
+  function tryAlign(seq) {
+    if (seq !== bootSeq || !alignPending) return;
+    var pend = alignPending;
+    var buf = depthBuffer.filter(function (ev) { return ev.u >= pend.lastUpdateId; });
+    var start = -1, i;
+    for (i = 0; i < buf.length; i++) {
+      if (buf[i].U <= pend.lastUpdateId && buf[i].u >= pend.lastUpdateId) { start = i; break; }
+    }
+    if (start === -1) {
+      var hasNewer = buf.some(function (ev) { return ev.U > pend.lastUpdateId; });
+      if (hasNewer) {
+        console.log('[orderbook] snapshot defasado: novo snapshot, stream mantido');
+        bootDepth({ keepSocket: true });
+      }
+      return; // só u < last (ou vazio): continua aguardando novos eventos
+    }
+    var nb = pend.bids, na = pend.asks, pu = -1, n = 0, bad = false;
+    for (var j = start; j < buf.length; j++) {
+      var ev = buf[j];
+      if (n === 0) {
+        if (!(ev.U <= pend.lastUpdateId && ev.u >= pend.lastUpdateId)) { bad = true; break; }
+      } else if (ev.pu !== pu) { bad = true; break; }
+      if (!applyLevelsTo(nb, na, ev)) { bad = true; break; }
+      pu = ev.u; n++;
+    }
+    if (bad || !n) { bootDepth({ keepSocket: true }); return; }
+    commitSync(seq, pend, nb, na, pu, n);
+  }
+
+  // Troca atômica: o book exibido vira o novo de uma vez (sem rebuild parcial).
+  function commitSync(seq, pend, nb, na, lastU, nEvents) {
+    if (seq !== bootSeq) { noteStale('commit descartado'); return; }
+    bids = nb; asks = na;
+    pruneLevelTs();
+    lastUpdateId = pend.lastUpdateId; prevU = lastU; appliedCount = nEvents;
+    snapBestBid = pend.bestBid; snapMinBid = pend.minBid;
+    snapBestAsk = pend.bestAsk; snapMaxAsk = pend.maxAsk;
+    depthBuffer = []; alignPending = null;
+    syncing = false; depthReady = true;
+    validateStrikes = 0;
+    warnEl.hidden = true;
+    setStatus('on', 'Conectado');
+    queueRender();
+  }
+
+  function pruneLevelTs() {
+    levelTs.forEach(function (_, p) {
+      if (!bids.has(p) && !asks.has(p)) levelTs.delete(p);
+    });
+  }
+
+  function connectDepthSocket(seq) {
     try { if (depthSocket) depthSocket.close(); } catch (e) {}
     var ws;
-    try { ws = new WebSocket(DEPTH_WS_URL); } catch (e) { setTimeout(connectDepthSocket, RECONNECT_MS); return; }
+    try { ws = new WebSocket(DEPTH_WS_URL); } catch (e) {
+      // P0 item 2: retry de construção pertence ao ciclo → respeita bootSeq.
+      setTimeout(function () { if (seq === bootSeq) connectDepthSocket(seq); }, RECONNECT_MS);
+      return;
+    }
+    ws._seq = seq; // geração do socket: mensagens velhas são ignoradas (P0 item 3)
     depthSocket = ws;
+    depthConns++; depthLastChange = Date.now();
     ws.onmessage = function (evt) {
-      try { onDepthMessage(JSON.parse(evt.data)); } catch (e) {}
-      lastUpdateTime = Date.now();
-      updatedEl.textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+      onDepthMessage(evt.data, ws);
     };
     ws.onclose = function () {
       // Socket fechado de propósito (resync/troca) NÃO reagenda: evita loop
       // de ressincronização — só o socket atual pode pedir reconexão.
       if (depthSocket !== ws) return;
-      // Reconexão: descarta estado local e repete o ritual (não reaproveita book).
+      depthCloses++; depthLastChange = Date.now();
+      // Reconexão assume o ciclo (takeover): o anterior não pode completar
+      // sem stream, então bootDepth() direto (não startResync, que coalesceria).
       setStatus('warn', 'Reconectando book…');
       clearTimeout(depthTimer);
-      depthTimer = setTimeout(bootDepth, RECONNECT_MS);
+      depthTimer = setTimeout(function () {
+        // P0 item 2: este timer pertence ao ciclo de sync → respeita bootSeq.
+        if (seq === bootSeq && depthSocket === ws) bootDepth();
+      }, RECONNECT_MS);
     };
     ws.onerror = function () { try { ws.close(); } catch (e) {} };
   }
 
-  // ---- Cobertura: originais vivos / originais recebidos, por lado ----
+  // ---- Cobertura por SPAN DE PREÇO (P1 item 10, ÚNICO critério) ----
+  // coverageBid = (bestBid − snapMinBid) / (snapBestBid − snapMinBid)
+  // coverageAsk = (snapMaxAsk − bestAsk) / (snapMaxAsk − snapBestAsk)
+  // Cancelamentos e execuções (qty 0) em níveis intermediários NÃO contam
+  // como perda: só o recuo das bordas reduz a razão. Independe do bucket.
+  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
   function checkCoverage() {
-    var cb = originBids.size ? aliveBids.size : 0;
-    var ca = originAsks.size ? aliveAsks.size : 0;
-    var low = cb < BOOK_MIN_LEVELS_PER_SIDE || ca < BOOK_MIN_LEVELS_PER_SIDE;
-    if (low && depthReady) {
+    if (!depthReady || !snapBestBid || !snapBestAsk) { coverageEl.textContent = ''; return; }
+    var lb = bestBid(), la = bestAsk();
+    if (!lb || !la) return;
+    var spanB = snapBestBid - snapMinBid, spanA = snapMaxAsk - snapBestAsk;
+    if (!(spanB > MIN_SPAN_USD) || !(spanA > MIN_SPAN_USD)) {
+      // Span original irrisório: não avalia razão (registra e segue).
+      if (coverageWarnedSeq !== bootSeq) {
+        coverageWarnedSeq = bootSeq;
+        console.log('[orderbook] span original irrisório, cobertura por span desativada neste ciclo');
+      }
+      coverageEl.textContent = '';
+      return;
+    }
+    var cb = clamp01((lb - snapMinBid) / spanB);
+    var ca = clamp01((snapMaxAsk - la) / spanA);
+    if (cb < COVERAGE_MIN_RATIO || ca < COVERAGE_MIN_RATIO) {
       coverageEl.textContent = '· profundidade limitada';
-      warnEl.hidden = false;
-      warnEl.textContent = 'Profundidade limitada (bids ' + cb + ' / asks ' + ca +
-        ', mínimo ' + BOOK_MIN_LEVELS_PER_SIDE + ' por lado). Ressincronizando…';
-      startResync();
-    } else if (depthReady) {
+      startResync('cobertura bid=' + cb.toFixed(2) + ' ask=' + ca.toFixed(2));
+    } else {
       coverageEl.textContent = '';
     }
   }
@@ -374,9 +601,8 @@
           return { time: k[0], open: +k[1], high: +k[2], low: +k[3], close: +k[4] };
         });
         currentPrice = candles[candles.length - 1].close;
-        paintPrice();
         connectKlineSocket();
-        queueRender();
+        queueRender(); // cabeçalho pinta no ciclo de render (preço único)
       })
       .catch(function () { clearTimeout(klineTimer); klineTimer = setTimeout(restartKline, RECONNECT_MS); });
   }
@@ -388,6 +614,7 @@
       clearTimeout(klineTimer); klineTimer = setTimeout(connectKlineSocket, RECONNECT_MS); return;
     }
     klineSocket = ws;
+    klineConns++; klineLastChange = Date.now();
     ws.onmessage = function (evt) {
       try {
         var p = JSON.parse(evt.data), k = p.k;
@@ -396,45 +623,117 @@
         var last = candles[candles.length - 1];
         if (last && last.time === c.time) candles[candles.length - 1] = c;
         else { candles.push(c); candles = candles.slice(-MAX_CANDLES); }
-        currentPrice = c.close; // preço exclusivamente do kline
-        paintPrice();
+        currentPrice = c.close; // preço exclusivamente do kline (exibido no render)
         queueRender();
       } catch (e) {}
     };
     ws.onclose = function () {
       // Mesmo guarda do depth: socket trocado de propósito não reagenda.
       if (klineSocket !== ws) return;
+      klineCloses++; klineLastChange = Date.now();
       clearTimeout(klineTimer); klineTimer = setTimeout(connectKlineSocket, RECONNECT_MS);
     };
     ws.onerror = function () { try { ws.close(); } catch (e) {} };
   }
 
+  // P1 item 12 + P2 item 13: UMA variável de preço por ciclo de render
+  // (cabeçalho, linha, etiqueta do eixo e separador "PREÇO" sempre iguais).
   function paintPrice() {
-    priceEl.textContent = currentPrice ? '$ ' + currentPrice.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '—';
+    priceEl.textContent = displayPrice
+      ? 'US$ ' + displayPrice.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+      : '—';
   }
 
-  // ================= VALIDAÇÃO PERIÓDICA (REST × local) =================
-  // Compara best bid/ask e topo do book; diferenças puras de timing NÃO
-  // disparam resync isoladamente — só problemas estruturais (book
-  // cruzado, quantidades inválidas, níveis fora da cobertura).
+  // ================= VALIDAÇÃO PERIÓDICA (REST × local, P1 item 6) =================
+  // Amostra 5–10 níveis do topo por lado (snapshot leve limit=100 → peso 5;
+  // doc oficial: 5/10/20/50→2, 100→5, 500→10, 1000→20). As capturas ocorrem
+  // em momentos diferentes: compara COM TOLERÂNCIA e prioriza níveis locais
+  // estáveis (intocados há +VALIDATE_STABLE_MS). Absolutos disparam na hora;
+  // divergência de topo/estável só após N strikes consecutivos.
   function validateBook() {
-    if (!depthReady) return;
-    fetch(SNAPSHOT_URL, { cache: 'no-store' })
+    if (!depthReady || syncing || document.hidden) return; // item 8: pausa oculta
+    var seq = bootSeq; // P0 item 2: corrida pertence ao ciclo → respeita bootSeq
+    fetch(VALIDATE_URL, { cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (snap) {
-        if (!snap || !Array.isArray(snap.bids) || !Array.isArray(snap.asks)) return;
+        if (seq !== bootSeq) { noteStale('validacao descartada'); return; }
+        if (!snap || !Array.isArray(snap.bids) || !Array.isArray(snap.asks) || !snap.bids.length || !snap.asks.length) return;
         var rb = parseFloat(snap.bids[0][0]), ra = parseFloat(snap.asks[0][0]);
-        var lb = bestBid(), la = bestAsk();
         if (!(rb < ra)) return; // REST inconsistente: ignora (timing)
-        if (lb && la && !(lb < la)) { startResync('book cruzado'); return; } // estrutural
-        var badQty = false;
-        bids.forEach(function (q, p) { if (!(q > 0) || !(+p > 0)) badQty = true; });
-        asks.forEach(function (q, p) { if (!(q > 0) || !(+p > 0)) badQty = true; });
-        if (badQty) { startResync('quantidade inválida'); return; }
-        // Níveis fora da cobertura original: apenas ignora na renderização
-        // (são descartados do desenho, sem resync por esse motivo isolado).
+        var lb = bestBid(), la = bestAsk();
+        if (lb && la && !(lb < la)) { startResync('book cruzado'); return; } // absoluto
+        if (storedQtyInvalid()) { startResync('quantidade inválida'); return; } // absoluto
+        if (levelOutOfCoverage()) { startResync('nível fora da cobertura'); return; } // absoluto
+        // Só compara dentro do range que o snapshot de validação cobre.
+        var rMinB = +snap.bids[snap.bids.length - 1][0];
+        var rMaxA = +snap.asks[snap.asks.length - 1][0];
+        var mism = countSideMismatch(snap.bids, bids, rMinB, Infinity) +
+                   countSideMismatch(snap.asks, asks, -Infinity, rMaxA) +
+                   countLocalAbsent(snap.bids, bids, rMinB, Infinity) +
+                   countLocalAbsent(snap.asks, asks, -Infinity, rMaxA);
+        if (mism > VALIDATE_MAX_MISMATCH) {
+          validateStrikes++;
+          valStruck++;
+          console.log('[orderbook] validacao divergente (' + mism + ' níveis), strike ' +
+            validateStrikes + '/' + VALIDATE_STRIKES_TO_RESYNC);
+          if (validateStrikes >= VALIDATE_STRIKES_TO_RESYNC) {
+            validateStrikes = 0;
+            startResync('divergência de topo persistente');
+          }
+        } else if (mism === 0) { validateStrikes = 0; valPassed++; }
+        valRuns++;
       })
       .catch(function () {});
+  }
+
+  // Conta divergências qty em até VALIDATE_LEVELS níveis do topo, pulando
+  // níveis locais alterados há pouco (timing). Nível do REST ausente no
+  // local conta como divergência, sem tolerância de preço (presença binária).
+  function countSideMismatch(restLevels, localMap, lo, hi) {
+    var mism = 0, checked = 0, now = Date.now();
+    for (var i = 0; i < restLevels.length && checked < VALIDATE_LEVELS; i++) {
+      var p = String(restLevels[i][0]), q = parseFloat(restLevels[i][1]);
+      var pv = +p;
+      if (!(pv >= lo && pv <= hi)) continue;
+      if (!localMap.has(p)) { mism++; checked++; continue; } // ausente no local
+      if (now - (levelTs.get(p) || 0) < VALIDATE_STABLE_MS) continue; // mudou há pouco
+      checked++;
+      var lq = localMap.get(p);
+      var denom = Math.max(Math.abs(q), Math.abs(lq), 1e-12);
+      if (Math.abs(q - lq) / denom > VALIDATE_QTY_TOL) mism++;
+    }
+    return mism;
+  }
+
+  // Nível local estável dentro do range e AUSENTE no REST também diverge
+  // (sem tolerância de preço). Recém-alterados são pulados (timing).
+  function countLocalAbsent(restLevels, localMap, lo, hi) {
+    var restSet = {}, i, extra = 0, checked = 0, now = Date.now();
+    for (i = 0; i < restLevels.length; i++) restSet[String(restLevels[i][0])] = 1;
+    var keys = Array.from(localMap.keys());
+    for (i = 0; i < keys.length && checked < VALIDATE_LEVELS * 4; i++) {
+      var p = keys[i], pv = +p;
+      if (!(pv >= lo && pv <= hi)) continue;
+      if (now - (levelTs.get(p) || 0) < VALIDATE_STABLE_MS) continue;
+      checked++;
+      if (!restSet[p]) extra++;
+    }
+    return extra;
+  }
+
+  function storedQtyInvalid() {
+    var bad = false;
+    bids.forEach(function (q, p) { if (!(q > 0) || !(+p > 0)) bad = true; });
+    if (!bad) asks.forEach(function (q, p) { if (!(q > 0) || !(+p > 0)) bad = true; });
+    return bad;
+  }
+
+  function levelOutOfCoverage() {
+    if (!snapMinBid || !snapMaxAsk) return false;
+    var out = false;
+    bids.forEach(function (_, p) { if (+p < snapMinBid) out = true; });
+    if (!out) asks.forEach(function (_, p) { if (+p > snapMaxAsk) out = true; });
+    return out;
   }
 
   function bestBid() {
@@ -464,8 +763,18 @@
   }
 
   function render() {
+    displayPrice = currentPrice; // P1 item 12: preço único fixado 1x por ciclo
+    paintPrice();
+    checkCoverage(); // cobertura por span avaliada no ritmo do render
     drawCandles();
     drawBuckets();
+    // Auditoria do preço único: lê de volta o que foi pintado no ciclo.
+    var midTxt = (typeof midEl !== 'undefined' && midEl) ? midEl.textContent : null;
+    var hNum = (priceEl.textContent.match(/[\d.]+/) || [])[0] || null;
+    var mNum = (midTxt && midTxt.match(/[\d.]+/) || [])[0] || null;
+    var tNum = displayPrice ? fmtAxis(displayPrice) : null;
+    lastPriceCheck = { at: new Date().toISOString(), header: priceEl.textContent,
+      mid: midTxt, tag: tNum, equal: !!(hNum && mNum && tNum && hNum === mNum && mNum === tNum) };
   }
 
   function drawCandles() {
@@ -485,14 +794,16 @@
     canvas._yScale = { lo: lo, hi: hi, h: h }; // eixo Y oficial: definido pelos candles
     // Gráfico fixo: se nada mudou (velas, preço, largura), não redesenha.
     var last = vis[vis.length - 1];
-    var sig = vis.length + '|' + lo + '|' + hi + '|' + last.time + '|' + last.close + '|' + currentPrice + '|' + Math.round(w);
+    var sig = vis.length + '|' + lo + '|' + hi + '|' + last.time + '|' + last.close + '|' + displayPrice + '|' + Math.round(w);
     if (sig === lastCandleSig) return;
     lastCandleSig = sig;
     var ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // setTransform (não scale: scale acumula e desloca)
     ctx.clearRect(0, 0, w, h);
     var pad = 8;
-    function y(p) { return pad + (1 - (p - lo) / (hi - lo)) * (h - pad * 2); }
+    var timeGutter = 16; // faixa inferior p/ rótulos de horário (P2 item 14)
+    var plotH = h - timeGutter;
+    function y(p) { return pad + (1 - (p - lo) / (hi - lo)) * (plotH - pad * 2); }
     // Eixo de preço à direita: área dos candles + gutter da escala.
     var axisW = 56;
     var plotW = Math.max(50, w - axisW);
@@ -507,26 +818,35 @@
       var yO = y(c.open), yC = y(c.close);
       ctx.fillRect(x - b / 2, Math.min(yO, yC), b, Math.max(1, Math.abs(yC - yO)));
     });
-    // Linha do preço atual atravessando os candles + escala de valores à direita.
+    // P2 item 14: marcas ARREDONDADAS no eixo Y (ex.: 86.800, 86.600) +
+    // rótulos de horário no eixo X.
     ctx.font = '10px sans-serif';
     ctx.textBaseline = 'middle';
-    var t;
-    for (t = 0; t <= 4; t++) {
-      var pv = hi - (hi - lo) * t / 4;
-      var py = y(pv);
+    ctx.textAlign = 'left';
+    var step = niceStep((hi - lo) / 4), tv;
+    for (tv = Math.ceil(lo / step) * step; tv <= hi + 1e-9; tv += step) {
+      var py = y(tv);
       ctx.strokeStyle = 'rgba(255,255,255,.07)';
       ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(plotW, py); ctx.stroke();
       ctx.fillStyle = '#888';
-      ctx.fillText(fmtAxis(pv), plotW + 5, py);
+      ctx.fillText(fmtAxis(tv), plotW + 5, py);
     }
-    if (currentPrice >= lo && currentPrice <= hi) {
-      var cpy = y(currentPrice);
+    ctx.textAlign = 'center';
+    var xi;
+    for (xi = 0; xi < 4; xi++) {
+      var ci = Math.min(vis.length - 1, Math.round(xi * (vis.length - 1) / 3));
+      ctx.fillStyle = '#666';
+      ctx.fillText(fmtClock(vis[ci].time), 5 + ci * cw + cw / 2, h - 7);
+    }
+    ctx.textAlign = 'left';
+    if (displayPrice >= lo && displayPrice <= hi) {
+      var cpy = y(displayPrice);
       ctx.strokeStyle = 'rgba(247,147,26,.8)';
       ctx.setLineDash([5, 4]);
       ctx.beginPath(); ctx.moveTo(0, cpy); ctx.lineTo(plotW, cpy); ctx.stroke();
       ctx.setLineDash([]);
       // Etiqueta do preço atual no gutter do eixo.
-      var tag = fmtAxis(currentPrice);
+      var tag = fmtAxis(displayPrice);
       ctx.fillStyle = '#F7931A';
       ctx.fillRect(plotW + 2, cpy - 9, axisW - 4, 18);
       ctx.fillStyle = '#111';
@@ -539,6 +859,20 @@
     return v.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
   }
 
+  // Passo "bonito" 1/2/5×10^n para o eixo Y (P2 item 14).
+  function niceStep(raw) {
+    if (!(raw > 0)) return 1;
+    var p = Math.pow(10, Math.floor(Math.log10(raw)));
+    var f = raw / p;
+    return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p;
+  }
+
+  function fmtClock(ms) {
+    var d = new Date(ms);
+    var hh = d.getHours(), mm = d.getMinutes();
+    return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
+  }
+
   // Mensagens de estado: só tocam o DOM na TRANSIÇÃO (nunca a cada render).
   function showRowsMsg(kind, html) {
     if (rowsMsg === kind) return;
@@ -549,37 +883,37 @@
 
   function drawBuckets() {
     var scale = canvas._yScale;
-    if (!depthReady || !scale || !currentPrice) {
+    if (!depthReady || !scale || !displayPrice) {
       showRowsMsg('loading', '<div class="ob__loading">Carregando book…</div>');
       return;
     }
     var lo = scale.lo, hi = scale.hi;
-    // Profundidade conhecida: [menor bid vivo, maior ask vivo].
-    var minBid = Infinity, maxBid = -Infinity, minAsk = Infinity, maxAsk = -Infinity;
-    bids.forEach(function (_, p) { var v = +p; if (v < minBid) minBid = v; if (v > maxBid) maxBid = v; });
-    asks.forEach(function (_, p) { var v = +p; if (v < minAsk) minAsk = v; if (v > maxAsk) maxAsk = v; });
-    if (minBid === Infinity || maxAsk === -Infinity) {
-      showRowsMsg('empty', '<div class="ob__empty">Book vazio — aguardando sincronização.</div>');
-      return;
-    }
-    // Agrega USD por bucket, separando bids e asks.
+    // P1 item 11: bucket de COMPRAS só se bucketLow >= snapMinBid; de VENDAS
+    // só se bucketHigh <= snapMaxAsk. Fora disso: OMITIDO (nunca parcial).
+    // Agrega por bucket, separando bids e asks. Cada bucket mantém DOIS
+    // totais (Etapa 2, só apresentação): usd = preço × quantidade (exato
+    // como antes) e btc = soma das quantidades (o book já cotiza em BTC).
+    // A unidade é escolhida SOMENTE no render; trocar não toca no book.
     var bidBuckets = new Map(), askBuckets = new Map();
+    function addToBucket(map, bLo, price, q) {
+      var e = map.get(bLo);
+      if (!e) { e = { usd: 0, btc: 0 }; map.set(bLo, e); }
+      e.usd += price * q;
+      e.btc += q;
+    }
     bids.forEach(function (q, p) {
       var price = +p;
       if (price < lo || price > hi) return; // recorta ao range dos candles
       var bLo = Math.floor(price / bucketSize) * bucketSize;
-      var bHi = bLo + bucketSize;
-      // Bucket precisa estar INTEIRO dentro da profundidade conhecida:
-      if (!(bLo >= minBid && bHi <= maxBid)) return; // borda → OMITIDO
-      bidBuckets.set(bLo, (bidBuckets.get(bLo) || 0) + price * q);
+      if (!(bLo >= snapMinBid)) return; // borda → OMITIDO (P1 item 11)
+      addToBucket(bidBuckets, bLo, price, q);
     });
     asks.forEach(function (q, p) {
       var price = +p;
       if (price < lo || price > hi) return;
       var bLo = Math.floor(price / bucketSize) * bucketSize;
-      var bHi = bLo + bucketSize;
-      if (!(bLo >= minAsk && bHi <= maxAsk)) return; // borda → OMITIDO
-      askBuckets.set(bLo, (askBuckets.get(bLo) || 0) + price * q);
+      if (!(bLo + bucketSize <= snapMaxAsk)) return; // borda → OMITIDO (P1 item 11)
+      addToBucket(askBuckets, bLo, price, q);
     });
     if (!bidBuckets.size && !askBuckets.size) {
       showRowsMsg('nobuckets', '<div class="ob__empty">Sem buckets completos no range visível.</div>');
@@ -591,15 +925,25 @@
       rowsEl.innerHTML = '';
       askRowEls.clear(); bidRowEls.clear(); midEl = null;
     }
-    // Escala ÚNICA: 100% = maior bucket entre os dois lados.
-    var peak = 0;
-    bidBuckets.forEach(function (v) { if (v > peak) peak = v; });
-    askBuckets.forEach(function (v) { if (v > peak) peak = v; });
+    // Escala ÚNICA por unidade: 100% = maior bucket entre os dois lados
+    // NA UNIDADE SELECIONADA (independente por unidade).
+    var peakUSD = 0, peakBTC = 0;
+    function trackPeak(e) {
+      if (e.usd > peakUSD) peakUSD = e.usd;
+      if (e.btc > peakBTC) peakBTC = e.btc;
+    }
+    bidBuckets.forEach(trackPeak);
+    askBuckets.forEach(trackPeak);
+    var peak = unit === 'BTC' ? peakBTC : peakUSD;
     if (!peak) return;
-    // Maior concentração de cada lado (etiqueta estilo "90k | 20M USD").
+    function valOf(e) { return unit === 'BTC' ? e.btc : e.usd; }
+    // Maior concentração de cada lado, NA UNIDADE SELECIONADA.
     var maxAskK = null, maxAskV = -1, maxBidK = null, maxBidV = -1;
-    askBuckets.forEach(function (v, k) { if (v > maxAskV) { maxAskV = v; maxAskK = k; } });
-    bidBuckets.forEach(function (v, k) { if (v > maxBidV) { maxBidV = v; maxBidK = k; } });
+    askBuckets.forEach(function (e, k) { var v = valOf(e); if (v > maxAskV) { maxAskV = v; maxAskK = k; } });
+    bidBuckets.forEach(function (e, k) { var v = valOf(e); if (v > maxBidV) { maxBidV = v; maxBidK = k; } });
+    // Cópia p/ o hook de QA (bucketsSnapshot): usd+btc do último cálculo.
+    lastBuckets = { unit: unit, peakUSD: peakUSD, peakBTC: peakBTC,
+      ask: copyBuckets(askBuckets), bid: copyBuckets(bidBuckets) };
     var askKeys = Array.from(askBuckets.keys()).sort(function (a, b) { return b - a; });
     var bidKeys = Array.from(bidBuckets.keys()).sort(function (a, b) { return b - a; });
     if (!midEl) {
@@ -609,9 +953,11 @@
     }
     // Linha persistente: cria uma vez, depois só atualiza largura/texto/chip
     // quando mudam. Mover nó existente (insertBefore/appendChild) não pisca.
-    function syncRow(pool, key, bLo, usd, side, isMax) {
-      var pct = (usd / peak * 100).toFixed(1);
-      var usdTxt = fmtUSD(usd);
+    function syncRow(pool, key, bLo, entry, side, isMax) {
+      var usd = entry.usd, btc = entry.btc;
+      var val = valOf(entry);
+      var pct = (val / peak * 100).toFixed(1);
+      var valTxt = fmtVal(usd, btc);
       var e = pool.get(key);
       if (!e) {
         var d = document.createElement('div');
@@ -621,33 +967,29 @@
           (side === 'ask' ? 'ob__bar-fill--ask' : 'ob__bar-fill--bid') + '"></span></span>' +
           '<span class="ob__usd"></span>';
         e = { el: d, bucket: d.querySelector('.ob__bucket'), fill: d.querySelector('.ob__bar-fill'),
-              usdEl: d.querySelector('.ob__usd'), data: null, bs: 0, w: '', c: '', html: '' };
+              usdEl: d.querySelector('.ob__usd'), data: null, bs: 0, un: '', w: '', c: '', html: '' };
         d.addEventListener('mousemove', function (ev) {
           var dt = e.data; if (!dt) return;
-          var dist = ((dt.bLo + bucketSize / 2 - currentPrice) / currentPrice * 100).toFixed(2).replace('.', ',');
           tipEl.style.display = 'block';
           tipEl.style.left = (ev.clientX + 12) + 'px';
           tipEl.style.top = (ev.clientY + 12) + 'px';
-          tipEl.innerHTML = 'Faixa: US$ ' + dt.bLo.toLocaleString('pt-BR') + '–' + (dt.bLo + bucketSize).toLocaleString('pt-BR') +
-            '<br>Tipo: ' + (dt.side === 'ask' ? 'VENDAS' : 'COMPRAS') +
-            '<br>Ordens: ' + fmtUSD(dt.usd) +
-            '<br>Distância do preço: ' + (dist > 0 ? '+' : '') + dist + '%';
+          tipEl.innerHTML = tipHTML(dt.bLo, dt.usd, dt.btc, dt.side);
         });
         d.addEventListener('mouseleave', function () { tipEl.style.display = 'none'; });
         pool.set(key, e);
       }
-      e.data = { bLo: bLo, usd: usd, side: side };
-      if (e.bs !== bucketSize) {
-        e.bs = bucketSize;
+      e.data = { bLo: bLo, usd: usd, btc: btc, side: side };
+      if (e.bs !== bucketSize || e.un !== unit) {
+        e.bs = bucketSize; e.un = unit;
         e.bucket.textContent = bLo.toLocaleString('pt-BR') + '–' + (bLo + bucketSize).toLocaleString('pt-BR');
       }
       var wStr = pct + '%';
       if (e.w !== wStr) { e.fill.style.width = wStr; e.w = wStr; }
-      var cls = 'ob__bar-fill ' + (side === 'ask' ? 'ob__bar-fill--ask' : 'ob__bar-fill--bid') + (usd === peak ? ' ob__bar-fill--top' : '');
+      var cls = 'ob__bar-fill ' + (side === 'ask' ? 'ob__bar-fill--ask' : 'ob__bar-fill--bid') + (val === peak ? ' ob__bar-fill--top' : '');
       if (e.c !== cls) { e.fill.className = cls; e.c = cls; }
-      var html = usdTxt + (isMax
+      var html = valTxt + (isMax
         ? ' <em class="ob__max ' + (side === 'ask' ? 'ob__max--ask' : 'ob__max--bid') + '">' +
-          bLo.toLocaleString('pt-BR') + ' | ' + usdTxt +
+          bLo.toLocaleString('pt-BR') + ' | ' + valTxt +
           (side === 'ask' ? ' (VENDAS)' : ' (COMPRAS)') + '</em>'
         : '');
       if (e.html !== html) { e.usdEl.innerHTML = html; e.html = html; }
@@ -658,7 +1000,7 @@
     bidRowEls.forEach(function (e, k) { if (!bidBuckets.has(k)) { e.el.remove(); bidRowEls.delete(k); } });
     // Reposiciona na ordem (mover não recria: sem pisca).
     askKeys.forEach(function (k) { rowsEl.insertBefore(syncRow(askRowEls, k, k, askBuckets.get(k), 'ask', k === maxAskK), midEl); });
-    var midTxt = 'PREÇO $ ' + currentPrice.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+    var midTxt = 'PREÇO US$ ' + displayPrice.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
     if (midEl.textContent !== midTxt) midEl.textContent = midTxt;
     bidKeys.forEach(function (k) { rowsEl.appendChild(syncRow(bidRowEls, k, k, bidBuckets.get(k), 'bid', k === maxBidK)); });
   }
@@ -667,9 +1009,99 @@
   function boot() {
     restartKline();
     bootDepth();
-    hygieneTimer = setInterval(function () { if (depthReady) startResync(); }, HYGIENE_RESYNC_MS);
+    // P1 item 7: watchdog configurável (0 = desativado). Monta em 2º plano e
+    // troca de uma vez (swap atômico, sem pisca); só com stream saudável e
+    // aba visível.
+    if (WATCHDOG_RESYNC_MS > 0) {
+      watchdogTimer = setInterval(function () {
+        if (!depthReady || syncing || document.hidden) return;
+        startResync('watchdog', { quiet: true });
+      }, WATCHDOG_RESYNC_MS);
+    }
     validateTimer = setInterval(validateBook, VALIDATE_MS);
   }
+  // Auditoria SOMENTE LEITURA (sem enviar nada para fora): devolve e imprime
+  // o estado operacional do widget — p/ o teste operacional de 30 min.
+  window.__obAudit = function () {
+    var now = Date.now();
+    var lb = 0, la = 0;
+    try { lb = bestBid(); la = bestAsk(); } catch (e) {}
+    var cov = null;
+    if (snapBestBid && snapBestAsk && (snapBestBid - snapMinBid) > MIN_SPAN_USD &&
+        (snapMaxAsk - snapBestAsk) > MIN_SPAN_USD && lb && la) {
+      cov = {
+        bid: +clamp01((lb - snapMinBid) / (snapBestBid - snapMinBid)).toFixed(4),
+        ask: +clamp01((snapMaxAsk - la) / (snapMaxAsk - snapBestAsk)).toFixed(4)
+      };
+    }
+    var out = {
+      uptimeMin: +((now - bootTime) / 60000).toFixed(1),
+      resyncs: { total: resyncStats.total, coalesced: resyncStats.coalesced,
+        byHour: resyncStats.byHour, log: resyncLog.slice() },
+      staleDiscards: staleDiscards,
+      validations: { runs: valRuns, passed: valPassed, struck: valStruck,
+        strikesNow: validateStrikes },
+      coverage: { bid: cov && cov.bid, ask: cov && cov.ask,
+        badge: coverageEl.textContent || null,
+        snap: { bestBid: snapBestBid, minBid: snapMinBid, bestAsk: snapBestAsk, maxAsk: snapMaxAsk } },
+      priceCheck: lastPriceCheck,
+      book: { bids: bids.size, asks: asks.size, bestBid: lb, bestAsk: la,
+        ready: depthReady, syncing: syncing, applied: appliedCount },
+      sockets: {
+        depth: { connected: !!(depthSocket && depthSocket.readyState === 1),
+          conns: depthConns, closes: depthCloses, lastChange: depthLastChange },
+        kline: { connected: !!(klineSocket && klineSocket.readyState === 1),
+          conns: klineConns, closes: klineCloses, lastChange: klineLastChange }
+      }
+    };
+    try { console.log('[orderbook:audit] ' + JSON.stringify(out)); } catch (e) {}
+    return out;
+  };
+  // Gancho de QA (harness node, critérios de aceite): expõe o mínimo para
+  // injetar eventos e observar estado. Para NÃO alterar o comportamento em
+  // produção nem permitir escrita no estado pelo console, só existe quando
+  // window.__OB_ALLOW_TEST__ === true ANTES do carregamento do script.
+  // Sem a flag, window.__OB_TEST__ é undefined (verificação do item 4).
+  if (window.__OB_ALLOW_TEST__ === true) {
+  window.__OB_TEST__ = {
+    injectDepth: function (ev) { onDepthMessage(ev, depthSocket); },
+    socketClose: function () { if (depthSocket && depthSocket.onclose) depthSocket.onclose(); },
+    startResync: startResync,
+    bootDepth: bootDepth,
+    runValidation: validateBook,
+    fmtBTC: fmtBTC, // formatação pura, só leitura
+    tipHTML: tipHTML, // tooltip puro a partir de (bLo, usd, btc, side)
+    bucketsSnapshot: function () { return lastBuckets ? JSON.parse(JSON.stringify(lastBuckets)) : null; },
+    setUnit: function (v) {
+      if ((v === 'USD' || v === 'BTC') && unit !== v) {
+        unit = v;
+        var btns = unitSeg.children, i;
+        for (i = 0; i < btns.length; i++) {
+          var on = (i === (v === 'BTC' ? 1 : 0));
+          btns[i].className = on ? 'ativo' : '';
+          btns[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+        }
+        queueRender();
+      }
+    },
+    setBucket: function (v) {
+      if (BUCKET_CHOICES.indexOf(v) >= 0) {
+        bucketSize = v;
+        document.getElementById('ob-bklabel').textContent = String(v);
+        queueRender();
+      }
+    },
+    state: function () {
+      return { depthReady: depthReady, syncing: syncing, lastUpdateId: lastUpdateId,
+        bids: bids.size, asks: asks.size, applied: appliedCount, prevU: prevU,
+        fetches: fetchSnapshots, strikes: validateStrikes,
+        resyncTotal: resyncStats.total, coalesced: resyncStats.coalesced,
+        bootSeq: bootSeq, price: displayPrice,
+        bestBid: bestBid(), bestAsk: bestAsk(),
+        snap: { bestBid: snapBestBid, minBid: snapMinBid, bestAsk: snapBestAsk, maxAsk: snapMaxAsk } };
+    }
+  };
+  } // fim do if __OB_ALLOW_TEST__ (item 4: hook só existe com a flag)
   if ('IntersectionObserver' in window) {
     var obs = new IntersectionObserver(function (entries) {
       if (entries[0].isIntersecting) { obs.disconnect(); boot(); }
