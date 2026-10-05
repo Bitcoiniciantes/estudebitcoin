@@ -979,7 +979,8 @@
           (side === 'ask' ? 'ob__bar-fill--ask' : 'ob__bar-fill--bid') + '"></span></span>' +
           '<span class="ob__usd"></span>';
         e = { el: d, bucket: d.querySelector('.ob__bucket'), fill: d.querySelector('.ob__bar-fill'),
-              usdEl: d.querySelector('.ob__usd'), data: null, bs: 0, un: '', w: '', c: '', html: '' };
+              track: d.querySelector('.ob__bar-track'),
+              usdEl: d.querySelector('.ob__usd'), data: null, bs: 0, un: '', w: '', c: '', html: '', chipHtml: '', chip: null };
         d.addEventListener('mousemove', function (ev) {
           var dt = e.data; if (!dt) return;
           tipEl.style.display = 'block';
@@ -999,12 +1000,25 @@
       if (e.w !== wStr) { e.fill.style.width = wStr; e.w = wStr; }
       var cls = 'ob__bar-fill ' + (side === 'ask' ? 'ob__bar-fill--ask' : 'ob__bar-fill--bid') + (val === peak ? ' ob__bar-fill--top' : '');
       if (e.c !== cls) { e.fill.className = cls; e.c = cls; }
-      var html = valTxt + (isMax
-        ? ' <em class="ob__max ' + (side === 'ask' ? 'ob__max--ask' : 'ob__max--bid') + '">' +
-          bLo.toLocaleString('pt-BR') + ' | ' + valTxt +
-          (side === 'ask' ? ' (VENDAS)' : ' (COMPRAS)') + '</em>'
-        : '');
+      var html = valTxt;
       if (e.html !== html) { e.usdEl.innerHTML = html; e.html = html; }
+      // Etiqueta de máxima DENTRO do gráfico: overlay no canto direito da
+      // trilha (sempre visível por inteiro, mesmo em barra fina).
+      var chipTxt = isMax
+        ? bLo.toLocaleString('pt-BR') + ' | ' + valTxt +
+          (side === 'ask' ? ' (VENDAS)' : ' (COMPRAS)')
+        : '';
+      if ((e.chipHtml || '') !== chipTxt) {
+        e.chipHtml = chipTxt;
+        if (e.chip) { e.chip.remove(); e.chip = null; }
+        if (isMax) {
+          var em = document.createElement('em');
+          em.className = 'ob__max ' + (side === 'ask' ? 'ob__max--ask' : 'ob__max--bid');
+          em.textContent = chipTxt;
+          e.track.appendChild(em);
+          e.chip = em;
+        }
+      }
       return e.el;
     }
     // Remove do DOM as faixas que sumiram (ou saíram do top-N visível).
