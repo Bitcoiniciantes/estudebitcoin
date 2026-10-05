@@ -12,6 +12,8 @@
       bucket = floor(preco / faixa) * faixa   (ex.: faixa 50 → 86450–86500)
       soma todos os níveis do book dentro de cada bucket, separando
       bids (compras, abaixo do preço) e asks (vendas, acima do preço).
+      Cada bucket guarda {usd, btc}; a unidade (US$|BTC, padrão US$) só
+      escolhe o que o render mostra — trocar nunca toca no book.
       A largura das barras usa escala ÚNICA: 100% = maior bucket entre
       os dois lados, para comparar compras × vendas visualmente.
       Bucket de COMPRAS só se bucketLow >= snapMinBid; de VENDAS só se
@@ -58,6 +60,10 @@
   var SYMBOL = 'BTCUSDT';
   var BUCKET_CHOICES = [1, 5, 10, 25, 50, 100];
   var DEFAULT_BUCKET = 50;
+  // Unidade de exibição (SOMENTE apresentação): 'USD' | 'BTC'. Trocar de
+  // unidade só redesenha as barras (nunca fetch/resync/rebuild do book).
+  // Para tornar BTC o padrão, trocar só esta constante (sem lógica).
+  var DEFAULT_UNIT = 'USD';
   var TIMEFRAMES = ['1m', '5m', '15m', '1h'];
   var DEFAULT_TF = '1m';
   // ---- Cobertura por SPAN DE PREÇO (P1 item 10, único critério; trocar de
@@ -94,6 +100,7 @@
   // ---- Estado ----
   var bucketSize = DEFAULT_BUCKET;
   var timeframe = DEFAULT_TF;
+  var unit = DEFAULT_UNIT; // unidade selecionada no render ('USD' | 'BTC')
   var candles = [];          // {time, open, high, low, close}
   var currentPrice = 0;      // preço cru do kline; o EXIBIDO é displayPrice (item 12)
   var displayPrice = 0;      // preço único, fixado 1x por ciclo de render
@@ -122,6 +129,7 @@
   var validateTimer = null;
   var bootSeq = 0; // geração do boot atual: esperas/fetches antigos se anulam
   var bootTime = Date.now(); // início p/ uptime da auditoria
+  var lastBuckets = null; // último cálculo {unit, peakUSD, peakBTC, ask:{}, bid:{}}
   var renderQueued = false;
   // Pool de linhas das barras: atualização NO LUGAR (sem rebuild/pisca).
   var askRowEls = new Map(), bidRowEls = new Map(), midEl = null, rowsMsg = '';
@@ -146,6 +154,7 @@
       '<div class="ob__controls">' +
         '<div class="ob__seg" id="ob-tfseg" role="group" aria-label="Tempo gráfico"></div>' +
         '<div class="ob__seg" id="ob-bkseg" role="group" aria-label="Tamanho da faixa"></div>' +
+      '<div class="ob__seg" id="ob-unitseg" role="group" aria-label="Unidade de valor"></div>' +
       '</div>' +
       '<p class="ob__warn" id="ob-warn" hidden></p>' +
       '<p class="ob__legend"><span class="ob__lg"><i class="ob__dotlg ob__dotlg--ask"></i>VENDAS (vermelho, acima do preço)</span>' +
@@ -159,7 +168,9 @@
       '<p>Paredes grandes <strong>não garantem</strong> suporte ou resistência — existe <strong>spoofing</strong> ' +
       '(gente fingindo comprar/vender para mover o preço).</p>' +
       '<p>A profundidade é <strong>limitada</strong> ao que o book mostra (1000 níveis por lado); ' +
-      'faixas sem ordens não geram barras.</p></details>' +
+      'faixas sem ordens não geram barras.</p>' +
+      '<p>Os valores podem ser vistos em <strong>US$ ou BTC</strong> (botões acima do painel): ' +
+      'é só outra forma de mostrar o mesmo dinheiro, sem mudar nenhum dado.</p></details>' +
       '<div class="ob__grid">' +
         '<div class="ob__panel"><h3>CANDLES · <span id="ob-tflabel">1m</span></h3><canvas id="ob-candles"></canvas></div>' +
         '<div class="ob__panel"><h3>CONCENTRAÇÃO · faixa US$ <span id="ob-bklabel">50</span></h3><div class="ob__rows" id="ob-rows"><div class="ob__loading">Carregando book…</div></div></div>' +
@@ -178,6 +189,7 @@
   var tipEl = document.getElementById('ob-tip');
   var tfSeg = document.getElementById('ob-tfseg');
   var bkSeg = document.getElementById('ob-bkseg');
+  var unitSeg = document.getElementById('ob-unitseg');
 
   function setStatus(mode, text) {
     dotEl.className = 'ob__dot' + (mode === 'on' ? ' ob__dot--on' : mode === 'warn' ? ' ob__dot--warn' : mode === 'off' ? ' ob__dot--off' : '');
@@ -188,6 +200,55 @@
     if (v >= 1e6) return 'US$ ' + (v / 1e6).toFixed(2).replace('.', ',') + 'M';
     if (v >= 1e3) return 'US$ ' + (v / 1e3).toFixed(1).replace('.', ',') + 'k';
     return 'US$ ' + v.toFixed(0);
+  }
+
+  // Formatação BTC em pt-BR (sem k/M, vírgula decimal, ponto de milhar).
+  // Aritmética inteira em satoshis p/ classificação consistente nas bordas:
+  // - valor cru < 0,01 BTC → '< 0,01 BTC' (ex.: 0,0096);
+  // - valor arredondado (half-up, 2 casas) >= 10 BTC → 1 casa ("10,0");
+  // - senão → 2 casas ("0,85", "0,01", "9,99").
+  function fmtBTC(v) {
+    if (!(v > 0)) return '< 0,01 BTC';
+    var sats = Math.round(v * 1e8);
+    if (sats < 1e6) return '< 0,01 BTC';
+    var cents = Math.floor((sats + 500000) / 1000000); // centésimos, half-up
+    var intPart, fracPart, fracLen;
+    if (cents >= 1000) {
+      var tenths = Math.floor((sats + 5e6) / 1e7); // décimos, half-up
+      intPart = Math.floor(tenths / 10);
+      fracPart = tenths % 10;
+      fracLen = 1;
+    } else {
+      intPart = Math.floor(cents / 100);
+      fracPart = cents % 100;
+      fracLen = 2;
+    }
+    var intTxt = intPart.toLocaleString('pt-BR');
+    var fracTxt = String(fracPart);
+    while (fracTxt.length < fracLen) fracTxt = '0' + fracTxt;
+    return intTxt + ',' + fracTxt + ' BTC';
+  }
+
+  function fmtVal(usd, btc) {
+    return unit === 'BTC' ? fmtBTC(btc) : fmtUSD(usd);
+  }
+
+  // Tooltip: unidade selecionada como principal + a outra unidade.
+  // Ex.: "130,4 BTC · US$ 11,32M · 0,60% do preço". O % de distância é a
+  // métrica já existente (não muda com a unidade).
+  function tipHTML(bLo, usd, btc, side) {
+    var dist = ((bLo + bucketSize / 2 - displayPrice) / displayPrice * 100).toFixed(2).replace('.', ',');
+    var main = unit === 'BTC' ? fmtBTC(btc) + ' · ' + fmtUSD(usd) : fmtUSD(usd) + ' · ' + fmtBTC(btc);
+    return 'Faixa: US$ ' + bLo.toLocaleString('pt-BR') + '–' + (bLo + bucketSize).toLocaleString('pt-BR') +
+      '<br>Tipo: ' + (side === 'ask' ? 'VENDAS' : 'COMPRAS') +
+      '<br>Ordens: ' + main +
+      '<br>Distância do preço: ' + (dist > 0 ? '+' : '') + dist + '%';
+  }
+
+  function copyBuckets(map) {
+    var o = {};
+    map.forEach(function (e, k) { o[k] = { usd: e.usd, btc: e.btc }; });
+    return o;
   }
 
   // ---- Controles (timeframe + faixa) ----
@@ -220,6 +281,29 @@
       queueRender();
     });
     bkSeg.appendChild(b);
+  });
+  // Seletor de unidade US$ | BTC (SOMENTE apresentação): trocar redesenha
+  // a partir dos buckets já calculados. Sem fetch, sem resync, sem rebuild
+  // do book, sem tocar cobertura/sync. Padrão = DEFAULT_UNIT ('USD').
+  [['USD', 'US$'], ['BTC', 'BTC']].forEach(function (pair) {
+    var val = pair[0], lbl = pair[1];
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = lbl;
+    if (val === unit) b.className = 'ativo';
+    b.setAttribute('aria-pressed', val === unit ? 'true' : 'false');
+    b.addEventListener('click', function () {
+      if (unit === val) return;
+      unit = val;
+      Array.prototype.forEach.call(unitSeg.children, function (x) {
+        x.className = '';
+        x.setAttribute('aria-pressed', 'false');
+      });
+      b.className = 'ativo';
+      b.setAttribute('aria-pressed', 'true');
+      queueRender(); // só redesenha (com throttle); book intacto
+    });
+    unitSeg.appendChild(b);
   });
 
   // ================= DEPTH (book) =================
@@ -806,21 +890,30 @@
     var lo = scale.lo, hi = scale.hi;
     // P1 item 11: bucket de COMPRAS só se bucketLow >= snapMinBid; de VENDAS
     // só se bucketHigh <= snapMaxAsk. Fora disso: OMITIDO (nunca parcial).
-    // Agrega USD por bucket, separando bids e asks.
+    // Agrega por bucket, separando bids e asks. Cada bucket mantém DOIS
+    // totais (Etapa 2, só apresentação): usd = preço × quantidade (exato
+    // como antes) e btc = soma das quantidades (o book já cotiza em BTC).
+    // A unidade é escolhida SOMENTE no render; trocar não toca no book.
     var bidBuckets = new Map(), askBuckets = new Map();
+    function addToBucket(map, bLo, price, q) {
+      var e = map.get(bLo);
+      if (!e) { e = { usd: 0, btc: 0 }; map.set(bLo, e); }
+      e.usd += price * q;
+      e.btc += q;
+    }
     bids.forEach(function (q, p) {
       var price = +p;
       if (price < lo || price > hi) return; // recorta ao range dos candles
       var bLo = Math.floor(price / bucketSize) * bucketSize;
       if (!(bLo >= snapMinBid)) return; // borda → OMITIDO (P1 item 11)
-      bidBuckets.set(bLo, (bidBuckets.get(bLo) || 0) + price * q);
+      addToBucket(bidBuckets, bLo, price, q);
     });
     asks.forEach(function (q, p) {
       var price = +p;
       if (price < lo || price > hi) return;
       var bLo = Math.floor(price / bucketSize) * bucketSize;
       if (!(bLo + bucketSize <= snapMaxAsk)) return; // borda → OMITIDO (P1 item 11)
-      askBuckets.set(bLo, (askBuckets.get(bLo) || 0) + price * q);
+      addToBucket(askBuckets, bLo, price, q);
     });
     if (!bidBuckets.size && !askBuckets.size) {
       showRowsMsg('nobuckets', '<div class="ob__empty">Sem buckets completos no range visível.</div>');
@@ -832,15 +925,25 @@
       rowsEl.innerHTML = '';
       askRowEls.clear(); bidRowEls.clear(); midEl = null;
     }
-    // Escala ÚNICA: 100% = maior bucket entre os dois lados.
-    var peak = 0;
-    bidBuckets.forEach(function (v) { if (v > peak) peak = v; });
-    askBuckets.forEach(function (v) { if (v > peak) peak = v; });
+    // Escala ÚNICA por unidade: 100% = maior bucket entre os dois lados
+    // NA UNIDADE SELECIONADA (independente por unidade).
+    var peakUSD = 0, peakBTC = 0;
+    function trackPeak(e) {
+      if (e.usd > peakUSD) peakUSD = e.usd;
+      if (e.btc > peakBTC) peakBTC = e.btc;
+    }
+    bidBuckets.forEach(trackPeak);
+    askBuckets.forEach(trackPeak);
+    var peak = unit === 'BTC' ? peakBTC : peakUSD;
     if (!peak) return;
-    // Maior concentração de cada lado (etiqueta estilo "90k | 20M USD").
+    function valOf(e) { return unit === 'BTC' ? e.btc : e.usd; }
+    // Maior concentração de cada lado, NA UNIDADE SELECIONADA.
     var maxAskK = null, maxAskV = -1, maxBidK = null, maxBidV = -1;
-    askBuckets.forEach(function (v, k) { if (v > maxAskV) { maxAskV = v; maxAskK = k; } });
-    bidBuckets.forEach(function (v, k) { if (v > maxBidV) { maxBidV = v; maxBidK = k; } });
+    askBuckets.forEach(function (e, k) { var v = valOf(e); if (v > maxAskV) { maxAskV = v; maxAskK = k; } });
+    bidBuckets.forEach(function (e, k) { var v = valOf(e); if (v > maxBidV) { maxBidV = v; maxBidK = k; } });
+    // Cópia p/ o hook de QA (bucketsSnapshot): usd+btc do último cálculo.
+    lastBuckets = { unit: unit, peakUSD: peakUSD, peakBTC: peakBTC,
+      ask: copyBuckets(askBuckets), bid: copyBuckets(bidBuckets) };
     var askKeys = Array.from(askBuckets.keys()).sort(function (a, b) { return b - a; });
     var bidKeys = Array.from(bidBuckets.keys()).sort(function (a, b) { return b - a; });
     if (!midEl) {
@@ -850,9 +953,11 @@
     }
     // Linha persistente: cria uma vez, depois só atualiza largura/texto/chip
     // quando mudam. Mover nó existente (insertBefore/appendChild) não pisca.
-    function syncRow(pool, key, bLo, usd, side, isMax) {
-      var pct = (usd / peak * 100).toFixed(1);
-      var usdTxt = fmtUSD(usd);
+    function syncRow(pool, key, bLo, entry, side, isMax) {
+      var usd = entry.usd, btc = entry.btc;
+      var val = valOf(entry);
+      var pct = (val / peak * 100).toFixed(1);
+      var valTxt = fmtVal(usd, btc);
       var e = pool.get(key);
       if (!e) {
         var d = document.createElement('div');
@@ -862,33 +967,29 @@
           (side === 'ask' ? 'ob__bar-fill--ask' : 'ob__bar-fill--bid') + '"></span></span>' +
           '<span class="ob__usd"></span>';
         e = { el: d, bucket: d.querySelector('.ob__bucket'), fill: d.querySelector('.ob__bar-fill'),
-              usdEl: d.querySelector('.ob__usd'), data: null, bs: 0, w: '', c: '', html: '' };
+              usdEl: d.querySelector('.ob__usd'), data: null, bs: 0, un: '', w: '', c: '', html: '' };
         d.addEventListener('mousemove', function (ev) {
           var dt = e.data; if (!dt) return;
-          var dist = ((dt.bLo + bucketSize / 2 - displayPrice) / displayPrice * 100).toFixed(2).replace('.', ',');
           tipEl.style.display = 'block';
           tipEl.style.left = (ev.clientX + 12) + 'px';
           tipEl.style.top = (ev.clientY + 12) + 'px';
-          tipEl.innerHTML = 'Faixa: US$ ' + dt.bLo.toLocaleString('pt-BR') + '–' + (dt.bLo + bucketSize).toLocaleString('pt-BR') +
-            '<br>Tipo: ' + (dt.side === 'ask' ? 'VENDAS' : 'COMPRAS') +
-            '<br>Ordens: ' + fmtUSD(dt.usd) +
-            '<br>Distância do preço: ' + (dist > 0 ? '+' : '') + dist + '%';
+          tipEl.innerHTML = tipHTML(dt.bLo, dt.usd, dt.btc, dt.side);
         });
         d.addEventListener('mouseleave', function () { tipEl.style.display = 'none'; });
         pool.set(key, e);
       }
-      e.data = { bLo: bLo, usd: usd, side: side };
-      if (e.bs !== bucketSize) {
-        e.bs = bucketSize;
+      e.data = { bLo: bLo, usd: usd, btc: btc, side: side };
+      if (e.bs !== bucketSize || e.un !== unit) {
+        e.bs = bucketSize; e.un = unit;
         e.bucket.textContent = bLo.toLocaleString('pt-BR') + '–' + (bLo + bucketSize).toLocaleString('pt-BR');
       }
       var wStr = pct + '%';
       if (e.w !== wStr) { e.fill.style.width = wStr; e.w = wStr; }
-      var cls = 'ob__bar-fill ' + (side === 'ask' ? 'ob__bar-fill--ask' : 'ob__bar-fill--bid') + (usd === peak ? ' ob__bar-fill--top' : '');
+      var cls = 'ob__bar-fill ' + (side === 'ask' ? 'ob__bar-fill--ask' : 'ob__bar-fill--bid') + (val === peak ? ' ob__bar-fill--top' : '');
       if (e.c !== cls) { e.fill.className = cls; e.c = cls; }
-      var html = usdTxt + (isMax
+      var html = valTxt + (isMax
         ? ' <em class="ob__max ' + (side === 'ask' ? 'ob__max--ask' : 'ob__max--bid') + '">' +
-          bLo.toLocaleString('pt-BR') + ' | ' + usdTxt +
+          bLo.toLocaleString('pt-BR') + ' | ' + valTxt +
           (side === 'ask' ? ' (VENDAS)' : ' (COMPRAS)') + '</em>'
         : '');
       if (e.html !== html) { e.usdEl.innerHTML = html; e.html = html; }
@@ -968,6 +1069,21 @@
     startResync: startResync,
     bootDepth: bootDepth,
     runValidation: validateBook,
+    fmtBTC: fmtBTC, // formatação pura, só leitura
+    tipHTML: tipHTML, // tooltip puro a partir de (bLo, usd, btc, side)
+    bucketsSnapshot: function () { return lastBuckets ? JSON.parse(JSON.stringify(lastBuckets)) : null; },
+    setUnit: function (v) {
+      if ((v === 'USD' || v === 'BTC') && unit !== v) {
+        unit = v;
+        var btns = unitSeg.children, i;
+        for (i = 0; i < btns.length; i++) {
+          var on = (i === (v === 'BTC' ? 1 : 0));
+          btns[i].className = on ? 'ativo' : '';
+          btns[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+        }
+        queueRender();
+      }
+    },
     setBucket: function (v) {
       if (BUCKET_CHOICES.indexOf(v) >= 0) {
         bucketSize = v;
