@@ -12,8 +12,10 @@
       bucket = floor(preco / faixa) * faixa   (ex.: faixa 50 → 86450–86500)
       soma todos os níveis do book dentro de cada bucket, separando
       bids (compras, abaixo do preço) e asks (vendas, acima do preço).
-      Cada bucket guarda {usd, btc}; a unidade (US$|BTC, padrão US$) só
+      Cada bucket guarda {usd, btc}; a unidade (US$|BTC, padrão BTC) só
       escolhe o que o render mostra — trocar nunca toca no book.
+      O painel exibe as 5 faixas mais próximas do preço de cada lado
+      (VISIBLE_BANDS_PER_SIDE), com escala única sobre as exibidas.
       A largura das barras usa escala ÚNICA: 100% = maior bucket entre
       os dois lados, para comparar compras × vendas visualmente.
       Bucket de COMPRAS só se bucketLow >= snapMinBid; de VENDAS só se
@@ -60,10 +62,14 @@
   var SYMBOL = 'BTCUSDT';
   var BUCKET_CHOICES = [1, 5, 10, 25, 50, 100];
   var DEFAULT_BUCKET = 50;
+  // Painel compacto: mostra as N faixas MAIS PRÓXIMAS do preço em cada lado,
+  // independente do volume (mesmo as pequenas aparecem, com min-width).
+  // Só apresentação: não toca no book, sync, cobertura ou validação.
+  var VISIBLE_BANDS_PER_SIDE = 5;
   // Unidade de exibição (SOMENTE apresentação): 'USD' | 'BTC'. Trocar de
   // unidade só redesenha as barras (nunca fetch/resync/rebuild do book).
-  // Para tornar BTC o padrão, trocar só esta constante (sem lógica).
-  var DEFAULT_UNIT = 'USD';
+  // Para voltar US$ como padrão, trocar só esta constante (sem lógica).
+  var DEFAULT_UNIT = 'BTC';
   var TIMEFRAMES = ['1m', '5m', '15m', '1h'];
   var DEFAULT_TF = '1m';
   // ---- Cobertura por SPAN DE PREÇO (P1 item 10, único critério; trocar de
@@ -925,27 +931,33 @@
       rowsEl.innerHTML = '';
       askRowEls.clear(); bidRowEls.clear(); midEl = null;
     }
-    // Escala ÚNICA por unidade: 100% = maior bucket entre os dois lados
-    // NA UNIDADE SELECIONADA (independente por unidade).
+    // Escala ÚNICA por unidade: 100% = maior bucket entre os EXIBIDOS
+    // (os N mais próximos do preço, de cada lado, na unidade selecionada).
+    // Seleção primeiro, escala depois — proporções sempre honestas.
+    var askNear = Array.from(askBuckets.keys()).sort(function (a, b) { return a - b; })
+      .slice(0, VISIBLE_BANDS_PER_SIDE);
+    var bidNear = Array.from(bidBuckets.keys()).sort(function (a, b) { return b - a; })
+      .slice(0, VISIBLE_BANDS_PER_SIDE);
     var peakUSD = 0, peakBTC = 0;
     function trackPeak(e) {
       if (e.usd > peakUSD) peakUSD = e.usd;
       if (e.btc > peakBTC) peakBTC = e.btc;
     }
-    bidBuckets.forEach(trackPeak);
-    askBuckets.forEach(trackPeak);
+    askNear.forEach(function (k) { trackPeak(askBuckets.get(k)); });
+    bidNear.forEach(function (k) { trackPeak(bidBuckets.get(k)); });
     var peak = unit === 'BTC' ? peakBTC : peakUSD;
     if (!peak) return;
     function valOf(e) { return unit === 'BTC' ? e.btc : e.usd; }
-    // Maior concentração de cada lado, NA UNIDADE SELECIONADA.
+    // Maior concentração de cada lado, NA UNIDADE SELECIONADA (entre as exibidas).
     var maxAskK = null, maxAskV = -1, maxBidK = null, maxBidV = -1;
-    askBuckets.forEach(function (e, k) { var v = valOf(e); if (v > maxAskV) { maxAskV = v; maxAskK = k; } });
-    bidBuckets.forEach(function (e, k) { var v = valOf(e); if (v > maxBidV) { maxBidV = v; maxBidK = k; } });
+    askNear.forEach(function (k) { var v = valOf(askBuckets.get(k)); if (v > maxAskV) { maxAskV = v; maxAskK = k; } });
+    bidNear.forEach(function (k) { var v = valOf(bidBuckets.get(k)); if (v > maxBidV) { maxBidV = v; maxBidK = k; } });
     // Cópia p/ o hook de QA (bucketsSnapshot): usd+btc do último cálculo.
     lastBuckets = { unit: unit, peakUSD: peakUSD, peakBTC: peakBTC,
       ask: copyBuckets(askBuckets), bid: copyBuckets(bidBuckets) };
-    var askKeys = Array.from(askBuckets.keys()).sort(function (a, b) { return b - a; });
-    var bidKeys = Array.from(bidBuckets.keys()).sort(function (a, b) { return b - a; });
+    // Ordem de exibição: asks desc (maior no topo), bids desc (maior em cima).
+    var askKeys = askNear.slice().sort(function (a, b) { return b - a; });
+    var bidKeys = bidNear.slice().sort(function (a, b) { return b - a; });
     if (!midEl) {
       midEl = document.createElement('div');
       midEl.className = 'ob__midline';
@@ -995,9 +1007,12 @@
       if (e.html !== html) { e.usdEl.innerHTML = html; e.html = html; }
       return e.el;
     }
-    // Remove do DOM as faixas que sumiram.
-    askRowEls.forEach(function (e, k) { if (!askBuckets.has(k)) { e.el.remove(); askRowEls.delete(k); } });
-    bidRowEls.forEach(function (e, k) { if (!bidBuckets.has(k)) { e.el.remove(); bidRowEls.delete(k); } });
+    // Remove do DOM as faixas que sumiram (ou saíram do top-N visível).
+    var askShown = {}, bidShown = {}, si;
+    for (si = 0; si < askKeys.length; si++) askShown[askKeys[si]] = 1;
+    for (si = 0; si < bidKeys.length; si++) bidShown[bidKeys[si]] = 1;
+    askRowEls.forEach(function (e, k) { if (!askShown[k]) { e.el.remove(); askRowEls.delete(k); } });
+    bidRowEls.forEach(function (e, k) { if (!bidShown[k]) { e.el.remove(); bidRowEls.delete(k); } });
     // Reposiciona na ordem (mover não recria: sem pisca).
     askKeys.forEach(function (k) { rowsEl.insertBefore(syncRow(askRowEls, k, k, askBuckets.get(k), 'ask', k === maxAskK), midEl); });
     var midTxt = 'PREÇO US$ ' + displayPrice.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
