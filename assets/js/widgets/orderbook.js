@@ -68,10 +68,13 @@
   var VISIBLE_BANDS_PER_SIDE = 5;
   // Auto-faixa (padrão ligado): escolhe o maior bucket com >=5 completas
   // nos dois lados. Subida só com folga (span/bucket >= margem nos dois
-  // lados) mantida por N renders (histerese); descida imediata ao faltar
-  // faixa completa. Troca (auto ou manual) nunca dispara fetch/resync.
+  // lados) mantida por N renders (histerese) E por um tempo mínimo
+  // configurável (anti-oscilação em fronteira com ruído); descida imediata
+  // ao faltar faixa completa. Troca (auto ou manual) nunca dispara
+  // fetch/resync.
   var AUTO_UP_MARGIN = 5.5;
   var AUTO_HYSTERESIS_RENDERS = 3;
+  var AUTO_MIN_UP_MS = 25000; // tempo mínimo contínuo com folga p/ SUBIR
   // Unidade de exibição (SOMENTE apresentação): 'USD' | 'BTC'. Trocar de
   // unidade só redesenha as barras (nunca fetch/resync/rebuild do book).
   // Para voltar US$ como padrão, trocar só esta constante (sem lógica).
@@ -115,6 +118,7 @@
   var unit = DEFAULT_UNIT; // unidade selecionada no render ('USD' | 'BTC')
   var autoMode = true; // Auto-faixa ligado por padrão; bucket manual desliga
   var autoUpStreak = 0; // renders consecutivos com folga p/ subir
+  var autoUpSince = 0; // timestamp do 1º render ok da sequência (portão de tempo)
   var lastAutoSwitch = null; // {to, reason, at} da última troca automática
   var candles = [];          // {time, open, high, low, close}
   var currentPrice = 0;      // preço cru do kline; o EXIBIDO é displayPrice (item 12)
@@ -147,6 +151,7 @@
   var lastBuckets = null; // último cálculo {unit, peakUSD, peakBTC, ask:{}, bid:{}}
   var lastOmitted = null; // faixas de borda omitidas {ask:{}, bid:{}} (só auditoria)
   var lastShown = { ask: [], bid: [] }; // chaves exibidas (top-N) no último render
+  var lastPartial = { ask: null, bid: null }; // chaves das parciais exibidas ("≥")
   // Termômetro compras × vendas (Etapa termômetro, SOMENTE apresentação):
   // distância igual nos dois lados a partir dos extremos CONGELADOS do
   // snapshot; D <= 0 ou D < THERMO_MIN_D_USD (ou book não pronto/cruzado)
@@ -353,6 +358,7 @@
     if (autoMode === on) return;
     autoMode = on;
     autoUpStreak = 0;
+    autoUpSince = 0;
     if (on) {
       lastAutoSwitch = null;
       autoEvaluate();
@@ -393,6 +399,7 @@
     if (down !== cur) {
       bucketSize = order[down];
       autoUpStreak = 0;
+      autoUpSince = 0;
       lastAutoSwitch = { to: bucketSize, reason: 'downscale-missing', at: new Date().toISOString() };
       refreshBucketUI();
       return; // agregação abaixo usa o novo bucket no MESMO render
@@ -405,17 +412,22 @@
                spanB / B2 >= AUTO_UP_MARGIN && spanA / B2 >= AUTO_UP_MARGIN;
       if (ok) {
         autoUpStreak++;
-        if (autoUpStreak >= AUTO_HYSTERESIS_RENDERS) {
+        if (!autoUpSince) autoUpSince = Date.now();
+        if (autoUpStreak >= AUTO_HYSTERESIS_RENDERS &&
+            (Date.now() - autoUpSince) >= AUTO_MIN_UP_MS) {
           bucketSize = B2;
           autoUpStreak = 0;
+          autoUpSince = 0;
           lastAutoSwitch = { to: B2, reason: 'upscale-margin', at: new Date().toISOString() };
           refreshBucketUI();
         }
       } else {
         autoUpStreak = 0;
+        autoUpSince = 0;
       }
     } else {
       autoUpStreak = 0;
+      autoUpSince = 0;
     }
   }
   refreshBucketUI();
@@ -1037,7 +1049,11 @@
       return;
     }
     autoEvaluate(); // Auto-faixa: pode ajustar bucketSize antes de agregar
-    var lo = scale.lo, hi = scale.hi;
+    // Painel INDEPENDENTE do timeframe/gráfico: agrega TODOS os níveis do
+    // book; o único limite é a regra de borda do snapshot
+    // (snapshotMinBid / snapshotMaxAsk). Níveis além da borda vão para os
+    // mapas de omitidas (parcial de borda + auditoria), nunca descartados
+    // pelo range dos candles.
     // P1 item 11: bucket de COMPRAS só se bucketLow >= snapMinBid; de VENDAS
     // só se bucketHigh <= snapMaxAsk. Fora disso: OMITIDO (nunca parcial).
     // Agrega por bucket, separando bids e asks. Cada bucket mantém DOIS
@@ -1054,20 +1070,18 @@
     }
     bids.forEach(function (q, p) {
       var price = +p;
-      if (price < lo || price > hi) return; // recorta ao range dos candles
       var bLo = Math.floor(price / bucketSize) * bucketSize;
       if (!(bLo >= snapMinBid)) { addToBucket(omitBid, bLo, price, q); return; } // borda → OMITIDO (P1 item 11)
       addToBucket(bidBuckets, bLo, price, q);
     });
     asks.forEach(function (q, p) {
       var price = +p;
-      if (price < lo || price > hi) return;
       var bLo = Math.floor(price / bucketSize) * bucketSize;
       if (!(bLo + bucketSize <= snapMaxAsk)) { addToBucket(omitAsk, bLo, price, q); return; } // borda → OMITIDO (P1 item 11)
       addToBucket(askBuckets, bLo, price, q);
     });
     if (!bidBuckets.size && !askBuckets.size && !omitBid.size && !omitAsk.size) {
-      showRowsMsg('nobuckets', '<div class="ob__empty">Sem buckets completos no range visível.</div>');
+      showRowsMsg('nobuckets', '<div class="ob__empty">Sem buckets completos no snapshot.</div>');
       return;
     }
     // Saímos de um estado de mensagem: limpa UMA vez e recomeça o pool.
@@ -1126,7 +1140,9 @@
     lastShown = { ask: askKeys.slice(), bid: bidKeys.slice() };
     if (partAskK !== null) lastShown.ask.push(partAskK);
     if (partBidK !== null) lastShown.bid.push(partBidK);
+    lastPartial = { ask: partAskK, bid: partBidK }; // parciais exibidas (rótulo "≥")
     // Rótulo "só N faixas completas" quando algum lado exibir menos de 5.
+    // O único limite possível agora é o snapshot (nunca o gráfico).
     var shortTxt = '';
     if (askFull < VISIBLE_BANDS_PER_SIDE || bidFull < VISIBLE_BANDS_PER_SIDE) {
       var parts = [];
@@ -1282,19 +1298,25 @@
     return t;
   }
 
-  // Faixas dentro de ±D com totais e marcação exibida/omitida por borda
-  // (p/ __obAudit). "Exibida" = está no top-N visível do último render.
+  // Faixas dentro de ±D com totais e marcação p/ __obAudit. Campos
+  // mutuamente claros: shown = linha exibida no painel; partial = exibida
+  // como parcial de borda (rótulo "≥"); omittedByEdge = NÃO exibida por
+  // borda do snapshot. Completa fora do top-N: os três em false. Sem
+  // nenhum campo ligado a recorte de gráfico (o painel não usa o range
+  // dos candles).
   function buildBands(bidLo, bidHi, askLo, askHi) {
     var out = { bid: [], ask: [] };
-    function push(side, store, shownKeys, wLo, wHi, edgeOmitted) {
+    function push(side, store, shownKeys, wLo, wHi, isOmittedStore) {
       Object.keys(store).forEach(function (ks) {
         var k = +ks, e = store[ks];
         var bLo = k, bHi = k + bucketSize;
         var overlaps = bLo <= wHi && bHi >= wLo;
         if (!overlaps) return;
         var isShown = shownKeys.indexOf(k) >= 0;
+        var isPartial = isOmittedStore && lastPartial[side] === k;
         out[side].push({ lo: bLo, hi: bHi, usd: e.usd, btc: e.btc,
-          shown: isShown, omittedByEdge: !!edgeOmitted });
+          shown: isShown, partial: isPartial,
+          omittedByEdge: isOmittedStore && !isPartial });
       });
       out[side].sort(function (a, b) { return a.lo - b.lo; });
     }
@@ -1336,10 +1358,12 @@
     setText(thermoSellEl, Math.round(t.sellPct) + '% · ' + sellTxt + ' Vendas');
     setText(thermoLegend,
       'calculado em ' + fmtD(t.D) + ' do melhor preço de compra e de venda (independente da faixa escolhida)');
-    // Marca central em 50%: texto curto com a diferença (só exibição).
-    var lead = t.buyPct >= t.sellPct ? 'compras' : 'vendas';
-    var diffPp = Math.abs(Math.round(t.buyPct - 50));
-    setText(thermoDiff, diffPp === 0 ? 'equilibrado' : lead + ' +' + diffPp + ' p.p.');
+    // Marca central em 50%: diferença calculada a partir dos percentuais
+    // EXIBIDOS (arredondados), nunca da distância até 50%.
+    var rb = Math.round(t.buyPct), rs = Math.round(t.sellPct);
+    var lead = rb >= rs ? 'compras' : 'vendas';
+    var diffPp = Math.abs(rb - rs);
+    setText(thermoDiff, diffPp === 0 ? 'equilíbrio' : lead + ' +' + diffPp + ' p.p.');
     thermoBar.setAttribute('title',
       'Soma das ordens limite do book até esta distância. Não é pressão garantida: ' +
       'ordens podem ser canceladas e paredes grandes podem ser spoofing. Não são liquidações.');
@@ -1396,7 +1420,8 @@
         snap: { bestBid: snapBestBid, minBid: snapMinBid, bestAsk: snapBestAsk, maxAsk: snapMaxAsk } },
       priceCheck: lastPriceCheck,
       thermometer: lastThermo,
-      auto: { mode: autoMode ? 'auto' : 'manual', bucket: bucketSize, lastSwitch: lastAutoSwitch },
+      auto: { mode: autoMode ? 'auto' : 'manual', bucket: bucketSize, lastSwitch: lastAutoSwitch,
+        upStreak: autoUpStreak, minUpMs: AUTO_MIN_UP_MS },
       book: { bids: bids.size, asks: asks.size, bestBid: lb, bestAsk: la,
         ready: depthReady, syncing: syncing, applied: appliedCount },
       sockets: {
@@ -1444,6 +1469,9 @@
       if (BUCKET_CHOICES.indexOf(v) >= 0) applyBucketManual(v);
     },
     setAuto: function (on) { setAutoMode(!!on); },
+    setAutoMinUpMs: function (ms) { // QA: acelera o portão de tempo (default 25000 em produção)
+      if (typeof ms === 'number' && ms >= 0) { AUTO_MIN_UP_MS = ms; autoUpStreak = 0; autoUpSince = 0; }
+    },
     state: function () {
       return { depthReady: depthReady, syncing: syncing, lastUpdateId: lastUpdateId,
         bids: bids.size, asks: asks.size, applied: appliedCount, prevU: prevU,
