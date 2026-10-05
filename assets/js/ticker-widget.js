@@ -226,6 +226,11 @@
     grid.style.gridTemplateColumns = "repeat(" + Math.min(Math.max(quotes.length, 1), 8) + ", minmax(0, 1fr))";
     if (statusEl) statusEl.textContent = "AO VIVO · " + new Date().toLocaleTimeString("pt-BR");
     updateGrahamBar();
+    // Tabela Graham acompanha os cards no mesmo ciclo (display-only, sem
+    // fetch/polling próprio: só relê cardPrices já alimentado pelos cards).
+    if (activeTab === "stocks" && grahamHistory.length) {
+      try { renderGrahamHistory(); } catch (e) {}
+    }
     restoreAlertVisuals();
   }
 
@@ -556,19 +561,29 @@
     if (!Number.isFinite(rate) || rate <= 0) rate = null;
     for (var i = 0; i < sorted.length; i++) {
       var h = sorted[i];
-      var cls = h.upside == null ? "" : (h.upside > 0 ? "tq-h-up" : (h.upside < 0 ? "tq-h-down" : ""));
-      var reais = (rate != null && h.currentUSD != null) ? h.currentUSD * rate : null;
+      // DISPLAY-ONLY: cotação viva do card p/ exibição; o snapshot em
+      // h.currentUSD / h.upside / h.fairUSD / h.fairBRL nunca é sobrescrito.
+      var seenLive = Number(cardPrices[h.ticker]);
+      var livePrice = (Number.isFinite(seenLive) && seenLive > 0) ? seenLive : h.currentUSD;
+      var fairNum = Number(h.fairUSD);
+      var liveNum = Number(livePrice);
+      // UPSIDE display-only, recalculado do preço vivo sobre o justo
+      // armazenado; sem justo/preço válidos, mantém o snapshot exibido.
+      var upShown = (Number.isFinite(fairNum) && fairNum > 0 && Number.isFinite(liveNum) && liveNum > 0)
+        ? ((fairNum / liveNum) - 1) * 100 : h.upside;
+      var cls = upShown == null ? "" : (upShown > 0 ? "tq-h-up" : (upShown < 0 ? "tq-h-down" : ""));
+      var reais = (rate != null && livePrice != null) ? livePrice * rate : null;
       // Selo p/ linhas antigas sem justo calculável (só visual, sem apagar).
       var flag = (h.fairUSD == null && h.fairBRL == null)
         ? ' <span class="tq-h-flag">dados incompletos</span>' : '';
       html += '<tr data-ticker="' + esc(symbolKey(h.ticker)) + '">' +
         '<td>' + esc(h.name || '—') + '</td>' +
         '<td><b>' + esc(h.ticker) + '</b>' + flag + '</td>' +
-        '<td>' + esc(fmtShortUSD(h.currentUSD)) + '</td>' +
+        '<td><b>' + esc(fmtShortUSD(livePrice)) + '</b></td>' +
         '<td>' + esc(fmtShortBRL(reais)) + '</td>' +
         '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +
-        '<td>' + esc(fmtShortUSD(h.fairUSD)) + '</td>' +
-        '<td class="' + cls + '">' + esc(fmtPctSigned(h.upside)) + '</td>' +
+        '<td><b>' + esc(fmtShortUSD(h.fairUSD)) + '</b></td>' +
+        '<td class="' + cls + '">' + esc(fmtPctSigned(upShown)) + '</td>' +
         '<td><button type="button" class="tq-h-del" data-del="' + esc(symbolKey(h.ticker)) + '" title="Remover ' + esc(h.ticker) + ' do histórico" aria-label="Remover ' + esc(h.ticker) + '">✕</button></td></tr>';
     }
     grahamHistEl.innerHTML = html + "</tbody></table>";
@@ -673,8 +688,14 @@
     if (!row) return;
     var sym = row.getAttribute("data-ticker");
     var price = null;
-    for (var i = 0; i < grahamHistory.length; i++) {
-      if (grahamHistory[i].ticker === sym) { price = grahamHistory[i].currentUSD; break; }
+    // DISPLAY-ONLY: preço vivo do card p/ o modal; sem card, o snapshot
+    // armazenado. O histórico nunca é alterado aqui.
+    var seenRow = Number(cardPrices[sym]);
+    if (Number.isFinite(seenRow) && seenRow > 0) { price = seenRow; }
+    else {
+      for (var i = 0; i < grahamHistory.length; i++) {
+        if (grahamHistory[i].ticker === sym) { price = grahamHistory[i].currentUSD; break; }
+      }
     }
     if (sym && window.Graham && window.Graham.open) {
       window.Graham.open(sym, grahamModalOpts(price));
