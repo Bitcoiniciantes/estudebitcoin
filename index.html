@@ -890,8 +890,16 @@
     background: transparent;
     font-variant-numeric: tabular-nums;
   }
-  .tq-graham-hist th:first-child, .tq-graham-hist td:first-child,
-  .tq-graham-hist th:nth-child(2), .tq-graham-hist td:nth-child(2) { text-align: left; }
+  .tq-graham-hist th:first-child, .tq-graham-hist td:first-child { text-align: left; }
+  /* Ticker abaixo do nome (padrão do Painel Pessoal). */
+  .tq-graham-hist .tq-h-ticker { font-weight: 800; }
+  /* Primeira coluna fixa na rolagem horizontal (landscape): nome sempre visível. */
+  .tq-graham-hist th:first-child, .tq-graham-hist td:first-child {
+    position: sticky; left: 0; z-index: 2;
+  }
+  .tq-graham-hist thead th:first-child { background: #e3edfb; z-index: 3; }
+  .tq-graham-hist tbody td:first-child { background: #fff; }
+  .tq-graham-hist tbody tr:hover td:first-child { background: #f1f9f2; }
   .tq-graham-hist thead th {
     font-size: .64rem; text-transform: uppercase; letter-spacing: .06em;
     color: #6b7f72;

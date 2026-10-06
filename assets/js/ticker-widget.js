@@ -645,7 +645,7 @@
       if (c !== 0) return c;
       return String(a.ticker || '').localeCompare(String(b.ticker || ''), 'pt-BR', { sensitivity: 'base' });
     });
-    var html = '<div class="tq-graham-hist-title">Ativos monitorados</div><table><thead><tr><th>Empresa</th><th>Ticker</th><th>Hoje</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th><th></th></tr></thead><tbody>';
+    var html = '<div class="tq-graham-hist-title">Ativos monitorados</div><table><thead><tr><th>Empresa</th><th>Hoje</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th><th></th></tr></thead><tbody>';
     // Taxa p/ a coluna Reais (Atual USD → BRL): vem do próprio ticker USDT-BRL.
     var rate = Number(cardPrices["USDT-BRL"]);
     if (!Number.isFinite(rate) || rate <= 0) rate = null;
@@ -674,8 +674,7 @@
       var flag = (h.fairUSD == null && h.fairBRL == null)
         ? ' <span class="tq-h-flag">dados incompletos</span>' : '';
       html += '<tr data-ticker="' + esc(symbolKey(h.ticker)) + '">' +
-        '<td>' + esc(h.name || '—') + '</td>' +
-        '<td><b>' + esc(h.ticker) + '</b>' + flag + '</td>' +
+        '<td>' + esc(h.name || '—') + '<br><span class="tq-h-ticker">' + esc(h.ticker) + '</span>' + flag + '</td>' +
         '<td><b>' + esc(fmtShortUSD(livePrice)) + '</b>' + dotHtml + '</td>' +
         '<td>' + esc(fmtShortBRL(reais)) + '</td>' +
         '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +
