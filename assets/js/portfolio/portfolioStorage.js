@@ -17,6 +17,23 @@
   var STORAGE_KEY = 'eb_portfolio_v2';
   var CURRENT_VERSION = 1;
 
+  // Dono do snapshot local (UID Firebase). Carimbado em save/saveSnapshot
+  // e verificado antes de qualquer migração local → nuvem: snapshot de A
+  // nunca migra para a conta de B no mesmo aparelho. Nulo = sem dono
+  // (legado ou sessão ausente) — a migração trata como não-migrável.
+  var ownerUid = null;
+
+  function setOwner(uid) {
+    ownerUid = (typeof uid === 'string' && uid) ? uid : null;
+  }
+
+  function stampOwner(clean) {
+    // Chave presente SOMENTE com dono: payloads sem dono mantêm o formato
+    // legado byte a byte (compatibilidade com leitores/testes antigos).
+    if (ownerUid) clean.ownerUid = ownerUid;
+    return clean;
+  }
+
   function getRoot() {
     try {
       if (typeof globalThis !== 'undefined') return globalThis;
@@ -58,6 +75,9 @@
   function sanitizeState(s) {
     var out = blankState();
     if (!s || typeof s !== 'object') return out;
+    // ownerUid: preservado round-trip quando for string não vazia;
+    // ausente/inválido = legado, sem dono (chave nem é criada).
+    if (typeof s.ownerUid === 'string' && s.ownerUid) out.ownerUid = s.ownerUid;
     if (s.portfolio && typeof s.portfolio === 'object') {
       if (typeof s.portfolio.name === 'string' && s.portfolio.name) out.portfolio.name = s.portfolio.name;
       if (typeof s.portfolio.updatedAt === 'string') out.portfolio.updatedAt = s.portfolio.updatedAt;
@@ -90,6 +110,7 @@
     save: function (state) {
       var clean = sanitizeState(state);
       clean.portfolio.updatedAt = new Date().toISOString();
+      stampOwner(clean);
       var ls = getLS();
       if (!ls) {
         memoryState = clean;
@@ -107,6 +128,7 @@
     // sanitizeState preserva updatedAt quando já é string.
     saveSnapshot: function (state) {
       var clean = sanitizeState(state);
+      stampOwner(clean);
       var ls = getLS();
       if (!ls) {
         memoryState = clean;
@@ -135,6 +157,7 @@
   var api = {
     STORAGE_KEY: STORAGE_KEY,
     blankState: blankState,
+    setOwner: setOwner,
     LocalPortfolioStorage: LocalPortfolioStorage
   };
 

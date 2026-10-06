@@ -34,6 +34,46 @@
   // velho e as escritas iam para a nuvem vazia do UID novo ("não existe").
   var remoteUid = null;
 
+  // Dono do espelho local: carimba todo save() do adapter com o UID da
+  // sessão vigente. Sem isso, o snapshot é órfão e a migração não tem
+  // como saber de quem são os dados (ver gate em maybeMigrate).
+  function setStorageOwner(uid) {
+    try {
+      var host = getRoot();
+      var st = host && host.PortfolioStorage && host.PortfolioStorage.LocalPortfolioStorage;
+      if (st && typeof st.setOwner === 'function') st.setOwner(uid || null);
+    } catch (e) {}
+  }
+
+  // Lê o dono do snapshot local. Retorna: UID (string) | '' (legado COM
+  // dados, sem carimbo) | null (ausente/vazio/ilegível). Nunca lança.
+  function readLocalOwner() {
+    try {
+      var host = getRoot();
+      var ls = host ? host.localStorage : null;
+      if (!ls) return null;
+      var raw = ls.getItem('eb_portfolio_v2');
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      var own = o && o.ownerUid;
+      if (typeof own === 'string' && own) return own;
+      if (o && Array.isArray(o.assets) && o.assets.length) return '';
+      return null;
+    } catch (e) { return null; }
+  }
+
+  // UID da sessão vigente (fonte viva). Null se indeterminado.
+  function sessionUid() {
+    try {
+      var f = fb();
+      if (f && typeof f.currentUid === 'function') {
+        var u = f.currentUid();
+        if (typeof u === 'string' && u) return u;
+      }
+    } catch (e) {}
+    return null;
+  }
+
   function setBadgeUid() {
     try {
       var badge = $('pa-mode-badge');
@@ -859,6 +899,7 @@
     clearLiveState();
     ui.mode = 'remote';
     remoteUid = uid || remoteUid;
+    setStorageOwner(remoteUid);
     try { if (fb() && fb().warmup) fb().warmup(remoteUid); } catch (e) {}
     var badge = $('pa-mode-badge');
     if (badge) {
@@ -890,6 +931,7 @@
     ui.mode = 'locked';
     ui.needsSync = false;
     remoteUid = null;
+    setStorageOwner(null);
     try { if (fb() && fb().coolDown) fb().coolDown(); } catch (e) {}
     var badge = $('pa-mode-badge');
     if (badge) { badge.textContent = 'Login necessário'; badge.classList.remove('pa-local'); badge.classList.add('pa-locked'); badge.title = ''; }
@@ -923,6 +965,20 @@
   var migratedThisSession = false;
   function maybeMigrate() {
     if (migratedThisSession || !isRemote()) return Promise.resolve(null);
+    // GATE DE PROPRIEDADE (isolamento entre contas no mesmo aparelho):
+    // 1. owner === sessão → migração permitida (caminho original abaixo).
+    // 2. owner !== sessão (ou sessão indeterminada) → BLOQUEADO: sem migrar,
+    //    sem apagar, sem escrever, sem mensagem; a tela mostra a nuvem do logado.
+    // 3. legado sem carimbo MAS com dados → BLOQUEADO (sem confirm, sem
+    //    escrita); o snapshot é preservado para recuperação futura.
+    // (sem carimbo e sem dados → segue: migrateLocal retorna 'empty'.)
+    var owner = readLocalOwner();
+    if (owner) {
+      var me = sessionUid();
+      if (!me || owner !== me) return Promise.resolve(null);
+    } else if (owner === '') {
+      return Promise.resolve(null);
+    }
     migratedThisSession = true;
     return fb().migrateLocal().then(function (res) {
       if (!res) return null;
