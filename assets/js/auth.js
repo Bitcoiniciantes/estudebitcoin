@@ -703,6 +703,16 @@
       var el = $('eb-login-view-' + v);
       if (el) el.hidden = (v !== view);
     });
+    // Aponta o diálogo para o título da view ativa (leitor de tela).
+    try {
+      var card = document.querySelector('#eb-login-overlay .eb-login-card');
+      var titles = {
+        login: 'eb-login-title', signup: 'eb-login-title-signup',
+        reset: 'eb-login-title-reset', verify: 'eb-login-title-verify',
+        account: 'eb-login-title-account'
+      };
+      if (card && titles[view]) card.setAttribute('aria-labelledby', titles[view]);
+    } catch (e) {}
     setError('');
   }
 
@@ -714,11 +724,11 @@
     }
   }
 
-  function setLoading(btn, on, label) {
+  function setLoading(btn, on, label, busyLabel) {
     if (!btn) return;
     if (on) {
       btn.setAttribute('data-label', btn.textContent);
-      btn.textContent = 'Aguarde…';
+      btn.textContent = busyLabel || 'Aguarde…';
       btn.disabled = true;
     } else {
       btn.textContent = label || btn.getAttribute('data-label') || btn.textContent;
@@ -726,24 +736,34 @@
     }
   }
 
+  // Mensagens genéricas em pt-BR: nunca revelam se o e-mail existe e nunca
+  // devolvem o texto cru (inglês) do Firebase.
   function friendlyError(err) {
     var code = (err && err.code) || '';
     var m = String((err && err.message) || err || '');
     if (code === 'auth/email-not-verified') return 'NOT_VERIFIED';
     if (/invalid-credential|wrong-password|user-not-found|invalid-email/i.test(code + ' ' + m) ||
-        /invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos. Esqueceu? Use "Esqueci a senha".';
-    if (/email-already-in-use|already registered/i.test(code + ' ' + m)) return 'Este e-mail já tem conta. Entre com sua senha ou clique em "Esqueci a senha".';
+        /invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos.';
+    // Cadastro com e-mail já registrado: resposta genérica (não confirma existência).
+    if (/email-already-in-use|already registered/i.test(code + ' ' + m)) return 'Não foi possível criar a conta. Se já tiver conta, tente entrar ou redefinir a senha.';
     if (/credential-already-in-use|account-exists-with-different-credential/i.test(code + ' ' + m)) return 'Este login já pertence a outra conta. Entre por ele para acessar sua carteira.';
-    if (/weak-password|weak|short|length/i.test(code + ' ' + m)) return 'Use uma senha com 6+ caracteres.';
-    if (/too-many-requests|rate limit|too many/i.test(code + ' ' + m)) return 'Muitas tentativas. Aguarde um pouco.';
-    if (/network-request-failed|network/i.test(code)) return 'Sem conexão. Verifique a internet e tente de novo.';
+    if (/weak-password/i.test(code)) return 'A senha precisa de 8+ caracteres.';
+    if (/too-many-requests|too many/i.test(code + ' ' + m)) return 'Muitas tentativas. Aguarde alguns minutos ou redefina sua senha.';
+    if (/network-request-failed/i.test(code)) return 'Sem conexão. Tente novamente.';
     if (/operation-not-allowed/i.test(code)) return 'Este método de login ainda não foi ativado.';
-    return m || 'Não foi possível concluir. Tente de novo.';
+    return 'Não foi possível entrar agora. Tente novamente.';
   }
+
+  // Elemento que abriu o modal (para devolver o foco ao fechar).
+  var modalOpener = null;
 
   function openModal(view) {
     var ov = $('eb-login-overlay');
     if (!ov) return;
+    try {
+      var active = global.document ? document.activeElement : null;
+      if (active && active !== global.document.body) modalOpener = active;
+    } catch (e) {}
     if (currentUser) setView('account');
     else setView(view || 'login');
     ov.hidden = false;
@@ -756,6 +776,34 @@
     var ov = $('eb-login-overlay');
     if (ov) ov.hidden = true;
     try { document.body.style.overflow = ''; } catch (e) {}
+    // Devolve o foco a quem abriu o modal.
+    try {
+      if (modalOpener && global.document && document.contains(modalOpener)) modalOpener.focus();
+    } catch (e) {}
+    modalOpener = null;
+  }
+
+  // Mantém Tab/Shift+Tab dentro do modal enquanto aberto (foco preso).
+  // Só conta elementos VISÍVEIS (views ocultas com [hidden] ficam de fora).
+  function trapTab(ev) {
+    if (!ev || ev.key !== 'Tab') return;
+    var ov = $('eb-login-overlay');
+    if (!ov || ov.hidden || !global.document) return;
+    var card = ov.querySelector('.eb-login-card');
+    if (!card) return;
+    var all = card.querySelectorAll(
+      'button:not([disabled]), a[href], input:not([disabled])');
+    var items = [];
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].offsetParent !== null) items.push(all[i]);
+    }
+    if (!items.length) return;
+    var first = items[0], last = items[items.length - 1];
+    if (ev.shiftKey && document.activeElement === first) {
+      ev.preventDefault(); last.focus();
+    } else if (!ev.shiftKey && document.activeElement === last) {
+      ev.preventDefault(); first.focus();
+    }
   }
 
   function refreshHeader() {
@@ -797,6 +845,7 @@
     });
     document.addEventListener('keydown', function (ev) {
       if (ev.key === 'Escape' && !ov.hidden) closeModal();
+      trapTab(ev);
     });
 
     function gateConfigured() {
@@ -836,21 +885,35 @@
       // Redirect (fallback mobile/PWA): a página recarrega logada.
     });
 
+    // Regras de senha por formulário: mínimo de 8 vale SÓ para o CADASTRO
+    // (a redefinição é feita por link do Firebase, com policy no console).
+    // O LOGIN aceita qualquer senha não vazia: usuários com senhas de 6-7
+    // caracteres continuam entrando normalmente.
+    var PASS_RULES = {
+      'eb-login-form-login': { min: 0, emptyMsg: 'Informe sua senha.', busy: 'Entrando…' },
+      'eb-login-form-signup': { min: 8, emptyMsg: 'A senha precisa de 8+ caracteres.', busy: 'Criando…' },
+      'eb-login-form-reset': { min: 0, emptyMsg: '', busy: 'Enviando…' }
+    };
+
     function wireForm(formId, btnId, fn) {
       var form = $(formId), btn = $(btnId);
       if (!form || !btn) return;
+      var rule = PASS_RULES[formId] || { min: 0, emptyMsg: '', busy: 'Aguarde…' };
       form.addEventListener('submit', function (ev) {
         ev.preventDefault();
         if (!gateConfigured()) return;
         var email = $(formId + '-email');
         var pass = $(formId + '-pass');
-        var e = email ? String(email.value || '').trim() : '';
+        var e = email ? String(email.value || '').trim().toLowerCase() : '';
         var p = pass ? String(pass.value || '') : '';
         if (!validEmail(e)) { setError('Informe um e-mail válido.'); return; }
-        if (formId !== 'eb-login-form-reset' && p.length < 6) {
-          setError('A senha precisa de 6+ caracteres.'); return;
+        if (pass && rule.min > 0 && p.length < rule.min) {
+          setError('A senha precisa de 8+ caracteres.'); return;
         }
-        setLoading(btn, true);
+        if (pass && rule.min === 0 && formId === 'eb-login-form-login' && !p) {
+          setError(rule.emptyMsg); return;
+        }
+        setLoading(btn, true, null, rule.busy);
         fn(e, p).then(function (res) {
           setLoading(btn, false);
           if (formId === 'eb-login-form-signup') {

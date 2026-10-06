@@ -63,7 +63,7 @@
   background: #fff;
   color: #14181f;
   border-radius: 18px;
-  padding: 28px 26px 24px;
+  padding: 20px 20px 18px;
   box-shadow: 0 24px 70px rgba(0,0,0,0.5);
   font-family: inherit;
 }
@@ -84,7 +84,7 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
   font-weight: 900;
   font-size: 1.02rem;
   letter-spacing: -0.01em;
@@ -107,10 +107,19 @@
   letter-spacing: -0.02em;
 }
 .eb-login-sub {
-  margin: 0 0 18px;
+  margin: 0 0 12px;
   color: #6b7280;
   font-size: 0.88rem;
   line-height: 1.45;
+}
+/* O CSS global (main.css) estiliza todo <form> como card. Dentro do modal
+   o card já é o .eb-login-card: o form precisa ser neutro. */
+.eb-login-card form {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
 }
 .eb-login-card label {
   display: block;
@@ -171,12 +180,12 @@
 .eb-login-pass-toggle.is-visible .eb-login-eye-closed { display: block; }
 .eb-login-primary {
   width: 100%;
-  margin-top: 16px;
+  margin-top: 12px;
   padding: 12px;
   border: 0;
   border-radius: 10px;
   background: #F7931A;
-  color: #fff;
+  color: #1F1400;
   font-size: 0.95rem;
   font-weight: 800;
   cursor: pointer;
@@ -206,7 +215,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 16px 0 4px;
+  margin: 12px 0 2px;
   color: #9aa1ad;
   font-size: 0.78rem;
 }
@@ -218,16 +227,41 @@
   background: #e7eaf0;
 }
 .eb-login-links {
-  margin-top: 14px;
+  margin-top: 10px;
   text-align: center;
   font-size: 0.85rem;
 }
 .eb-login-links a {
-  color: #F7931A;
+  color: #9A5200;
   font-weight: 700;
   text-decoration: none;
 }
 .eb-login-links a:hover { text-decoration: underline; }
+/* "Esqueci a senha" alinhado à direita, logo abaixo do campo de senha */
+.eb-login-forgot {
+  margin-top: 8px;
+  text-align: right;
+  font-size: 0.83rem;
+}
+.eb-login-forgot a {
+  color: #9A5200;
+  font-weight: 700;
+  text-decoration: none;
+}
+.eb-login-forgot a:hover { text-decoration: underline; }
+/* Requisitos da senha (cadastro): texto auxiliar, sem cor de erro */
+.eb-login-hint {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+/* Foco visível em botões e links do modal (navegação por teclado) */
+.eb-login-card button:focus-visible,
+.eb-login-card a:focus-visible {
+  outline: 2px solid #9A5200;
+  outline-offset: 2px;
+}
 .eb-login-links .eb-login-sep { color: #c6ccd6; margin: 0 8px; }
 .eb-login-error {
   display: none;

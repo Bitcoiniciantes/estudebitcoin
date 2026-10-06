@@ -537,41 +537,41 @@
         Continuar com Google
       </button>
       <div class="eb-login-divisor">ou</div>
-      <form id="eb-login-form-login" autocomplete="on">
+      <form id="eb-login-form-login" autocomplete="on" novalidate>
         <label for="eb-login-form-login-email">E-mail</label>
-        <input type="email" id="eb-login-form-login-email" placeholder="voce@email.com" required />
+        <input type="email" id="eb-login-form-login-email" placeholder="voce@email.com" autocomplete="email" autocapitalize="none" spellcheck="false" inputmode="email" required />
         <label for="eb-login-form-login-pass">Senha</label>
         <div class="eb-login-pass-wrap">
-          <input type="password" id="eb-login-form-login-pass" placeholder="••••••••" required />
+          <input type="password" id="eb-login-form-login-pass" placeholder="Sua senha" autocomplete="current-password" autocapitalize="none" spellcheck="false" required />
           <button type="button" class="eb-login-pass-toggle" id="eb-login-form-login-pass-toggle" aria-label="Mostrar senha" aria-pressed="false" aria-controls="eb-login-form-login-pass">
             <svg class="eb-login-eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             <svg class="eb-login-eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="23" x2="23" y2="1"/></svg>
           </button>
         </div>
+        <div class="eb-login-forgot"><a href="#" id="eb-login-to-reset">Esqueci a senha</a></div>
         <button type="submit" class="eb-login-primary" id="eb-login-submit">Entrar</button>
       </form>
       <div class="eb-login-links">
-        <a href="#" id="eb-login-to-reset">Esqueci a senha</a>
-        <span class="eb-login-sep">·</span>
-        <a href="#" id="eb-login-to-signup">Criar uma conta</a>
+        Não tem conta? <a href="#" id="eb-login-to-signup">Criar conta</a>
       </div>
     </div>
 
     <!-- CRIAR CONTA -->
     <div id="eb-login-view-signup" hidden>
-      <h2>Criar uma conta</h2>
+      <h2 id="eb-login-title-signup">Criar uma conta</h2>
       <p class="eb-login-sub">Enviaremos um link de confirmação para o seu e-mail.</p>
-      <form id="eb-login-form-signup" autocomplete="on">
+      <form id="eb-login-form-signup" autocomplete="on" novalidate>
         <label for="eb-login-form-signup-email">E-mail</label>
-        <input type="email" id="eb-login-form-signup-email" placeholder="voce@email.com" required />
-        <label for="eb-login-form-signup-pass">Senha (6+ caracteres)</label>
+        <input type="email" id="eb-login-form-signup-email" placeholder="voce@email.com" autocomplete="email" autocapitalize="none" spellcheck="false" inputmode="email" required />
+        <label for="eb-login-form-signup-pass">Senha (mín. 8 caracteres)</label>
         <div class="eb-login-pass-wrap">
-          <input type="password" id="eb-login-form-signup-pass" placeholder="••••••••" minlength="6" required />
+          <input type="password" id="eb-login-form-signup-pass" placeholder="Mínimo 8 caracteres" autocomplete="new-password" autocapitalize="none" spellcheck="false" minlength="8" required />
           <button type="button" class="eb-login-pass-toggle" id="eb-login-form-signup-pass-toggle" aria-label="Mostrar senha" aria-pressed="false" aria-controls="eb-login-form-signup-pass">
             <svg class="eb-login-eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             <svg class="eb-login-eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="23" x2="23" y2="1"/></svg>
           </button>
         </div>
+        <p class="eb-login-hint" id="eb-login-signup-hint">Use no mínimo 8 caracteres.</p>
         <button type="submit" class="eb-login-primary" id="eb-login-signup">Criar conta</button>
       </form>
       <div class="eb-login-links"><a href="#" id="eb-login-to-login">Já tenho conta</a></div>
@@ -579,11 +579,11 @@
 
     <!-- ESQUECI A SENHA -->
     <div id="eb-login-view-reset" hidden>
-      <h2>Redefinir senha</h2>
+      <h2 id="eb-login-title-reset">Redefinir senha</h2>
       <p class="eb-login-sub">Enviaremos um link de redefinição para o seu e-mail.</p>
-      <form id="eb-login-form-reset">
+      <form id="eb-login-form-reset" novalidate>
         <label for="eb-login-form-reset-email">E-mail</label>
-        <input type="email" id="eb-login-form-reset-email" placeholder="voce@email.com" required />
+        <input type="email" id="eb-login-form-reset-email" placeholder="voce@email.com" autocomplete="email" autocapitalize="none" spellcheck="false" inputmode="email" required />
         <button type="submit" class="eb-login-primary" id="eb-login-reset">Enviar link</button>
       </form>
       <div class="eb-login-links"><a href="#" id="eb-login-back-login">Voltar</a></div>
@@ -591,14 +591,14 @@
 
     <!-- AVISO: VERIFICAR E-MAIL -->
     <div id="eb-login-view-verify" hidden>
-      <h2>Verifique seu e-mail</h2>
+      <h2 id="eb-login-title-verify">Verifique seu e-mail</h2>
       <p class="eb-login-sub" id="eb-login-verify-text">Enviamos um link de confirmação. Clique nele e depois entre normalmente.</p>
       <div class="eb-login-links"><a href="#" id="eb-login-to-login2">Voltar ao login</a></div>
     </div>
 
     <!-- CONTA LOGADA -->
     <div id="eb-login-view-account" hidden>
-      <h2>Minha conta</h2>
+      <h2 id="eb-login-title-account">Minha conta</h2>
       <span class="eb-login-sync-ok">✓ Simulações sincronizadas na nuvem</span>
       <span class="eb-login-account-email" id="eb-login-account-email"></span>
       <button type="button" class="eb-login-secondary" id="eb-login-logout">Sair</button>
