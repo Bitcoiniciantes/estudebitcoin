@@ -596,7 +596,7 @@
   var grahamBar = document.createElement("div");
   grahamBar.className = "tq-graham-bar";
   grahamBar.style.display = "none";
-  grahamBar.innerHTML = '<span class="tq-graham-label">&#9878; Preço justo (Graham):</span>' +
+  grahamBar.innerHTML = '<span class="tq-graham-label">&#9878; Preço justo (Graham): <span id="tq-graham-count">0/30</span></span>' +
     '<input id="tq-graham-input" placeholder="TICKER (ex: PETR4, AAPL)" maxlength="14" autocomplete="off" spellcheck="false" value="ITUB4" />' +
     '<input id="tq-graham-name" placeholder="EMPRESA (ex: Petrobras)" maxlength="40" autocomplete="off" spellcheck="false" value="Itau Unibanco Holding SA Pfd" />' +
     '<button type="button" id="tq-graham-go">Consultar</button>';
@@ -631,6 +631,11 @@
   }
 
   function renderGrahamHistory() {
+    // Totalizador monitorados/limite (toda mutação passa por aqui).
+    try {
+      var cnt = document.getElementById("tq-graham-count");
+      if (cnt) cnt.textContent = grahamHistory.length + "/" + GRAHAM_HIST_MAX;
+    } catch (e) {}
     if (!grahamHistory.length) { grahamHistEl.innerHTML = ""; return; }
     // Ordem alfabética por empresa (pt-BR, sem acento/maiúsculas);
     // sem nome → ticker; desempate por ticker. Só visual.
