@@ -201,6 +201,7 @@
           setText('pa-total', '$ —');
           setText('pa-total-brl', 'R$ —');
           setText('pa-count', '0');
+          paintCountSub(0);
           var plEl = $('pa-pl'); if (plEl) { plEl.textContent = '$ —'; plEl.className = ''; }
           var sub = $('pa-pl-sub'); if (sub) { sub.textContent = 'Entre para acessar'; sub.className = 'pa-sub'; }
           var dayEl = $('pa-day'); if (dayEl) { dayEl.textContent = '$ —'; dayEl.className = ''; }
@@ -248,6 +249,7 @@
         : 'R$ —';
     }
     setText('pa-count', String(totals.count));
+    paintCountSub(totals.count);
     var plEl = $('pa-pl');
     if (plEl) {
       plEl.textContent = fmtMoneySigned(totals.profit);
@@ -327,6 +329,12 @@
   function setText(id, t) {
     var el = $(id);
     if (el) el.textContent = t;
+  }
+
+  // Legenda do card ATIVOS com o teto anti-abuso (ex.: "posições cadastradas: 26/50").
+  function paintCountSub(n) {
+    var max = (service && service.maxPositions) || 50;
+    setText('pa-count-sub', 'posições cadastradas: ' + n + '/' + max);
   }
 
   function renderTable(assets, totals) {

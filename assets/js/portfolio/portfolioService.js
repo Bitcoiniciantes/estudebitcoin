@@ -20,6 +20,11 @@
 
   var VALID_TYPES = { CRYPTO: true, STOCK: true };
 
+  // Teto anti-abuso: posições distintas por carteira. Só a CRIAÇÃO de
+  // ticker novo é limitada — aporte em posição existente e edição seguem
+  // liberados (sem "grandfather lock-out").
+  var MAX_POSITIONS = 50;
+
   function normType(t) {
     var s = String(t == null ? '' : t).trim().toUpperCase();
     if (s === 'CRIPTO' || s === 'CRIPTOATIVOS') return 'CRYPTO';
@@ -153,6 +158,9 @@
       var p = previewMerge(state.assets, input, null);
       if (!p.ok) return { ok: false, errors: p.errors };
       if (!p.duplicate) {
+        if (state.assets.length >= MAX_POSITIONS) {
+          return { ok: false, errors: ['Limite de ' + MAX_POSITIONS + ' posições por carteira.'] };
+        }
         var asset = {
           id: genId(p.value.ticker),
           ticker: p.value.ticker,
@@ -281,6 +289,7 @@
       getState: function () { return state; },
       normType: normType,
       normTicker: normTicker,
+      maxPositions: MAX_POSITIONS,
       SORTS: Object.keys(SORTS)
     };
   }

@@ -21,6 +21,11 @@
 (function () {
   'use strict';
 
+  // Teto anti-abuso: posições distintas por carteira (mesmo valor do
+  // service local). Só a CRIAÇÃO de ticker novo é limitada — aporte,
+  // venda e edição em posição existente seguem liberados.
+  var MAX_POSITIONS = 50;
+
   /* ---------- util puro ---------- */
   function numSafe(v) {
     return (typeof v === 'number' && Number.isFinite(v)) ? v : 0;
@@ -101,6 +106,9 @@
     var cur = c.assets[ticker] || null;
     if (!cur) {
       if (q < 0) return { error: 'Não é possível vender um ativo inexistente.' };
+      if (Object.keys(c.assets).length >= MAX_POSITIONS) {
+        return { error: 'Limite de ' + MAX_POSITIONS + ' posições por carteira.' };
+      }
       c.assets[ticker] = {
         ticker: ticker, name: name, type: type,
         quantity: q, avgPrice: pp,
