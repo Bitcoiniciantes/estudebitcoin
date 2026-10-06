@@ -674,7 +674,7 @@
       var flag = (h.fairUSD == null && h.fairBRL == null)
         ? ' <span class="tq-h-flag">dados incompletos</span>' : '';
       html += '<tr data-ticker="' + esc(symbolKey(h.ticker)) + '">' +
-        '<td>' + esc(h.name || '—') + '<br><span class="tq-h-ticker">' + esc(h.ticker) + '</span>' + flag + '</td>' +
+        '<td><span class="tq-h-name" title="' + esc(h.name || h.ticker) + '">' + esc(h.name || '—') + '</span><br><span class="tq-h-ticker">' + esc(h.ticker) + '</span>' + flag + '</td>' +
         '<td><b>' + esc(fmtShortUSD(livePrice)) + '</b>' + dotHtml + '</td>' +
         '<td>' + esc(fmtShortBRL(reais)) + '</td>' +
         '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +

@@ -893,6 +893,11 @@
   .tq-graham-hist th:first-child, .tq-graham-hist td:first-child { text-align: left; }
   /* Ticker abaixo do nome (padrão do Painel Pessoal). */
   .tq-graham-hist .tq-h-ticker { font-weight: 800; }
+  /* Nome longo corta com reticências (largura da 1ª coluna sob controle). */
+  .tq-graham-hist .tq-h-name {
+    display: inline-block; max-width: 150px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom;
+  }
   /* Primeira coluna fixa na rolagem horizontal (landscape): nome sempre visível. */
   .tq-graham-hist th:first-child, .tq-graham-hist td:first-child {
     position: sticky; left: 0; z-index: 2;
