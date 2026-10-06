@@ -325,7 +325,7 @@
 }
 
 /* Tabela */
-#painel-ativos .pa-table-wrap { overflow: auto; max-height: 60vh; border: 1px solid var(--pa-line); border-radius: var(--pa-radius); }
+#painel-ativos .pa-table-wrap { overflow: auto; max-height: 60vh; max-height: min(70dvh, 640px); border: 1px solid var(--pa-line); border-radius: var(--pa-radius); }
 #painel-ativos table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; min-width: 860px; }
 #painel-ativos th, #painel-ativos td { padding: 10px 12px; text-align: right; white-space: nowrap; }
 #painel-ativos th:first-child, #painel-ativos td:first-child,
@@ -342,6 +342,7 @@
 /* Primeira coluna fixa (rolagem horizontal): ativo sempre visível. */
 #painel-ativos th:first-child, #painel-ativos td:first-child {
   position: sticky; left: 0; z-index: 2;
+  box-shadow: 1px 0 0 var(--pa-line);
 }
 #painel-ativos thead th:first-child { z-index: 5; }
 #painel-ativos tbody td:first-child { background: #070a0f; }
@@ -361,8 +362,24 @@
   padding: 3px 8px;
   color: var(--pa-muted);
 }
-#painel-ativos tfoot td { position: sticky; bottom: 0; z-index: 4; font-weight: 800; color: #fff; background: #0e1116; }
-#painel-ativos tfoot td:first-child { z-index: 5; }
+/* Faixa de total fora do scroller (sempre visível, sem colspan/sticky). */
+#painel-ativos .pa-total-strip {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin-top: 10px; padding: 12px 14px;
+  border: 1px solid var(--pa-line); border-radius: var(--pa-radius);
+  background: #0e1116; font-weight: 800; color: #fff; font-size: 13px;
+}
+#painel-ativos .pa-ts-label { color: var(--pa-muted); font-weight: 800; text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; }
+#painel-ativos .pa-ts-val { font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) {
+  #painel-ativos .pa-ts-val#pa-foot-pl, #painel-ativos .pa-ts-val#pa-foot-day { display: none; }
+}
+/* Paisagem baixa: mais fileiras visíveis (meta >= 5 em 852x393). */
+@media (orientation: landscape) and (max-height: 500px) {
+  #painel-ativos .pa-table-wrap { max-height: calc(100dvh - 120px); }
+  #painel-ativos th, #painel-ativos td { padding-top: 6px; padding-bottom: 6px; }
+  #painel-ativos .pa-ticker small { display: inline; margin-left: 6px; }
+}
 #painel-ativos .pa-row-actions { display: flex; gap: 6px; justify-content: flex-end; }
 #painel-ativos .pa-icon-btn {
   display: inline-flex;

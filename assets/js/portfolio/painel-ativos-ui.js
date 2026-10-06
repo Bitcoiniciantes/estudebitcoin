@@ -194,7 +194,7 @@
         if (empty) empty.style.display = 'none';
         var wrap = $('pa-table-wrap');
         if (wrap) wrap.style.display = 'none';
-        var tfoot = $('pa-tfoot');
+        var tfoot = $('pa-total-strip');
         if (tfoot) tfoot.style.display = 'none';
         var cards = $('pa-total');
         if (cards) {
@@ -340,8 +340,8 @@
   function renderTable(assets, totals) {
     var tbody = $('pa-tbody');
     var empty = $('pa-empty');
-    var wrap = $('pa-table-wrap');
-    var tfoot = $('pa-tfoot');
+  var wrap = $('pa-table-wrap');
+  var tfoot = $('pa-total-strip');
     if (!tbody) return;
     if (!assets.length) {
       tbody.innerHTML = '';
