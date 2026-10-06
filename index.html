@@ -742,7 +742,7 @@
   </div>
 
 <style>
-  .ticker-widget { grid-column:1/-1; padding-top:6px; padding-bottom:4px; width:100%; }
+  .ticker-widget { grid-column:1/-1; padding-top:6px; padding-bottom:4px; width:100%; min-width:0; }
   .ticker-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:14px 0 10px; }
   .ticker-eyebrow { color:#57c76a; font-size:.66rem; font-weight:800; letter-spacing:.12em; margin:0 0 2px; }
   .ticker-window { display:flex; gap:6px; }
@@ -869,7 +869,7 @@
   }
   .tq-graham-bar button:hover { filter: brightness(1.1); }
   /* ── Histórico Graham da sessão (só aba STOCKS, abaixo da busca) ── */
-  .tq-graham-hist { margin-top: 8px; overflow-x: auto; }
+  .tq-graham-hist { margin-top: 8px; overflow-x: auto; max-width: 100%; }
   .tq-graham-hist-title {
     font-size: .68rem; font-weight: 800; letter-spacing: .08em;
     text-transform: uppercase; color: #6b7f72; margin: 2px 0 6px;
