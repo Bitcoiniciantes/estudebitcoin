@@ -355,7 +355,7 @@
     if (tfoot) tfoot.style.display = '';
     tbody.innerHTML = assets.map(function (a) {
       return '<tr>' +
-        '<td><span class="pa-ticker">' + esc(a.ticker) + '<small>' + esc(a.name) + '</small></span>' +
+        '<td><span class="pa-ticker">' + esc(a.ticker) + '<small class="pa-name" title="' + esc(a.name) + '">' + esc(a.name) + '</small></span>' +
         (a.closedAt ? ' <span class="pa-pill">ENCERRADA</span>' : '') + '</td>' +
         '<td><span class="pa-pill">' + (a.type === 'STOCK' ? 'STOCK' : 'CRYPTO') + '</span></td>' +
         '<td>' + esc(fmtMoney(a.currentPrice)) + (liveFresh(a.ticker) ? ' <span class="pa-live" title="Preço ao vivo do ticker"></span>' : '') + '</td>' +

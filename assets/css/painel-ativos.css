@@ -325,23 +325,32 @@
 }
 
 /* Tabela */
-#painel-ativos .pa-table-wrap { overflow-x: auto; border: 1px solid var(--pa-line); border-radius: var(--pa-radius); }
-#painel-ativos table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 860px; }
+#painel-ativos .pa-table-wrap { overflow: auto; max-height: 60vh; border: 1px solid var(--pa-line); border-radius: var(--pa-radius); }
+#painel-ativos table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; min-width: 860px; }
 #painel-ativos th, #painel-ativos td { padding: 10px 12px; text-align: right; white-space: nowrap; }
 #painel-ativos th:first-child, #painel-ativos td:first-child,
 #painel-ativos th:nth-child(2), #painel-ativos td:nth-child(2) { text-align: left; }
 #painel-ativos thead th {
+  position: sticky; top: 0; z-index: 4;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--pa-muted);
-  background: rgba(255, 255, 255, 0.03);
+  background: #0e1116;
   border-bottom: 1px solid var(--pa-line);
 }
+/* Primeira coluna fixa (rolagem horizontal): ativo sempre visível. */
+#painel-ativos th:first-child, #painel-ativos td:first-child {
+  position: sticky; left: 0; z-index: 2;
+}
+#painel-ativos thead th:first-child { z-index: 5; }
+#painel-ativos tbody td:first-child { background: #070a0f; }
 #painel-ativos tbody td { border-bottom: 1px solid rgba(255, 255, 255, 0.06); color: var(--pa-text); font-variant-numeric: tabular-nums; }
 #painel-ativos tbody tr:last-child td { border-bottom: 0; }
 #painel-ativos .pa-ticker { font-weight: 800; color: #fff; }
 #painel-ativos .pa-ticker small { display: block; font-weight: 400; color: var(--pa-muted); font-size: 11px; }
+/* Nome da empresa limitado (teste 120px): corta com reticências. */
+#painel-ativos .pa-ticker small.pa-name { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #painel-ativos .pa-pill {
   display: inline-block;
   font-size: 10px;
@@ -352,7 +361,8 @@
   padding: 3px 8px;
   color: var(--pa-muted);
 }
-#painel-ativos tfoot td { font-weight: 800; color: #fff; background: rgba(255, 255, 255, 0.03); }
+#painel-ativos tfoot td { position: sticky; bottom: 0; z-index: 4; font-weight: 800; color: #fff; background: #0e1116; }
+#painel-ativos tfoot td:first-child { z-index: 5; }
 #painel-ativos .pa-row-actions { display: flex; gap: 6px; justify-content: flex-end; }
 #painel-ativos .pa-icon-btn {
   display: inline-flex;
