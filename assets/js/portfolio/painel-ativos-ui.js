@@ -21,7 +21,7 @@
 
   // Identidade da posição em edição: TICKER normalizado (estável entre
   // local e nuvem; ids internos mudam na transição e quebravam edit/del).
-  var ui = { filter: 'ALL', sort: 'value_desc', donutMode: 'asset', editingTicker: null, formType: 'CRYPTO', formOpen: false, mode: 'local', sellMode: false, busy: false, needsSync: false };
+  var ui = { filter: 'ALL', sort: 'value_desc', donutMode: 'asset', editingTicker: null, formType: 'CRYPTO', formOpen: false, mode: 'local', sellMode: false, busy: false, needsSync: false, migrationBlocked: false };
   var service = null;
 
   function fb() {
@@ -867,6 +867,8 @@
       var cloudAssets = (state && state.assets) || [];
       if (!cloudAssets.length) {        // Nuvem vazia + local com dados = migração pendente ou falha.
         // NUNCA substituir a visão local por vazio (evita apagar tudo).
+        // Exceção: migração bloqueada por propriedade — aí a "visão local"
+        // é de OUTRA conta e deve ceder à nuvem (mesmo vazia) do logado.
         var localHas = false;
         try {
           var raw = null;
@@ -874,7 +876,7 @@
           var ls = raw ? JSON.parse(raw) : null;
           localHas = !!(ls && Array.isArray(ls.assets) && ls.assets.length);
         } catch (e) { localHas = false; }
-        if (localHas && service.getState().assets.length) {
+        if (localHas && !ui.migrationBlocked && service.getState().assets.length) {
           // Nuvem vazia + local com dados = migração pendente ou falha.
           // NUNCA substituir a visão local por vazio (evita apagar tudo)
           // E bloquear escritas: o badge diria Nuvem sobre dados locais.
@@ -899,6 +901,7 @@
     clearLiveState();
     ui.mode = 'remote';
     remoteUid = uid || remoteUid;
+    ui.migrationBlocked = false;
     setStorageOwner(remoteUid);
     try { if (fb() && fb().warmup) fb().warmup(remoteUid); } catch (e) {}
     var badge = $('pa-mode-badge');
@@ -962,6 +965,25 @@
   // Migração eb_portfolio_v2 → Firestore (uma vez por sessão logada).
   // Nunca apaga o local sem resposta definitiva; remote_exists exige
   // confirmação explícita com as strings exatas da spec.
+  // Bloqueio por propriedade: não migra, não apaga o snapshot alheio via
+  // migração, não escreve na nuvem, não exibe mensagem. Limpa APENAS a
+  // visão em memória (o service foi inicializado com o espelho local e o
+  // render mostraria dados de outra conta) e marca a flag para o refresh
+  // não preservar o estado estranho. A tela passa a mostrar a nuvem do logado.
+  function blockForeign() {
+    ui.migrationBlocked = true;
+    ui.needsSync = false;
+    try {
+      if (service && service.getState) {
+        var has = service.getState().assets.length;
+        if (has) service.replaceAll([]);
+      }
+    } catch (e) {}
+    try { render(); } catch (e) {}
+    try { setErr(''); } catch (e) {}
+    return Promise.resolve(null);
+  }
+
   var migratedThisSession = false;
   function maybeMigrate() {
     if (migratedThisSession || !isRemote()) return Promise.resolve(null);
@@ -975,9 +997,9 @@
     var owner = readLocalOwner();
     if (owner) {
       var me = sessionUid();
-      if (!me || owner !== me) return Promise.resolve(null);
+      if (!me || owner !== me) return blockForeign();
     } else if (owner === '') {
-      return Promise.resolve(null);
+      return blockForeign();
     }
     migratedThisSession = true;
     return fb().migrateLocal().then(function (res) {
@@ -1431,6 +1453,7 @@
     enterLocalMode: enterLocalMode,
     // Superfície de teste (isolada, sem efeito no comportamento normal).
     _test: {
+      refreshFromRemote: refreshFromRemote,
       setTtl: function (ms) { // compat: ajusta ambos
         var old = LIVE_WS_TTL_MS;
         if (Number.isFinite(ms) && ms >= 0) { LIVE_WS_TTL_MS = ms; LIVE_SNAPSHOT_TTL_MS = ms; }

@@ -126,7 +126,89 @@ describe('storage: carimbo ownerUid', () => {
   });
 });
 
-// ---------- Parte 2: gate no painel real ----------
+// ---------- Parte 3: display no bloqueio (service real em vm) ----------
+const SRC_CALC = fs.readFileSync(path.join(DIR, '..', 'assets', 'js', 'portfolio', 'portfolioCalculator.js'), 'utf8');
+const SRC_STORAGE = fs.readFileSync(path.join(DIR, '..', 'assets', 'js', 'portfolio', 'portfolioStorage.js'), 'utf8');
+const SRC_SERVICE = fs.readFileSync(path.join(DIR, '..', 'assets', 'js', 'portfolio', 'portfolioService.js'), 'utf8');
+
+// Monta o painel com service/storage/calculator REAIS e DOM mínimo.
+// Reproduz o aparelho compartilhado: espelho local de A na máquina,
+// sessão de B vigente, nuvem de B vazia.
+function mountFull({ seedLocal, sessionUid, cloudAssets = [] }) {
+  const calls = { migrate: 0, clear: 0, load: 0 };
+  let session = sessionUid;
+  const ls = fakeLS(seedLocal);
+  const rootFake = { querySelectorAll: () => [] };
+  const sandbox = {
+    console,
+    setTimeout, clearTimeout,
+    localStorage: ls,
+    document: {
+      readyState: 'complete',
+      getElementById: (id) => (id === 'painel-ativos' ? rootFake : null),
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      addEventListener: () => {},
+    },
+    FirebasePortfolio: {
+      migrateLocal() { calls.migrate++; return Promise.resolve({ status: 'empty' }); },
+      clearLocal() { calls.clear++; },
+      currentUid: () => session,
+      friendlyError() { return 'erro-x'; },
+      load() { calls.load++; return Promise.resolve({ assets: cloudAssets }); },
+    },
+  };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  for (const [src, name] of [[SRC_CALC, 'calc'], [SRC_STORAGE, 'storage'], [SRC_SERVICE, 'service'], [SRC, 'painel']]) {
+    vm.runInContext(src, sandbox, { filename: name + '.js' });
+  }
+  const PA = sandbox.PainelAtivos;
+  assert.ok(PA && typeof PA.maybeMigrate === 'function', 'painel montado');
+  return { PA, calls, ls, setSession: (u) => { session = u; } };
+}
+
+describe('display no bloqueio: tela mostra só a nuvem do logado', () => {
+  it('(11) espelho estranho sai da tela; nuvem vazia do logado vence', async () => {
+    const { PA, calls } = mountFull({
+      seedLocal: { eb_portfolio_v2: localPayload(UID_A, ['BTC', 'ETH']) },
+      sessionUid: UID_B,
+    });
+    PA.getUI().mode = 'remote';
+    assert.equal(PA.getService().getState().assets.length, 2, 'boot carrega o espelho (estado que exibia dado alheio)');
+    await PA.maybeMigrate();
+    assert.equal(calls.migrate, 0, 'nada migrou');
+    assert.equal(PA.getService().getState().assets.length, 0, 'visão estranha limpa');
+    assert.equal(PA.getUI().needsSync, false, 'sem "sincronizando" eterno');
+    assert.equal(PA.getUI().migrationBlocked, true);
+    await PA._test.refreshFromRemote();
+    assert.equal(calls.migrate, 0, 'refresh não reintroduz migração');
+    assert.equal(PA.getService().getState().assets.length, 0, 'tela segue vazia (nuvem do logado)');
+    assert.equal(PA.getUI().needsSync, false);
+  });
+
+  it('(12) legado estranho: mesmo comportamento, sem escrita', async () => {
+    const { PA, calls } = mountFull({
+      seedLocal: { eb_portfolio_v2: localPayload(null, ['BTC']) },
+      sessionUid: UID_B,
+    });
+    PA.getUI().mode = 'remote';
+    await PA.maybeMigrate();
+    await PA._test.refreshFromRemote();
+    assert.equal(calls.migrate, 0);
+    assert.equal(PA.getService().getState().assets.length, 0);
+  });
+
+  it('(13) dono igual + nuvem vazia: fluxo legítimo preservado', async () => {
+    const { PA, calls } = mountFull({
+      seedLocal: { eb_portfolio_v2: localPayload(UID_A, ['BTC']) },
+      sessionUid: UID_A,
+    });
+    PA.getUI().mode = 'remote';
+    await PA.maybeMigrate();
+    assert.equal(calls.migrate, 1, 'dono igual segue migrando');
+  });
+});
 const SRC = fs.readFileSync(path.join(DIR, '..', 'assets', 'js', 'portfolio', 'painel-ativos-ui.js'), 'utf8');
 
 function mountPanel({ seedLocal, sessionUid, withCurrentUid = true }) {
@@ -163,6 +245,7 @@ function mountPanel({ seedLocal, sessionUid, withCurrentUid = true }) {
   return { PA, calls, ls, setSession: (u) => { session = u; } };
 }
 
+// ---------- Parte 2: gate no painel real (adapter fake) ----------
 describe('gate maybeMigrate: propriedade do snapshot', () => {
   it('(5) owner igual à sessão → migração permitida', async () => {
     const seed = { eb_portfolio_v2: localPayload(UID_A) };
