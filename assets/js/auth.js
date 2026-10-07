@@ -442,12 +442,50 @@
   }
 
   function signOut() {
+    // 1. Capturar uid ANTES de qualquer mudança de estado.
+    var uid = currentUser && currentUser.id;
+
+    // 2. Cancelar todos os timers pendentes e coletar as operações de flush.
+    //    O flush usa o uid capturado — nunca lê currentUser depois daqui.
+    var flushJobs = [];
+    if (uid && fbApp) {
+      var timerKeys = Object.keys(pushTimers);
+      timerKeys.forEach(function (timerKey) {
+        if (pushTimers[timerKey]) {
+          global.clearTimeout(pushTimers[timerKey]);
+          pushTimers[timerKey] = null;
+          // Reconstruir panel e asset a partir do timerKey ('sim', 'risk:BTC', etc.)
+          var parts = timerKey.split(':');
+          var pnl = parts[0];
+          var ast = parts.length > 1 ? parts.slice(1).join(':') : null;
+          // Flush best-effort: tenta enviar antes do logout.
+          // Se falhar, o dado fica no LS com owner = uid (não vaza para B).
+          flushJobs.push(
+            pushPanel(pnl, ast, uid).catch(function () { /* best-effort */ })
+          );
+        }
+      });
+    }
+
     var done = function () {
+      // 3. Limpar eb_panel_sim do LS para isolar a sessão seguinte.
+      //    eb_panel_risk_* são preservados (multi-ativo; owner protege downstream).
+      try { global.localStorage.removeItem(lsKey('sim')); } catch (e) {}
       currentUser = null;
       notifyAuth();
     };
-    if (!fbApp) { done(); return Promise.resolve(true); }
-    return auth().signOut().then(done, done);
+
+    // 4. Aguardar flush, depois executar o signOut do Firebase.
+    var flushAll = flushJobs.length
+      ? Promise.all(flushJobs)
+      : Promise.resolve();
+
+    if (!fbApp) {
+      return flushAll.then(function () { done(); return true; });
+    }
+    return flushAll
+      .then(function () { return auth().signOut(); })
+      .then(done, done);
   }
 
   function deleteMyData() {
@@ -473,7 +511,8 @@
     try {
       global.localStorage.setItem(lsKey(panel, a), JSON.stringify({
         params: params || null,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        owner: (currentUser && currentUser.id) || null
       }));
       schedulePush(panel, a);
       return true;
@@ -487,8 +526,22 @@
       if (!raw) return null;
       var obj = JSON.parse(raw);
       if (!obj || typeof obj !== 'object') return null;
-      return { params: obj.params || null, updatedAt: obj.updatedAt || null };
+      // owner: string uid, null (anônimo/legado) ou ausente (legado sem campo)
+      var owner = Object.prototype.hasOwnProperty.call(obj, 'owner') ? obj.owner : undefined;
+      return { params: obj.params || null, updatedAt: obj.updatedAt || null, owner: owner };
     } catch (e) { return null; }
+  }
+
+  /* Determina a relação entre o estado local e o uid da sessão atual.
+   * Retorna: 'self' | 'other' | 'legacy'
+   *   self   = owner === uid (dado pertence ao usuário atual)
+   *   other  = owner existe e é diferente de uid (dado de outra sessão)
+   *   legacy = owner ausente/null (estado anônimo ou legado sem carimbo) */
+  function isOwnedBy(localObj, uid) {
+    if (!localObj) return 'legacy';
+    var o = localObj.owner;
+    if (o === undefined || o === null) return 'legacy';
+    return o === uid ? 'self' : 'other';
   }
 
   function newer(a, b) {
@@ -504,20 +557,27 @@
     if (!currentUser || !currentUser.verified) return; // anônimo/não verificado: só local
     var a = resolveRiskAsset(panel, asset);
     var timerKey = panel + (a ? ':' + a : '');
+    var scheduledUid = currentUser.id; // capturado agora — o callback nunca relê currentUser
     if (pushTimers[timerKey]) global.clearTimeout(pushTimers[timerKey]);
     pushTimers[timerKey] = global.setTimeout(function () {
       pushTimers[timerKey] = null;
-      pushPanel(panel, a).catch(function () { /* retry no próximo save/login */ });
+      pushPanel(panel, a, scheduledUid).catch(function () { /* retry no próximo save/login */ });
     }, PUSH_DEBOUNCE_MS);
   }
 
-  function pushPanel(panel, asset) {
+  /* uid: UID explícito do destinatário do push. Obrigatório — a função nunca
+   * lê currentUser.id como destino, eliminando o risco de timer residual
+   * redirecionar dados de A para a nuvem de B após troca de sessão. */
+  function pushPanel(panel, asset, uid) {
+    if (!uid) return Promise.resolve(false);
     var a = resolveRiskAsset(panel, asset);
     var local = loadLocal(panel, a);
     if (!local || !local.params) return Promise.resolve(false);
-    if (!fbApp || !currentUser) return Promise.resolve(false);
+    if (!fbApp) return Promise.resolve(false);
+    // Guarda adicional: se a sessão mudou para outro uid, aborta.
+    if (currentUser && currentUser.id !== uid) return Promise.resolve(false);
     emit('estudebitcoin:panel-push-start', { panel: panel, asset: a });
-    return panelRef(currentUser.id, panel, a).set({
+    return panelRef(uid, panel, a).set({
       params: local.params,
       updatedAt: local.updatedAt || new Date().toISOString()
     }).then(function () {
@@ -544,7 +604,7 @@
       if (newer(row.updatedAt, local && local.updatedAt)) {
         try {
           global.localStorage.setItem(key, JSON.stringify({
-            params: row.params, updatedAt: row.updatedAt
+            params: row.params, updatedAt: row.updatedAt, owner: uid
           }));
         } catch (e) { /* segue emitindo para a UI */ }
         emit('estudebitcoin:panel-pull', {
@@ -572,7 +632,7 @@
         if (newer(row.updatedAt, local && local.updatedAt)) {
           try {
             global.localStorage.setItem(lsKey(panel), JSON.stringify({
-              params: row.params, updatedAt: row.updatedAt
+              params: row.params, updatedAt: row.updatedAt, owner: uid
             }));
           } catch (e) { /* segue emitindo para a UI */ }
           emit('estudebitcoin:panel-pull', {
@@ -630,32 +690,57 @@
       var jobs = [];
       PANELS.forEach(function (panel) {
         if (panel === 'risk') {
-          // Mesma semântica do ramo 'sim': empurra SOMENTE se o local for
-          // mais novo que a nuvem. Sem isso, todo login/reload reescrevia
-          // (conteúdo idêntico) e re-disparava panel-push-success à toa.
+          // Empurra SOMENTE se o local for mais novo que a nuvem E pertencer
+          // ao usuário atual. Legado/anônimo (legacy) preserva o fluxo atual.
           getRiskAssets().forEach(function (a) {
             jobs.push(panelRef(uid, panel, a).once('value').then(function (snap) {
               var row = snap.val();
               var cloudTs = (row && row.updatedAt) || null;
               var local = loadLocal(panel, a);
+              var ownership = isOwnedBy(local, uid);
+              if (ownership === 'other') {
+                // Estado de outra sessão: descartar imediatamente, nunca empurrar.
+                try { global.localStorage.removeItem(lsKey(panel, a)); } catch (e) {}
+                return false;
+              }
+              // 'self' ou 'legacy': merge por updatedAt (comportamento original).
               if (local && local.params && newer(local.updatedAt, cloudTs)) {
-                return pushPanel(panel, a);
+                return pushPanel(panel, a, uid);
               }
               return false;
-            }, function () { return false; }));
+            }, function () {
+              // Falha de rede: se o LS pertence a outro usuário, descarta aqui também.
+              var local = loadLocal(panel, a);
+              if (isOwnedBy(local, uid) === 'other') {
+                try { global.localStorage.removeItem(lsKey(panel, a)); } catch (e) {}
+              }
+              return false;
+            }));
           });
         } else {
+          // Painel sim (e outros painéis não-risk)
           var local = loadLocal(panel);
+          var ownership = isOwnedBy(local, uid);
+          if (ownership === 'other') {
+            // Estado de outra sessão: descartar imediatamente, nunca empurrar.
+            try { global.localStorage.removeItem(lsKey(panel)); } catch (e) {}
+            jobs.push(Promise.resolve(false));
+            return;
+          }
           if (!local || !local.params) {
             jobs.push(Promise.resolve(false));
             return;
           }
+          // 'self' ou 'legacy': merge por updatedAt (comportamento original).
           jobs.push(panelRef(uid, panel).once('value').then(function (snap) {
             var row = snap.val();
             var cloudTs = (row && row.updatedAt) || null;
-            if (newer(local.updatedAt, cloudTs)) return pushPanel(panel);
+            if (newer(local.updatedAt, cloudTs)) return pushPanel(panel, null, uid);
             return false;
-          }, function () { return false; }));
+          }, function () {
+            // Falha de rede: 'other' já descartado acima; aqui só chega 'self' ou 'legacy'.
+            return false;
+          }));
         }
       });
       return Promise.all(jobs);

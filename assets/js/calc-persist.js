@@ -225,7 +225,18 @@
     try {
       if (global.PanelSync && global.PanelSync.loadLocal) {
         var s = global.PanelSync.loadLocal(PANEL);
-        if (s && validState(s.params)) return s.params;
+        if (!s || !validState(s.params)) return null;
+        // Verificar owner antes de restaurar.
+        // owner undefined/null = legado/anônimo: restaurar normalmente.
+        // owner === uid atual: dado legítimo, restaurar.
+        // owner !== uid atual: dado de outra sessão, não restaurar.
+        if (s.owner !== undefined && s.owner !== null) {
+          var currentUid = global.EstudeAuth && global.EstudeAuth.getUser
+            ? (global.EstudeAuth.getUser() && global.EstudeAuth.getUser().id) || null
+            : null;
+          if (s.owner !== currentUid) return null;
+        }
+        return s.params;
       }
     } catch (e) { /* segue sem restaurar */ }
     return null;
@@ -308,6 +319,22 @@
           if (!dt || dt.panel !== PANEL || !validState(dt.params)) return;
           if (doc) { restore(dt.params); }
           else { pendingPull = dt.params; }
+        });
+
+        global.addEventListener('estudebitcoin:auth-change', function (ev) {
+          var user = ev && ev.detail && ev.detail.user;
+          if (user) return; // login: tratado pelo pull — só interessa o logout
+          // Logout: descartar estado pendente da sessão anterior.
+          pendingPull = null;
+          if (frame && !dead) {
+            doc = null;
+            try {
+              // Preferir location.reload() — não dispara nova requisição de src.
+              frame.contentWindow.location.reload();
+            } catch (e) {
+              try { frame.src = frame.src; } catch (e2) { dead = true; }
+            }
+          }
         });
       }
     } catch (e) { /* listener opcional */ }
