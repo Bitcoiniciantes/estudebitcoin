@@ -1,7 +1,7 @@
 /* =====================================================================
    Order Book visual BTCUSDT — EstudeBitcoin
-   Tema escuro. Grid 2 colunas (candles | concentração) no desktop,
-   empilha em 1 coluna no mobile. Sem dependências.
+   Tema escuro. Grid 3 colunas (candles | profundidade | concentração) no
+   desktop, empilha em 1 coluna no mobile. Sem dependências.
    Mostra SOMENTE ordens reais do book (sem OI, liquidação ou alavancagem).
    ===================================================================== */
 .ob__wrap { background: #111; border-radius: 20px; padding: 20px; color: #e8e8e8; }
@@ -24,16 +24,25 @@
 .ob__lg { display: inline-flex; align-items: center; gap: 6px; }
 .ob__dotlg { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
 .ob__dotlg--ask { background: rgba(244,67,54,.85); }
-.ob__dotlg--bid { background: rgba(33,150,243,.85); }
+.ob__dotlg--bid { background: rgba(76,175,80,.85); }
 .ob__help { font-size: 12px; color: #bbb; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 8px 12px; margin: 0 0 12px; }
 .ob__help summary { cursor: pointer; color: #F7931A; font-weight: 700; }
 .ob__help p { margin: 8px 0 0; line-height: 1.5; }
 .ob__grid { display: grid; grid-template-columns: 1fr 180px 1fr; grid-template-areas: "candles depth concentration"; gap: 12px; position: relative; }
 .ob__panel { background: #0d0d0d; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 12px; min-height: 320px; position: relative; overflow: hidden; }
-.ob__panel:nth-child(1) { grid-area: candles; }
-.ob__panel:nth-child(3) { grid-area: concentration; }
-.ob__depth-column { grid-area: depth; background: #0d0d0d; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; min-height: 320px; }
-.ob__depth-canvas { width: 100%; flex: 1; display: block; min-height: 320px; }
+.ob__panel--candles { grid-area: candles; }
+.ob__panel--concentration { grid-area: concentration; }
+.ob__panel--depth { grid-area: depth; }
+/* Mesmo topo/altura do canvas de candles: mesmo padding do painel + mesmo
+   h3 (12px + h3 + 8px) e área útil de 300px — y_px idêntico nos dois. */
+.ob__depth-container { position: relative; height: 300px; }
+.ob__depth-bar { position: absolute; left: 0; height: 3px; transform: translateY(-50%); border-radius: 2px; min-width: 2px; }
+.ob__depth-bar--ask { background: rgba(244,67,54,.75); }
+.ob__depth-bar--bid { background: rgba(76,175,80,.85); }
+/* Zona distante: sem opacidade fixa — o JS aplica 0.25–0.70 proporcional
+   ao teto comum. A classe segue como gancho (seletores/testes). */
+.ob__depth-bar--far { }
+.ob__depth-price { position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed rgba(247,147,26,.8); pointer-events: none; }
 .ob__panel h3 { font-size: 12px; letter-spacing: .08em; color: #888; margin: 0 0 8px; font-weight: 800; }
 .ob__panel canvas { width: 100%; height: 300px; display: block; }
 .ob__rows { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
@@ -42,9 +51,9 @@
 .ob__bar-track { background: rgba(255,255,255,.05); border-radius: 4px; height: 18px; position: relative; overflow: visible; }
 .ob__bar-fill { display: block; height: 100%; min-width: 2px; border-radius: 4px; }
 .ob__bar-fill--ask { background: rgba(244,67,54,.75); }
-.ob__bar-fill--bid { background: rgba(33,150,243,.75); }
+.ob__bar-fill--bid { background: rgba(76,175,80,.75); }
 .ob__bar-fill--ask.ob__bar-fill--partial { background: transparent; border: 1px dashed rgba(244,67,54,.8); }
-.ob__bar-fill--bid.ob__bar-fill--partial { background: transparent; border: 1px dashed rgba(33,150,243,.8); }
+.ob__bar-fill--bid.ob__bar-fill--partial { background: transparent; border: 1px dashed rgba(76,175,80,.8); }
 .ob__shortnote { font-size: 11px; color: #999; margin: 0 0 6px; min-height: 0; }
 .ob__shortnote:empty { display: none; }
 .ob__thermo-bar { position: relative; }
@@ -55,7 +64,7 @@
 .ob__usd { color: #ddd; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ob__max { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 6px; white-space: nowrap; position: absolute; left: 2px; top: 50%; transform: translateY(-50%); z-index: 2; }
 .ob__max--ask { color: #ff8a80; background: rgba(20,8,6,.92); border: 1px solid rgba(244,67,54,.55); }
-.ob__max--bid { color: #90caf9; background: rgba(6,12,20,.92); border: 1px solid rgba(33,150,243,.55); }
+.ob__max--bid { color: #a5d6a7; background: rgba(8,20,8,.92); border: 1px solid rgba(76,175,80,.55); }
 .ob__midline { display: flex; align-items: center; gap: 8px; margin: 6px 0; color: #F7931A; font-size: 12px; font-weight: 800; }
 .ob__midline::before, .ob__midline::after { content: ""; flex: 1; border-top: 1px dashed rgba(247,147,26,.6); }
 .ob__empty, .ob__loading { color: #888; font-size: 13px; text-align: center; padding: 40px 10px; }
@@ -63,15 +72,15 @@
 .ob__thermo { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.08); min-height: 66px; }
 .ob__thermo-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: rgba(255,255,255,.05); }
 .ob__thermo-fill { display: block; height: 100%; min-width: 0; transition: width .3s ease; }
-.ob__thermo-fill--bid { background: rgba(33,150,243,.85); }
+.ob__thermo-fill--bid { background: rgba(76,175,80,.85); }
 .ob__thermo-fill--ask { background: rgba(244,67,54,.85); }
 .ob__thermo-labels { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
-.ob__thermo-buy { color: #90caf9; }
+.ob__thermo-buy { color: #a5d6a7; }
 .ob__thermo-sell { color: #ff8a80; text-align: right; }
 .ob__thermo-legend { font-size: 11px; color: #888; margin-top: 2px; }
 @media (max-width: 860px) {
   .ob__grid { grid-template-columns: 1fr; grid-template-areas: "candles" "concentration"; }
-  .ob__depth-column { display: none; }
+  .ob__panel--depth { display: none; }
   .ob__row { grid-template-columns: 86px 1fr auto; }
   .ob__bar-track { min-width: 36px; }
 }

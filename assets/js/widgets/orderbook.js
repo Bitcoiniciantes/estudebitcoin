@@ -80,7 +80,7 @@
   // Para voltar US$ como padrão, trocar só esta constante (sem lógica).
   var DEFAULT_UNIT = 'BTC';
   var TIMEFRAMES = ['1m', '5m', '15m', '1h'];
-  var DEFAULT_TF = '1m';
+  var DEFAULT_TF = '5m';
   // ---- Cobertura por SPAN DE PREÇO (P1 item 10, único critério; trocar de
   // bucket nunca dispara resync). Razão mínima configurável por lado.
   var COVERAGE_MIN_RATIO = 0.5;
@@ -190,7 +190,7 @@
       '</div>' +
       '<p class="ob__warn" id="ob-warn" hidden></p>' +
       '<p class="ob__legend"><span class="ob__lg"><i class="ob__dotlg ob__dotlg--ask"></i>VENDAS (vermelho, acima do preço)</span>' +
-      '<span class="ob__lg"><i class="ob__dotlg ob__dotlg--bid"></i>COMPRAS (azul, abaixo do preço)</span></p>' +
+      '<span class="ob__lg"><i class="ob__dotlg ob__dotlg--bid"></i>COMPRAS (verde, abaixo do preço)</span></p>' +
       '<p class="ob__disclaimer">Ordens reais do book neste momento — não são liquidações futuras. ' +
       'Profundidade limitada a 1000 níveis por lado; faixas sem ordens não geram barras.</p>' +
       '<details class="ob__help"><summary>O que é isso?</summary>' +
@@ -207,8 +207,8 @@
       'a igual distância dos melhores preços (independente da faixa escolhida): ' +
       'é outra forma de ver o mesmo book, não uma previsão.</p></details>' +
       '<div class="ob__grid">' +
-        '<div class="ob__panel"><h3>CANDLES · <span id="ob-tflabel">1m</span></h3><canvas id="ob-candles"></canvas></div>' +
-        '<div class="ob__panel"><h3>CONCENTRAÇÃO · faixa US$ <span id="ob-bklabel">25</span></h3><div class="ob__shortnote" id="ob-shortnote"></div><div class="ob__rows" id="ob-rows"><div class="ob__loading">Carregando book…</div></div>' +
+        '<div class="ob__panel ob__panel--candles"><h3>CANDLES · <span id="ob-tflabel">5m</span></h3><canvas id="ob-candles"></canvas></div>' +
+        '<div class="ob__panel ob__panel--concentration"><h3>CONCENTRAÇÃO · faixa US$ <span id="ob-bklabel">25</span></h3><div class="ob__shortnote" id="ob-shortnote"></div><div class="ob__rows" id="ob-rows"><div class="ob__loading">Carregando book…</div></div>' +
       '<div class="ob__thermo" id="ob-thermo"><div class="ob__thermo-bar" id="ob-thermo-bar"><span class="ob__thermo-fill ob__thermo-fill--bid" id="ob-thermo-bid"></span><span class="ob__thermo-fill ob__thermo-fill--ask" id="ob-thermo-ask"></span><span class="ob__thermo-mid" id="ob-thermo-mid"></span></div>' +
       '<div class="ob__thermo-diff" id="ob-thermo-diff"></div>' +
       '<div class="ob__thermo-labels" id="ob-thermo-labels"><span class="ob__thermo-buy" id="ob-thermo-buy">—</span><span class="ob__thermo-sell" id="ob-thermo-sell"></span></div>' +
@@ -921,6 +921,7 @@
     drawCandles();
     drawBuckets();
     drawThermo(); // termômetro: só leitura do book, mesmo ciclo, sem pisca
+    syncDepthColumn(); // profundidade: escala oficial + snapshot deste ciclo
     // Auditoria do preço único: lê de volta o que foi pintado no ciclo.
     var midTxt = (typeof midEl !== 'undefined' && midEl) ? midEl.textContent : null;
     var hNum = (priceEl.textContent.match(/[\d.]+/) || [])[0] || null;
@@ -928,6 +929,35 @@
     var tNum = displayPrice ? fmtAxis(displayPrice) : null;
     lastPriceCheck = { at: new Date().toISOString(), header: priceEl.textContent,
       mid: midTxt, tag: tNum, equal: !!(hNum && mNum && tNum && hNum === mNum && mNum === tNum) };
+  }
+
+  // ---- Coluna de profundidade (depth-column.js, SOMENTE LEITURA) ----
+  // Consome a escala oficial dos candles (canvas._yScale) + snapshot deste
+  // ciclo de render. Chamado 1x por render() — PROPOSITALMENTE fora de
+  // drawCandles(): o early-return por assinatura (sig) impediria a coluna de
+  // atualizar em mudança de bucket/unidade/book com candles iguais.
+  // Sem timer, polling ou WebSocket: pega carona no throttle existente.
+  function buildDepthSnapshot() {
+    // Níveis crus como arrays [price, qty] COPIADOS (nunca os Maps originais).
+    // nearLo/nearHi = extremos congelados do snapshot = domínio bucketizado.
+    var bl = [], al = [];
+    bids.forEach(function (q, p) { var v = +p; if (v > 0 && q > 0) bl.push([v, q]); });
+    asks.forEach(function (q, p) { var v = +p; if (v > 0 && q > 0) al.push([v, q]); });
+    return {
+      bidBuckets: cachedBidBuckets,
+      askBuckets: cachedAskBuckets,
+      bidLevels: bl,
+      askLevels: al,
+      nearLo: snapMinBid,
+      nearHi: snapMaxAsk,
+      bucketSize: bucketSize,
+      unit: unit,
+      displayPrice: displayPrice
+    };
+  }
+  function syncDepthColumn() {
+    if (!window.DepthColumn || !canvas._yScale || !displayPrice) return;
+    window.DepthColumn.sync(canvas._yScale, buildDepthSnapshot());
   }
 
   function drawCandles() {
@@ -1011,15 +1041,6 @@
       ctx.fillRect(plotW + 2, cpy - 9, axisW - 4, 18);
       ctx.fillStyle = '#111';
       ctx.fillText(tag, plotW + 7, cpy);
-    }
-    
-    // Callback para componentes externos (ex.: coluna de profundidade)
-    if (window.DepthColumn && canvas._yScale) {
-      console.log('[OrderBook] Disparando callback DepthColumn.sync()');
-      window.DepthColumn.sync(canvas._yScale);
-    } else {
-      if (!window.DepthColumn) console.warn('[OrderBook] DepthColumn não disponível');
-      if (!canvas._yScale) console.warn('[OrderBook] canvas._yScale ausente');
     }
   }
 
@@ -1369,7 +1390,7 @@
     setThermoBar(t.buyPct, t.sellPct);
     var buyTxt = unit === 'BTC' ? fmtBTC(t.buyBtc) : fmtUSD(t.buyUsd);
     var sellTxt = unit === 'BTC' ? fmtBTC(t.sellBtc) : fmtUSD(t.sellUsd);
-    // (iii) rótulos alinhados a cada cor: compras à esquerda (azul),
+    // (iii) rótulos alinhados a cada cor: compras à esquerda (verde),
     // vendas à direita (vermelho), mesmo texto de antes.
     setText(thermoBuyEl, 'Compras ' + buyTxt + ' · ' + Math.round(t.buyPct) + '%');
     setText(thermoSellEl, Math.round(t.sellPct) + '% · ' + sellTxt + ' Vendas');
@@ -1396,6 +1417,10 @@
     if (el.textContent !== txt) el.textContent = txt;
   }
 
+  // Resize (evento puro, sem timer/polling): reencaminha pelo throttle
+  // existente; o próximo render() recalcula escala e chama syncDepthColumn().
+  window.addEventListener('resize', queueRender);
+
   // ---- Boot (lazy: só quando visível; não toca nos sockets Spot) ----
   function boot() {
     restartKline();
@@ -1411,23 +1436,10 @@
     }
     validateTimer = setInterval(validateBook, VALIDATE_MS);
   }
-  // API read-only para componentes externos (ex.: coluna de profundidade)
+  // API read-only para componentes externos (ex.: coluna de profundidade).
+  // Somente leitura: o consumidor nunca altera buckets, book ou escala.
   window.OrderBookData = {
-    getBuckets: function () {
-      return {
-        bidBuckets: cachedBidBuckets,
-        askBuckets: cachedAskBuckets,
-        bucketSize: bucketSize,
-        unit: unit
-      };
-    },
-    getLevels: function () {
-      return {
-        bids: bids,        // Map priceStr -> qty
-        asks: asks,        // Map priceStr -> qty
-        displayPrice: displayPrice
-      };
-    }
+    getDepthSnapshot: buildDepthSnapshot
   };
 
   // Auditoria SOMENTE LEITURA (sem enviar nada para fora): devolve e imprime
