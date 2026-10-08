@@ -152,6 +152,9 @@
   var lastOmitted = null; // faixas de borda omitidas {ask:{}, bid:{}} (só auditoria)
   var lastShown = { ask: [], bid: [] }; // chaves exibidas (top-N) no último render
   var lastPartial = { ask: null, bid: null }; // chaves das parciais exibidas ("≥")
+  // Cache para API externa (coluna de profundidade)
+  var cachedBidBuckets = new Map();
+  var cachedAskBuckets = new Map();
   // Termômetro compras × vendas (Etapa termômetro, SOMENTE apresentação):
   // distância igual nos dois lados a partir dos extremos CONGELADOS do
   // snapshot; D <= 0 ou D < THERMO_MIN_D_USD (ou book não pronto/cruzado)
@@ -1009,6 +1012,15 @@
       ctx.fillStyle = '#111';
       ctx.fillText(tag, plotW + 7, cpy);
     }
+    
+    // Callback para componentes externos (ex.: coluna de profundidade)
+    if (window.DepthColumn && canvas._yScale) {
+      console.log('[OrderBook] Disparando callback DepthColumn.sync()');
+      window.DepthColumn.sync(canvas._yScale);
+    } else {
+      if (!window.DepthColumn) console.warn('[OrderBook] DepthColumn não disponível');
+      if (!canvas._yScale) console.warn('[OrderBook] canvas._yScale ausente');
+    }
   }
 
   // Rótulo compacto do eixo (pt-BR, sem decimais nessa magnitude).
@@ -1080,6 +1092,11 @@
       if (!(bLo + bucketSize <= snapMaxAsk)) { addToBucket(omitAsk, bLo, price, q); return; } // borda → OMITIDO (P1 item 11)
       addToBucket(askBuckets, bLo, price, q);
     });
+    
+    // Atualiza cache para API externa (coluna de profundidade)
+    cachedBidBuckets = new Map(bidBuckets);
+    cachedAskBuckets = new Map(askBuckets);
+    
     if (!bidBuckets.size && !askBuckets.size && !omitBid.size && !omitAsk.size) {
       showRowsMsg('nobuckets', '<div class="ob__empty">Sem buckets completos no snapshot.</div>');
       return;
@@ -1394,6 +1411,25 @@
     }
     validateTimer = setInterval(validateBook, VALIDATE_MS);
   }
+  // API read-only para componentes externos (ex.: coluna de profundidade)
+  window.OrderBookData = {
+    getBuckets: function () {
+      return {
+        bidBuckets: cachedBidBuckets,
+        askBuckets: cachedAskBuckets,
+        bucketSize: bucketSize,
+        unit: unit
+      };
+    },
+    getLevels: function () {
+      return {
+        bids: bids,        // Map priceStr -> qty
+        asks: asks,        // Map priceStr -> qty
+        displayPrice: displayPrice
+      };
+    }
+  };
+
   // Auditoria SOMENTE LEITURA (sem enviar nada para fora): devolve e imprime
   // o estado operacional do widget — p/ o teste operacional de 30 min.
   window.__obAudit = function () {

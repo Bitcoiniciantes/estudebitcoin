@@ -28,8 +28,12 @@
 .ob__help { font-size: 12px; color: #bbb; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 8px 12px; margin: 0 0 12px; }
 .ob__help summary { cursor: pointer; color: #F7931A; font-weight: 700; }
 .ob__help p { margin: 8px 0 0; line-height: 1.5; }
-.ob__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; position: relative; }
+.ob__grid { display: grid; grid-template-columns: 1fr 180px 1fr; grid-template-areas: "candles depth concentration"; gap: 12px; position: relative; }
 .ob__panel { background: #0d0d0d; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 12px; min-height: 320px; position: relative; overflow: hidden; }
+.ob__panel:nth-child(1) { grid-area: candles; }
+.ob__panel:nth-child(3) { grid-area: concentration; }
+.ob__depth-column { grid-area: depth; background: #0d0d0d; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; min-height: 320px; }
+.ob__depth-canvas { width: 100%; flex: 1; display: block; min-height: 320px; }
 .ob__panel h3 { font-size: 12px; letter-spacing: .08em; color: #888; margin: 0 0 8px; font-weight: 800; }
 .ob__panel canvas { width: 100%; height: 300px; display: block; }
 .ob__rows { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
@@ -66,7 +70,8 @@
 .ob__thermo-sell { color: #ff8a80; text-align: right; }
 .ob__thermo-legend { font-size: 11px; color: #888; margin-top: 2px; }
 @media (max-width: 860px) {
-  .ob__grid { grid-template-columns: 1fr; }
+  .ob__grid { grid-template-columns: 1fr; grid-template-areas: "candles" "concentration"; }
+  .ob__depth-column { display: none; }
   .ob__row { grid-template-columns: 86px 1fr auto; }
   .ob__bar-track { min-width: 36px; }
 }
