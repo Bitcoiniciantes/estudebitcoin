@@ -458,5 +458,10 @@ window.BI_ETF_HISTORY = [
     "data": "2026-10-20",
     "fluxoLiquidoUsd": 23162422.509999998,
     "ativosTotaisUsd": 106284266590.21568
+  },
+  {
+    "data": "2026-10-21",
+    "fluxoLiquidoUsd": 528400237.14,
+    "ativosTotaisUsd": 109308814723.72064
   }
 ];
