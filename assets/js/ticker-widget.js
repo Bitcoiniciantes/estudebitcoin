@@ -457,12 +457,17 @@
       // Batch de 24h do Worker: fonte fixa da variação do DIA. Inclui TODOS os
       // monitorados (inclusive os que já têm preço vivo/card) apenas para ler
       // changePct; cardPrices continua sendo gravado só onde já era gravado.
+      // O Worker /api/quotes corta em 26 assets por chamada: envia em lotes de
+      // 20 (máx. 30 monitorados → no máximo 2 requisições por ciclo de 60s).
+      var MONITOR_BATCH = 20;
       var wanted = [];
       var wantMap = {}; // símbolo Yahoo -> ticker puro
       var priceAllowed = {}; // tickers cujo preço este fluxo ainda pode gravar
+      var seen = {}; // dedup por ticker, preservando a ordem de grahamHistory
       for (var i = 0; i < grahamHistory.length; i++) {
         var t = String((grahamHistory[i] && grahamHistory[i].ticker) || "").trim().toUpperCase();
-        if (!t) continue;
+        if (!t || seen[t]) continue;
+        seen[t] = true;
         var y = yahooSymbolFor(t);
         if (wantMap[y]) continue;
         wantMap[y] = t;
@@ -471,35 +476,46 @@
         if (!covered[t] && !(Number.isFinite(live) && live > 0)) priceAllowed[t] = true;
       }
       if (!wanted.length) return;
-      fetch(WORKER + "?assets=" + encodeURIComponent(wanted.join(",")) + "&window=24h", { cache: "no-store" })
-        .then(function (response) { return response.ok ? response.json() : null; })
-        .then(function (payload) {
-          if (!payload || !Array.isArray(payload.quotes)) return;
-          var rate = Number(cardPrices["USDT-BRL"]);
-          if (!Number.isFinite(rate) || rate <= 0) rate = null;
-          var touched = false;
-          for (var k = 0; k < payload.quotes.length; k++) {
-            var q = payload.quotes[k] || {};
-            var pure = wantMap[String(q.symbol || "").trim().toUpperCase()];
-            if (!pure) continue;
-            // % do dia: grava SEMPRE, sem tocar no preço do card/WebSocket.
-            var ch = Number(q.changePct);
-            if (Number.isFinite(ch)) { cardChangePct[pure] = ch; touched = true; }
-            // Preço: só onde o fluxo anterior já gravava (sem card vivo).
-            if (!priceAllowed[pure]) continue;
-            var px = Number(q.price);
-            if (!Number.isFinite(px) || px <= 0) continue;
-            if (String(q.currency || "").trim().toUpperCase() === "BRL") {
-              if (rate == null) continue;
-              px = px / rate;
-            }
-            if (!Number.isFinite(px) || px <= 0) continue;
-            cardPrices[pure] = px;
-            touched = true;
+      var touched = false;
+      // Um lote = uma chamada. Erro de um lote é silencioso e NÃO apaga os
+      // valores já existentes de cardPrices/cardChangePct (não zera nada).
+      function applyQuotes(payload) {
+        if (!payload || !Array.isArray(payload.quotes)) return;
+        var rate = Number(cardPrices["USDT-BRL"]);
+        if (!Number.isFinite(rate) || rate <= 0) rate = null;
+        for (var k = 0; k < payload.quotes.length; k++) {
+          var q = payload.quotes[k] || {};
+          var pure = wantMap[String(q.symbol || "").trim().toUpperCase()];
+          if (!pure) continue;
+          // % do dia: grava SEMPRE, sem tocar no preço do card/WebSocket.
+          var ch = Number(q.changePct);
+          if (Number.isFinite(ch)) { cardChangePct[pure] = ch; touched = true; }
+          // Preço: só onde o fluxo anterior já gravava (sem card vivo).
+          if (!priceAllowed[pure]) continue;
+          var px = Number(q.price);
+          if (!Number.isFinite(px) || px <= 0) continue;
+          if (String(q.currency || "").trim().toUpperCase() === "BRL") {
+            if (rate == null) continue;
+            px = px / rate;
           }
-          if (touched && activeTab === "stocks") { try { renderGrahamHistory(); } catch (e) {} }
-        })
-        .catch(function () {});
+          if (!Number.isFinite(px) || px <= 0) continue;
+          cardPrices[pure] = px;
+          touched = true;
+        }
+      }
+      var jobs = [];
+      for (var c = 0; c < wanted.length; c += MONITOR_BATCH) {
+        var group = wanted.slice(c, c + MONITOR_BATCH);
+        try {
+          jobs.push(fetch(WORKER + "?assets=" + encodeURIComponent(group.join(",")) + "&window=24h", { cache: "no-store" })
+            .then(function (response) { return response.ok ? response.json() : null; })
+            .then(applyQuotes)
+            .catch(function () {}));
+        } catch (e) { /* lote falhou: mantém os valores anteriores */ }
+      }
+      Promise.all(jobs).then(function () {
+        if (touched && activeTab === "stocks") { try { renderGrahamHistory(); } catch (e) {} }
+      });
     } catch (e) {}
   }
 

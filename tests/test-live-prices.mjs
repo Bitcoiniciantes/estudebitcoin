@@ -248,6 +248,12 @@ describe('TTL por origem + prioridade (caminho real)', () => {
     assert.ok(TICKER_SRC.includes('cardChangePct'), 'variação do dia rastreada à parte do preço');
   });
 
+  it('widget: monitorados em lotes de 20 (Worker corta em 26)', () => {
+    assert.ok(TICKER_SRC.includes('MONITOR_BATCH = 20'), 'lote fixo de 20');
+    assert.ok(TICKER_SRC.includes('wanted.slice(c, c + MONITOR_BATCH)'), 'divide wanted em lotes');
+    assert.ok(TICKER_SRC.includes('seen[t]'), 'dedup estável por ticker');
+  });
+
   it('widget: histórico Graham sem FIFO + sort alfabético no render', () => {
     assert.ok(TICKER_SRC.includes('GRAHAM_HIST_MAX = 30'), 'limite nomeado em 30');
     assert.ok(!TICKER_SRC.includes('grahamHistory.shift()'), 'sem expulsão silenciosa');
