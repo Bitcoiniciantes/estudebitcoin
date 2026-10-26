@@ -70,6 +70,10 @@
   var livePrices = {};
   var cardPrices = {}; // último preço visto por símbolo (p/ modal Graham)
   var cardChangePct = {}; // variação do dia (%) por monitorado (não sobrescreve preço)
+  var cardChange30d = {}; // variação 30d (%) por monitorado (janela fixa; só memória)
+  var cardCloses24Len = {}; // nº de fechamentos do batch 24h (1mo) por ticker
+  var last30dAt = 0; // último agendamento do lote 30d (marca antes do fetch)
+  var MONITOR_30D_EVERY_MS = 5 * 60000; // 30d a cada 5 min, no mesmo ciclo de 60s
   var liveVolume = {};
   var quoteData = {};
   var pairSymbol = {};
@@ -476,6 +480,8 @@
         if (!covered[t] && !(Number.isFinite(live) && live > 0)) priceAllowed[t] = true;
       }
       if (!wanted.length) return;
+      var now = Date.now();
+      var refresh30d = now - last30dAt >= MONITOR_30D_EVERY_MS;
       var touched = false;
       // Um lote = uma chamada. Erro de um lote é silencioso e NÃO apaga os
       // valores já existentes de cardPrices/cardChangePct (não zera nada).
@@ -487,6 +493,8 @@
           var q = payload.quotes[k] || {};
           var pure = wantMap[String(q.symbol || "").trim().toUpperCase()];
           if (!pure) continue;
+          // Guarda o tamanho da série de 1mo p/ saber se há histórico de 30d.
+          if (Array.isArray(q.closes)) cardCloses24Len[pure] = q.closes.length;
           // % do dia: grava SEMPRE, sem tocar no preço do card/WebSocket.
           var ch = Number(q.changePct);
           if (Number.isFinite(ch)) { cardChangePct[pure] = ch; touched = true; }
@@ -503,6 +511,26 @@
           touched = true;
         }
       }
+      var touched30d = false;
+      // 30d em mapa próprio: nunca toca em preço/cardPrices nem no % do dia.
+      // A série de 3mo (30d) tem mais fechamentos que a de 1mo (24h) quando o
+      // ativo já existia 30 dias atrás; sem pontos extras, histórico curto → "—".
+      var pending30d = {};
+      function collect30d(payload) {
+        if (!payload || !Array.isArray(payload.quotes)) return;
+        for (var k = 0; k < payload.quotes.length; k++) {
+          var q = payload.quotes[k] || {};
+          var pure = wantMap[String(q.symbol || "").trim().toUpperCase()];
+          if (!pure) continue;
+          var ch = Number(q.changePct);
+          pending30d[pure] = { ch: Number.isFinite(ch) ? ch : null, len: Array.isArray(q.closes) ? q.closes.length : 0 };
+        }
+      }
+      function has30dHistory(len30, len24) {
+        // Sem sinal de 1mo (batch falhou) mantém o valor do Worker.
+        if (!Number.isFinite(len30) || !Number.isFinite(len24) || len30 <= 0) return true;
+        return len30 > len24;
+      }
       var jobs = [];
       for (var c = 0; c < wanted.length; c += MONITOR_BATCH) {
         var group = wanted.slice(c, c + MONITOR_BATCH);
@@ -513,8 +541,33 @@
             .catch(function () {}));
         } catch (e) { /* lote falhou: mantém os valores anteriores */ }
       }
+      if (refresh30d) {
+        // Marca no agendamento: falha de lote espera os 5 min (sem repetir
+        // fora do intervalo) e os valores anteriores ficam intactos.
+        last30dAt = now;
+        for (var c30 = 0; c30 < wanted.length; c30 += MONITOR_BATCH) {
+          var group30 = wanted.slice(c30, c30 + MONITOR_BATCH);
+          try {
+            jobs.push(fetch(WORKER + "?assets=" + encodeURIComponent(group30.join(",")) + "&window=30d", { cache: "no-store" })
+              .then(function (response) { return response.ok ? response.json() : null; })
+              .then(collect30d)
+              .catch(function () {}));
+          } catch (e) { /* lote 30d falhou: mantém os valores anteriores */ }
+        }
+      }
       Promise.all(jobs).then(function () {
-        if (touched && activeTab === "stocks") { try { renderGrahamHistory(); } catch (e) {} }
+        // Decide o 30d só depois do 24h: assim cardCloses24Len já está pronto.
+        Object.keys(pending30d).forEach(function (p) {
+          var item = pending30d[p];
+          if (!has30dHistory(item.len, cardCloses24Len[p])) {
+            delete cardChange30d[p];
+            touched30d = true;
+          } else if (item.ch != null) {
+            cardChange30d[p] = item.ch;
+            touched30d = true;
+          }
+        });
+        if ((touched || touched30d) && activeTab === "stocks") { try { renderGrahamHistory(); } catch (e) {} }
       });
     } catch (e) {}
   }
@@ -671,7 +724,7 @@
       if (c !== 0) return c;
       return String(a.ticker || '').localeCompare(String(b.ticker || ''), 'pt-BR', { sensitivity: 'base' });
     });
-    var html = '<div class="tq-graham-hist-title">Ativos monitorados</div><table><thead><tr><th>Empresa</th><th>Hoje</th><th>% Dia</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th><th></th></tr></thead><tbody>';
+    var html = '<div class="tq-graham-hist-title">Ativos monitorados</div><table><thead><tr><th>Empresa</th><th>Hoje</th><th>% Dia</th><th>% 30D</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th><th></th></tr></thead><tbody>';
     // Taxa p/ a coluna Reais (Atual USD → BRL): vem do próprio ticker USDT-BRL.
     var rate = Number(cardPrices["USDT-BRL"]);
     if (!Number.isFinite(rate) || rate <= 0) rate = null;
@@ -701,6 +754,10 @@
       var dayCh = Number(cardChangePct[h.ticker]);
       if (!Number.isFinite(dayCh)) dayCh = null;
       var dayCls = dayCh == null ? "" : (dayCh > 0 ? "tq-h-up" : (dayCh < 0 ? "tq-h-down" : "tq-h-flat"));
+      // 30d: janela fixa do Worker, independente do seletor 7D/30D dos cards.
+      var day30Ch = Number(cardChange30d[h.ticker]);
+      if (!Number.isFinite(day30Ch)) day30Ch = null;
+      var day30Cls = day30Ch == null ? "" : (day30Ch > 0 ? "tq-h-up" : (day30Ch < 0 ? "tq-h-down" : "tq-h-flat"));
       // Selo p/ linhas antigas sem justo calculável (só visual, sem apagar).
       var flag = (h.fairUSD == null && h.fairBRL == null)
         ? ' <span class="tq-h-flag">dados incompletos</span>' : '';
@@ -708,6 +765,7 @@
         '<td><span class="tq-h-name" title="' + esc(h.name || h.ticker) + '">' + esc(h.name || '—') + '</span><br><span class="tq-h-ticker">' + esc(h.ticker) + '</span>' + flag + '</td>' +
         '<td><b>' + esc(fmtShortUSD(livePrice)) + '</b>' + dotHtml + '</td>' +
         '<td class="' + dayCls + '">' + esc(fmtPctSigned(dayCh)) + '</td>' +
+        '<td class="' + day30Cls + '">' + esc(fmtPctSigned(day30Ch)) + '</td>' +
         '<td>' + esc(fmtShortBRL(reais)) + '</td>' +
         '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +
         '<td><b>' + esc(fmtShortUSD(h.fairUSD)) + '</b></td>' +
@@ -793,6 +851,8 @@
       // Sem FIFO: no limite, o botão Monitorar desabilita (a lista é escolha).
       renderGrahamHistory();
       // Novo monitorado: cotar os sem-card já, sem esperar o ciclo de 60s.
+      // Zera o gate do 30d para trazer a janela de 30 dias na hora.
+      last30dAt = 0;
       try { refreshMonitoredBroadcast(); } catch (e) {}
       // Persistência (só logados; anônimo: memória da sessão).
       try {

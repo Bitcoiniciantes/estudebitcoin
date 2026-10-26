@@ -246,6 +246,20 @@ describe('TTL por origem + prioridade (caminho real)', () => {
     assert.ok(thead[1].includes('<th>% Dia</th>'), 'coluna % Dia entre Hoje e Reais');
     assert.ok(TICKER_SRC.includes('fmtPctSigned(dayCh)'), 'célula % Dia formata com sinal');
     assert.ok(TICKER_SRC.includes('cardChangePct'), 'variação do dia rastreada à parte do preço');
+    assert.ok(thead[1].includes('<th>% 30D</th>'), 'coluna % 30D imediatamente após % Dia');
+    assert.ok(TICKER_SRC.includes('fmtPctSigned(day30Ch)'), 'célula % 30D formata com sinal');
+    assert.ok(TICKER_SRC.includes('cardChange30d'), 'variação 30d em mapa próprio');
+  });
+
+  it('widget: % 30D fixo em lotes de 20 a cada 5 min', () => {
+    assert.ok(TICKER_SRC.includes('MONITOR_30D_EVERY_MS = 5 * 60000'), 'gate fixo de 5 min');
+    assert.ok(TICKER_SRC.includes('&window=30d'), 'janela fixa 30d (independente do seletor)');
+    assert.ok(TICKER_SRC.includes('group30.join(",")'), 'lote 30d reusa o limite de 20');
+    assert.ok(TICKER_SRC.includes('last30dAt = now;'), 'gate marcado no agendamento, não no retorno');
+    assert.ok((TICKER_SRC.match(/last30dAt = 0;/g) || []).length >= 2, 'Monitorar zera o gate p/ buscar na hora');
+    assert.ok(TICKER_SRC.includes('cardCloses24Len'), 'compara 1mo x 3mo p/ detectar histórico curto');
+    assert.ok(TICKER_SRC.includes('has30dHistory(item.len, cardCloses24Len[p])'), 'histórico <30d vira —');
+    assert.ok(TICKER_SRC.includes('delete cardChange30d[p]'), 'remove valor sem 30d');
   });
 
   it('widget: monitorados em lotes de 20 (Worker corta em 26)', () => {
