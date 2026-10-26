@@ -251,6 +251,26 @@ describe('TTL por origem + prioridade (caminho real)', () => {
     assert.ok(TICKER_SRC.includes('cardChange30d'), 'variação 30d em mapa próprio');
   });
 
+  it('widget: Preço Justo USD usa fairBRL/taxa atual com fallback fairUSD', () => {
+    assert.ok(TICKER_SRC.includes('var fairBRLNum = Number(h.fairBRL)'), 'fairBRL numérico');
+    assert.ok(TICKER_SRC.includes('fairBRLNum / rate'), 'converte fairBRL pela taxa atual');
+    assert.ok(TICKER_SRC.includes('fmtShortUSD(fairUsdShown)'), 'célula usa o justo USD exibido');
+    assert.ok(TICKER_SRC.includes('? fairNum : null'), 'fairUSD gravado é o fallback');
+    assert.ok(TICKER_SRC.includes('h.upside'), 'upside gravado permanece como fallback');
+  });
+
+  it('widget: upside USD equivale a fairBRL / preço atual em R$ - 1', () => {
+    const fairBRL = 93.21;
+    const rate = 5.38;
+    const currentBRL = 53.88;
+    const fairUSD = fairBRL / rate;
+    const currentUSD = currentBRL / rate;
+    const upUSD = (fairUSD / currentUSD - 1) * 100;
+    const upBRL = (fairBRL / currentBRL - 1) * 100;
+    assert.ok(Math.abs(upUSD - upBRL) < 1e-9, `USD=${upUSD} BRL=${upBRL}`);
+    assert.ok(Math.abs(fairUSD - 17.3252788104) < 1e-9, `fairUSD=${fairUSD}`);
+  });
+
   it('widget: % 30D fixo em lotes de 20 a cada 5 min', () => {
     assert.ok(TICKER_SRC.includes('MONITOR_30D_EVERY_MS = 5 * 60000'), 'gate fixo de 5 min');
     assert.ok(TICKER_SRC.includes('&window=30d'), 'janela fixa 30d (independente do seletor)');

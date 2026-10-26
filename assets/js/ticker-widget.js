@@ -743,10 +743,10 @@
         : ' <span class="pa-live pa-stale" title="Cotação do Monitorar (sem atualização)"></span>';
       var fairNum = Number(h.fairUSD);
       var liveNum = Number(livePrice);
-      // UPSIDE display-only, recalculado do preço vivo sobre o justo
-      // armazenado; sem justo/preço válidos, mantém o snapshot exibido.
-      var upShown = (Number.isFinite(fairNum) && fairNum > 0 && Number.isFinite(liveNum) && liveNum > 0)
-        ? ((fairNum / liveNum) - 1) * 100 : h.upside;
+      var fairBRLNum = Number(h.fairBRL); // B3: justo USD exibido pela taxa atual
+      var fairUsdShown = (Number.isFinite(fairBRLNum) && fairBRLNum > 0 && rate != null)
+        ? (fairBRLNum / rate) : (Number.isFinite(fairNum) && fairNum > 0 ? fairNum : null);
+      var upShown = (Number.isFinite(fairUsdShown) && fairUsdShown > 0 && Number.isFinite(liveNum) && liveNum > 0) ? ((fairUsdShown / liveNum) - 1) * 100 : h.upside;
       var cls = upShown == null ? "" : (upShown > 0 ? "tq-h-up" : (upShown < 0 ? "tq-h-down" : ""));
       var reais = (rate != null && livePrice != null) ? livePrice * rate : null;
       // % do dia (fonte 24h do Worker, fechamento anterior). Sem dado → "—";
@@ -768,7 +768,7 @@
         '<td class="' + day30Cls + '">' + esc(fmtPctSigned(day30Ch)) + '</td>' +
         '<td>' + esc(fmtShortBRL(reais)) + '</td>' +
         '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +
-        '<td><b>' + esc(fmtShortUSD(h.fairUSD)) + '</b></td>' +
+        '<td><b>' + esc(fmtShortUSD(fairUsdShown)) + '</b></td>' +
         '<td class="' + cls + '">' + esc(fmtPctSigned(upShown)) + '</td>' +
         '<td><button type="button" class="tq-h-del" data-del="' + esc(symbolKey(h.ticker)) + '" title="Remover ' + esc(h.ticker) + ' do histórico" aria-label="Remover ' + esc(h.ticker) + '">✕</button></td></tr>';
     }
