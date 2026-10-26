@@ -69,6 +69,7 @@
   var cache = {};
   var livePrices = {};
   var cardPrices = {}; // último preço visto por símbolo (p/ modal Graham)
+  var cardChangePct = {}; // variação do dia (%) por monitorado (não sobrescreve preço)
   var liveVolume = {};
   var quoteData = {};
   var pairSymbol = {};
@@ -453,17 +454,21 @@
       if (!grahamHistory.length) return;
       var covered = {};
       for (var s = 0; s < STOCKS.length; s++) covered[STOCKS[s]] = true;
+      // Batch de 24h do Worker: fonte fixa da variação do DIA. Inclui TODOS os
+      // monitorados (inclusive os que já têm preço vivo/card) apenas para ler
+      // changePct; cardPrices continua sendo gravado só onde já era gravado.
       var wanted = [];
       var wantMap = {}; // símbolo Yahoo -> ticker puro
+      var priceAllowed = {}; // tickers cujo preço este fluxo ainda pode gravar
       for (var i = 0; i < grahamHistory.length; i++) {
         var t = String((grahamHistory[i] && grahamHistory[i].ticker) || "").trim().toUpperCase();
-        if (!t || covered[t]) continue;
-        covered[t] = true;
-        var live = Number(cardPrices[t]);
-        if (Number.isFinite(live) && live > 0) continue; // já tem fluxo vivo
+        if (!t) continue;
         var y = yahooSymbolFor(t);
+        if (wantMap[y]) continue;
         wantMap[y] = t;
         wanted.push(y);
+        var live = Number(cardPrices[t]);
+        if (!covered[t] && !(Number.isFinite(live) && live > 0)) priceAllowed[t] = true;
       }
       if (!wanted.length) return;
       fetch(WORKER + "?assets=" + encodeURIComponent(wanted.join(",")) + "&window=24h", { cache: "no-store" })
@@ -477,6 +482,11 @@
             var q = payload.quotes[k] || {};
             var pure = wantMap[String(q.symbol || "").trim().toUpperCase()];
             if (!pure) continue;
+            // % do dia: grava SEMPRE, sem tocar no preço do card/WebSocket.
+            var ch = Number(q.changePct);
+            if (Number.isFinite(ch)) { cardChangePct[pure] = ch; touched = true; }
+            // Preço: só onde o fluxo anterior já gravava (sem card vivo).
+            if (!priceAllowed[pure]) continue;
             var px = Number(q.price);
             if (!Number.isFinite(px) || px <= 0) continue;
             if (String(q.currency || "").trim().toUpperCase() === "BRL") {
@@ -645,7 +655,7 @@
       if (c !== 0) return c;
       return String(a.ticker || '').localeCompare(String(b.ticker || ''), 'pt-BR', { sensitivity: 'base' });
     });
-    var html = '<div class="tq-graham-hist-title">Ativos monitorados</div><table><thead><tr><th>Empresa</th><th>Hoje</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th><th></th></tr></thead><tbody>';
+    var html = '<div class="tq-graham-hist-title">Ativos monitorados</div><table><thead><tr><th>Empresa</th><th>Hoje</th><th>% Dia</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th><th></th></tr></thead><tbody>';
     // Taxa p/ a coluna Reais (Atual USD → BRL): vem do próprio ticker USDT-BRL.
     var rate = Number(cardPrices["USDT-BRL"]);
     if (!Number.isFinite(rate) || rate <= 0) rate = null;
@@ -670,12 +680,18 @@
         ? ((fairNum / liveNum) - 1) * 100 : h.upside;
       var cls = upShown == null ? "" : (upShown > 0 ? "tq-h-up" : (upShown < 0 ? "tq-h-down" : ""));
       var reais = (rate != null && livePrice != null) ? livePrice * rate : null;
+      // % do dia (fonte 24h do Worker, fechamento anterior). Sem dado → "—";
+      // zero usa classe própria (cinza), sem mexer nas classes do Upside.
+      var dayCh = Number(cardChangePct[h.ticker]);
+      if (!Number.isFinite(dayCh)) dayCh = null;
+      var dayCls = dayCh == null ? "" : (dayCh > 0 ? "tq-h-up" : (dayCh < 0 ? "tq-h-down" : "tq-h-flat"));
       // Selo p/ linhas antigas sem justo calculável (só visual, sem apagar).
       var flag = (h.fairUSD == null && h.fairBRL == null)
         ? ' <span class="tq-h-flag">dados incompletos</span>' : '';
       html += '<tr data-ticker="' + esc(symbolKey(h.ticker)) + '">' +
         '<td><span class="tq-h-name" title="' + esc(h.name || h.ticker) + '">' + esc(h.name || '—') + '</span><br><span class="tq-h-ticker">' + esc(h.ticker) + '</span>' + flag + '</td>' +
         '<td><b>' + esc(fmtShortUSD(livePrice)) + '</b>' + dotHtml + '</td>' +
+        '<td class="' + dayCls + '">' + esc(fmtPctSigned(dayCh)) + '</td>' +
         '<td>' + esc(fmtShortBRL(reais)) + '</td>' +
         '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +
         '<td><b>' + esc(fmtShortUSD(h.fairUSD)) + '</b></td>' +

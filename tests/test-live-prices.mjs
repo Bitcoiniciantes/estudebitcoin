@@ -243,6 +243,9 @@ describe('TTL por origem + prioridade (caminho real)', () => {
     const tdCount = (TICKER_SRC.slice(rowStart, rowEnd).match(/<td/g) || []).length;
     assert.equal(tdCount, thCount, `td (${tdCount}) == th (${thCount})`);
     assert.ok(TICKER_SRC.includes('fmtShortBRL(h.fairBRL)'), 'célula Preço Justo R$ presente');
+    assert.ok(thead[1].includes('<th>% Dia</th>'), 'coluna % Dia entre Hoje e Reais');
+    assert.ok(TICKER_SRC.includes('fmtPctSigned(dayCh)'), 'célula % Dia formata com sinal');
+    assert.ok(TICKER_SRC.includes('cardChangePct'), 'variação do dia rastreada à parte do preço');
   });
 
   it('widget: histórico Graham sem FIFO + sort alfabético no render', () => {
