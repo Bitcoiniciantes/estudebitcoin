@@ -11,6 +11,8 @@ window.BI_CONFIG = {
     binanceKlines: 'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=24',
     binanceWs: 'wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/btcbrl@ticker/usdtbrl@ticker',
     binanceKlinesBase: 'https://api.binance.com/api/v3/klines',
+    binanceVisionKlinesBase: 'https://data-api.binance.vision/api/v3/klines',
+    binanceTimeUrl: 'https://data-api.binance.vision/api/v3/time',
     binanceTicker24h: 'https://api.binance.com/api/v3/ticker/24hr',
     mempoolFees: 'https://mempool.space/api/v1/fees/recommended',
     mempoolBlocks: 'https://mempool.space/api/v1/fees/mempool-blocks',
