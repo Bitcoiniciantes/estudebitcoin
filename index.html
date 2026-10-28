@@ -876,13 +876,28 @@
     text-transform: uppercase; color: #6b7f72; margin: 2px 0 6px;
   }
   .tq-h-flag {
-    display: inline-block;
+    display: block;
+    width: fit-content;
     font-size: .6rem; font-weight: 700; letter-spacing: .04em;
     color: #8fa396; border: 1px solid rgba(0,0,0,.15);
-    border-radius: 999px; padding: 1px 7px; margin-left: 6px;
+    border-radius: 999px; padding: 1px 7px; margin: 2px 0 0;
     white-space: nowrap; vertical-align: middle;
   }
-  .tq-graham-hist table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .75rem; }
+  .tq-graham-hist table {
+    width: 100%;
+    min-width: 67.5rem;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: .75rem;
+  }
+  @media print {
+    .tq-graham-hist table { min-width: 0; table-layout: auto; }
+  }
+  .tq-graham-hist thead th:first-child { width: 11.125rem; }
+  .tq-graham-hist thead th:nth-child(2) { width: 6.25rem; }
+  .tq-graham-hist thead th:last-child { width: 2.75rem; }
+  .tq-graham-hist tbody td:nth-child(2) { white-space: nowrap; }
   .tq-graham-hist th, .tq-graham-hist td {
     padding: 8px 10px;
     text-align: right;
