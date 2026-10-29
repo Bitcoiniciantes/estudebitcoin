@@ -80,7 +80,7 @@
   // Para voltar US$ como padrão, trocar só esta constante (sem lógica).
   var DEFAULT_UNIT = 'BTC';
   var TIMEFRAMES = ['1m', '5m', '15m', '1h'];
-  var DEFAULT_TF = '5m';
+  var DEFAULT_TF = '15m';
   // ---- Cobertura por SPAN DE PREÇO (P1 item 10, único critério; trocar de
   // bucket nunca dispara resync). Razão mínima configurável por lado.
   var COVERAGE_MIN_RATIO = 0.5;
@@ -207,7 +207,7 @@
       'a igual distância dos melhores preços (independente da faixa escolhida): ' +
       'é outra forma de ver o mesmo book, não uma previsão.</p></details>' +
       '<div class="ob__grid">' +
-        '<div class="ob__panel ob__panel--candles"><h3>CANDLES · <span id="ob-tflabel">5m</span></h3><canvas id="ob-candles"></canvas></div>' +
+        '<div class="ob__panel ob__panel--candles"><h3>CANDLES · <span id="ob-tflabel">15m</span></h3><canvas id="ob-candles"></canvas></div>' +
         '<div class="ob__panel ob__panel--concentration"><h3>CONCENTRAÇÃO · faixa US$ <span id="ob-bklabel">25</span></h3><div class="ob__shortnote" id="ob-shortnote"></div><div class="ob__rows" id="ob-rows"><div class="ob__loading">Carregando book…</div></div>' +
       '<div class="ob__thermo" id="ob-thermo"><div class="ob__thermo-bar" id="ob-thermo-bar"><span class="ob__thermo-fill ob__thermo-fill--bid" id="ob-thermo-bid"></span><span class="ob__thermo-fill ob__thermo-fill--ask" id="ob-thermo-ask"></span><span class="ob__thermo-mid" id="ob-thermo-mid"></span></div>' +
       '<div class="ob__thermo-diff" id="ob-thermo-diff"></div>' +
