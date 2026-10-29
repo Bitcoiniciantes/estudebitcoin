@@ -31,6 +31,33 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
   }
   .entropy-section h2 { font-size: clamp(24px, 3vw, 30px); margin-bottom: 8px; margin-top: 0; }
   .entropy-section > p { color: var(--muted); font-size: 16px; margin-bottom: 20px; margin-top: 0; }
+
+  /* ----- Cabeçalho recolhível do Jogo de Dados ----- */
+  .entropy-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    width: 100%; margin: 0; padding: 0; border: 0; border-radius: 10px;
+    background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  }
+  .entropy-header:focus-visible { outline: 2px solid var(--orange); outline-offset: 4px; }
+  .entropy-header-text { min-width: 0; }
+  .entropy-title { display: block; font-size: clamp(24px, 3vw, 30px); font-weight: 700; line-height: 1.2; }
+  .entropy-subtitle { display: block; margin-top: 8px; color: var(--muted); font-size: 16px; }
+  .entropy-toggle-icon {
+    flex: 0 0 auto; display: grid; place-items: center; width: 42px; height: 42px;
+    border: 1px solid var(--orange); border-radius: 9px;
+    background: rgba(247, 147, 26, .12); color: var(--orange);
+    font-size: 26px; font-weight: 700; line-height: 1;
+    transition: transform .3s ease, background .15s, color .15s;
+  }
+  .entropy-header:hover .entropy-toggle-icon { background: var(--orange); color: #0b0e11; }
+  .entropy-header[aria-expanded="true"] .entropy-toggle-icon { transform: rotate(45deg); }
+
+  /* ----- Conteúdo recolhível (grid-template-rows 0fr -> 1fr) ----- */
+  .entropy-collapsible { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s ease; }
+  .entropy-collapsible[hidden] { display: none; }
+  .entropy-collapsible.is-open { grid-template-rows: 1fr; }
+  .entropy-collapsible > .entropy-collapsible-inner { min-height: 0; overflow: hidden; padding-top: 0; transition: padding-top .3s ease; }
+  .entropy-collapsible.is-open > .entropy-collapsible-inner { padding-top: 20px; }
   .entropy-controls { position:sticky; top:0; z-index:10; display:flex; flex-wrap:wrap; align-items:end; justify-content:center; gap:10px; margin:0 0 18px; padding:10px 0; background:var(--card); border-bottom:1px solid var(--line); }
   .entropy-field { display:grid; gap:5px; text-align:left; }
   .entropy-field label { color:var(--muted); font-size:14px; }
@@ -127,7 +154,10 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
     .entropy-dice-grid { gap:5px; } 
     .entropy-die { max-width:none; border-radius:8px; } 
   }
-  @media (prefers-reduced-motion:reduce) { .entropy-dice-grid.is-rolling .entropy-die { animation:none; } }
+  @media (prefers-reduced-motion:reduce) {
+    .entropy-dice-grid.is-rolling .entropy-die { animation:none; }
+    .entropy-collapsible, .entropy-collapsible > .entropy-collapsible-inner, .entropy-toggle-icon { transition:none; }
+  }
 
 </style>
 </head>
@@ -137,8 +167,16 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
        SEÇÃO: JOGO DE DADOS (Original)
        ========================================== -->
   <section class="entropy-section" id="diceEntropyWidget" aria-labelledby="dice-entropy-heading">
-      <h2 id="dice-entropy-heading">Jogo de Dados</h2>
-      <p>Simulador visual de entropia. Os valores permanecem ocultos até a revelação manual.</p>
+      <button class="entropy-header" id="entropyToggle" type="button" aria-expanded="false" aria-controls="entropyCollapsible" aria-label="Expandir Jogo de Dados">
+        <span class="entropy-header-text">
+          <span class="entropy-title" id="dice-entropy-heading" role="heading" aria-level="2">Jogo de Dados</span>
+          <span class="entropy-subtitle">Simulador visual de entropia. Os valores permanecem ocultos até a revelação manual.</span>
+        </span>
+        <span class="entropy-toggle-icon" aria-hidden="true">+</span>
+      </button>
+
+      <div class="entropy-collapsible" id="entropyCollapsible" hidden>
+      <div class="entropy-collapsible-inner">
 
       <div class="entropy-controls">
         <div class="entropy-field">
@@ -197,6 +235,9 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
         <p><b>Limitações de Software:</b> Geradores de números aleatórios baseados em navegadores da web (JavaScript) não oferecem as garantias de segurança de um gerador de entropia puramente físico ou de dispositivos de hardware dedicados.</p>
         <p><b>Recomendação de Segurança:</b> Se você deseja gerar uma seed phrase blindada para uso real, desconecte-se da internet e utilize dados de tabuleiro físicos e reais, anotando os resultados no papel.</p>
         <p><b>Isenção Legal:</b> O uso desta ferramenta é de sua inteira responsabilidade. O autor e os mantenedores deste código não se responsabilizam por quaisquer perdas financeiras, roubos, danos ou comprometimento de chaves privadas decorrentes do uso das sequências geradas neste site.</p>
+      </div>
+
+      </div>
       </div>
   </section>
 
@@ -527,6 +568,76 @@ body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; line-height:1.
       window.addEventListener("pagehide", () => { clearTimeout(rollTimer); clearTimeout(shuffleTimer); stopAnimation(); clearTimeout(copyFeedbackTimer); eraseEntropy(); });
       resetForCount();
       requestAnimationFrame(reportWidgetHeight);
+  })();
+
+  // Script: Recolher/expandir o card "Jogo de Dados"
+  (() => {
+      "use strict";
+      const toggle = document.getElementById("entropyToggle");
+      const panel = document.getElementById("entropyCollapsible");
+      const grid = document.getElementById("entropyDiceGrid");
+      const result = document.getElementById("entropyResult");
+      if (!toggle || !panel) return;
+
+      const ANIMATION_MS = 320;
+      let hideTimer = null;
+      let concealed = null;
+
+      function concealRevealed() {
+        if (!grid || !result) return;
+        const dice = Array.from(grid.querySelectorAll(".entropy-die"));
+        if (!dice.some(die => die.classList.contains("revealed"))) return;
+        concealed = { text: result.textContent, classes: dice.map(die => die.className) };
+        dice.forEach(die => { die.className = "entropy-die"; });
+        result.textContent = result.textContent.replace(/[1-6]/g, "*");
+      }
+
+      function restoreRevealed() {
+        if (!concealed || !grid || !result) return;
+        grid.querySelectorAll(".entropy-die").forEach((die, index) => {
+          die.className = concealed.classes[index] || "entropy-die";
+        });
+        result.textContent = concealed.text;
+        concealed = null;
+      }
+
+      function expand() {
+        clearTimeout(hideTimer);
+        toggle.setAttribute("aria-expanded", "true");
+        toggle.setAttribute("aria-label", "Recolher Jogo de Dados");
+        panel.hidden = false;
+        panel.inert = false;
+        void panel.offsetHeight;
+        panel.classList.add("is-open");
+        restoreRevealed();
+      }
+
+      function collapse() {
+        clearTimeout(hideTimer);
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.setAttribute("aria-label", "Expandir Jogo de Dados");
+        panel.classList.remove("is-open");
+        panel.inert = true;
+        if (panel.contains(document.activeElement)) document.activeElement.blur();
+        concealRevealed();
+        hideTimer = setTimeout(() => { panel.hidden = true; }, ANIMATION_MS);
+      }
+
+      toggle.addEventListener("click", () => {
+        if (toggle.getAttribute("aria-expanded") === "true") collapse();
+        else expand();
+      });
+
+      panel.addEventListener("transitionend", event => {
+        if (event.target !== panel || event.propertyName !== "grid-template-rows") return;
+        if (toggle.getAttribute("aria-expanded") === "false") {
+          clearTimeout(hideTimer);
+          panel.hidden = true;
+        }
+      });
+
+      panel.hidden = true;
+      panel.inert = true;
   })();
 
   // Script: Calculadora de Projeção
