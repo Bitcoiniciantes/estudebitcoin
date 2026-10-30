@@ -237,6 +237,11 @@
       try { renderGrahamHistory(); } catch (e) {}
     }
     restoreAlertVisuals();
+    if (pinnedSymbol) {
+      var pinnedCard = grid.querySelector('.tq[data-tq="' + symbolKey(pinnedSymbol) + '"]');
+      if (pinnedCard) positionTooltip(pinnedCard);
+      else unpinTooltip();
+    }
   }
 
   function restoreAlertVisuals() {
@@ -348,6 +353,28 @@
   tooltip.className = "tq-tooltip";
   document.body.appendChild(tooltip);
   var pinnedSymbol = null;
+  var pinTimer = null;
+  var PIN_MS = 5000;
+  function clearPinTimer() {
+    if (pinTimer !== null) {
+      window.clearTimeout(pinTimer);
+      pinTimer = null;
+    }
+  }
+  function positionTooltip(cardEl) {
+    var rect = cardEl.getBoundingClientRect();
+    var halfW = tooltip.offsetWidth / 2;
+    var tipH = tooltip.offsetHeight;
+    var center = rect.left + rect.width / 2;
+    var minLeft = halfW + 8;
+    var maxLeft = Math.max(minLeft, window.innerWidth - halfW - 8);
+    var left = Math.min(Math.max(center, minLeft), maxLeft);
+    var top = rect.top > 90 ? rect.top - 10 : rect.bottom + 10;
+    if (top + tipH > window.innerHeight - 8) top = window.innerHeight - tipH - 8;
+    if (top < 8) top = 8;
+    tooltip.style.left = Math.round(left) + "px";
+    tooltip.style.top = Math.round(top) + "px";
+  }
   function showTooltip(cardEl) {
     var symbol = cardEl.getAttribute("data-tq");
     var meta = quoteData[symbol];
@@ -357,13 +384,22 @@
       html += '<span class="tq-tip-vol">' + esc(meta.volumeLabel || "Volume") + ": " + fmtVolume(meta.volume) + "</span>";
     }
     tooltip.innerHTML = html;
-    var rect = cardEl.getBoundingClientRect();
-    tooltip.style.left = Math.round(rect.left + rect.width / 2) + "px";
-    tooltip.style.top = (rect.top > 90 ? rect.top - 10 : rect.bottom + 10) + "px";
+    positionTooltip(cardEl);
     tooltip.classList.add("show");
   }
   function hideTooltip() {
     tooltip.classList.remove("show");
+  }
+  function unpinTooltip() {
+    clearPinTimer();
+    pinnedSymbol = null;
+    hideTooltip();
+  }
+  function pinTooltip(symbol, cardEl) {
+    clearPinTimer();
+    pinnedSymbol = symbol;
+    showTooltip(cardEl);
+    pinTimer = window.setTimeout(unpinTooltip, PIN_MS);
   }
   grid.addEventListener("mouseover", function (event) {
     var cardEl = event.target.closest(".tq");
@@ -373,15 +409,14 @@
     if (event.target.closest(".tq") && !pinnedSymbol) hideTooltip();
   });
   grid.addEventListener("click", function (event) {
+    if (event.target.closest(".tq-bell, .tq-graham")) return;
     var cardEl = event.target.closest(".tq");
     if (!cardEl) return;
     var symbol = cardEl.getAttribute("data-tq");
     if (pinnedSymbol === symbol) {
-      pinnedSymbol = null;
-      hideTooltip();
+      unpinTooltip();
     } else {
-      pinnedSymbol = symbol;
-      showTooltip(cardEl);
+      pinTooltip(symbol, cardEl);
     }
     try {
       var detail;
@@ -403,10 +438,17 @@
     } catch (err) { /* evento opcional, ignorar falhas */ }
   });
   document.addEventListener("click", function (event) {
-    if (!event.target.closest(".tq") && pinnedSymbol) {
-      pinnedSymbol = null;
-      hideTooltip();
-    }
+    if (!event.target.closest(".tq") && pinnedSymbol) unpinTooltip();
+  });
+  function closePinnedOnScroll() {
+    if (pinnedSymbol) unpinTooltip();
+  }
+  window.addEventListener("scroll", closePinnedOnScroll, { passive: true, capture: true });
+  grid.addEventListener("scroll", closePinnedOnScroll, { passive: true, capture: true });
+  window.addEventListener("resize", function () {
+    if (!pinnedSymbol) return;
+    var pinnedCard = grid.querySelector('.tq[data-tq="' + symbolKey(pinnedSymbol) + '"]');
+    if (pinnedCard) positionTooltip(pinnedCard);
   });
 
   function bindButtons() {
