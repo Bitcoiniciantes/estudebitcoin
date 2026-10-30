@@ -66,6 +66,7 @@
 
   var activeTab = "crypto";
   var activeWindow = "24h";
+  var uiStateGen = 0;
   var cache = {};
   var livePrices = {};
   var cardPrices = {}; // último preço visto por símbolo (p/ modal Graham)
@@ -207,6 +208,7 @@
       .then(function (response) { return response.ok ? response.json() : null; })
       .then(function (payload) {
         if (!payload || !Array.isArray(payload.quotes)) return [];
+        if (payload.window !== activeWindow) return [];
         return payload.quotes.map(function (quote) {
           quoteData[quote.symbol] = {
             name: STOCK_NAMES[quote.symbol] || quote.name || quote.symbol,
@@ -273,13 +275,19 @@
 
   function refresh(force) {
     ensureGrahamCloud();
-    var key = activeTab + "|" + activeWindow;
+    var tab = activeTab;
+    var win = activeWindow;
+    var gen = uiStateGen;
+    var key = tab + "|" + win;
     if (force) delete cache[key];
-    var promise = cache[key] ? Promise.resolve(cache[key]) : (activeTab === "crypto" ? fetchCrypto() : fetchStocks()).then(function (quotes) {
+    var promise = cache[key] ? Promise.resolve(cache[key]) : (tab === "crypto" ? fetchCrypto() : fetchStocks()).then(function (quotes) {
       cache[key] = quotes;
       return quotes;
     });
-    promise.then(function (quotes) { broadcastQuotes(quotes); render(quotes); }).catch(function () { render([]); });
+    promise.then(function (quotes) {
+      if (gen !== uiStateGen) return;
+      broadcastQuotes(quotes); render(quotes);
+    }).catch(function () { if (gen === uiStateGen) render([]); });
   }
 
   function updateLivePrice(symbol, price, volume, changePct) {
@@ -451,11 +459,35 @@
     if (pinnedCard) positionTooltip(pinnedCard);
   });
 
+  function isWindowAllowedForTab(win, tab) {
+    var btn = document.querySelector('.ticker-window button[data-window="' + win + '"]');
+    var only = btn ? btn.getAttribute("data-only-tab") : null;
+    if (only) return only === tab;
+    return !!KLINE_CFG[win];
+  }
+
+  function applyWindowVisibility() {
+    document.querySelectorAll(".ticker-window button").forEach(function (btn) {
+      var only = btn.getAttribute("data-only-tab");
+      btn.hidden = !!(only && only !== activeTab);
+    });
+  }
+
+  function setActiveWindow(win) {
+    if (!isWindowAllowedForTab(win, activeTab)) win = "24h";
+    activeWindow = win;
+    uiStateGen++;
+    document.querySelectorAll(".ticker-window button").forEach(function (btn) {
+      btn.classList.toggle("active", btn.getAttribute("data-window") === win);
+    });
+  }
+
   function bindButtons() {
     document.querySelectorAll(".ticker-window button").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        activeWindow = btn.getAttribute("data-window") || "24h";
-        document.querySelectorAll(".ticker-window button").forEach(function (b) { b.classList.toggle("active", b === btn); });
+        var win = btn.getAttribute("data-window") || "24h";
+        if (btn.hidden || !isWindowAllowedForTab(win, activeTab)) return;
+        setActiveWindow(win);
         refresh(true);
       });
     });
@@ -463,12 +495,16 @@
       btn.addEventListener("click", function () {
         activeTab = btn.getAttribute("data-tab") || "crypto";
         document.querySelectorAll(".ticker-tabs button").forEach(function (b) { b.classList.toggle("active", b === btn); });
+        setActiveWindow(activeWindow);
+        applyWindowVisibility();
         refresh(true);
       });
     });
   }
 
   bindButtons();
+  setActiveWindow(activeWindow);
+  applyWindowVisibility();
   window.setInterval(function () { refresh(true); }, 5000);
   connectWs();
 

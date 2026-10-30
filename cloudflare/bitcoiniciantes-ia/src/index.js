@@ -537,6 +537,7 @@ const QUOTE_WINDOWS = {
   "24h": { range: "1mo", interval: "1d", windowMs: 24 * 60 * 60 * 1000 },
   "7d": { range: "1mo", interval: "1d", windowMs: 7 * 24 * 60 * 60 * 1000 },
   "30d": { range: "3mo", interval: "1d", windowMs: 30 * 24 * 60 * 60 * 1000 },
+  "90d": { range: "6mo", interval: "1d", windowMs: 90 * 24 * 60 * 60 * 1000 },
 };
 
 function downsample(points, max) {
@@ -634,7 +635,7 @@ async function assetQuotes(request) {
     .filter((item) => item && item.length <= 12)
     .slice(0, 26);
   const windowKey = QUOTE_WINDOWS[url.searchParams.get("window")] ? url.searchParams.get("window") : "24h";
-  if (!rawAssets.length) return json(request, { error: "Informe assets." }, 400);
+  if (!rawAssets.length) return json(request, { error: "Informe assets.", window: windowKey }, 400);
   const cfg = QUOTE_WINDOWS[windowKey];
   const cacheKey = `${rawAssets.join(",")}|${windowKey}`;
   const cached = await cachedQuotesBody(cacheKey);
