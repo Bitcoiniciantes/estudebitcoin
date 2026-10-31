@@ -460,6 +460,7 @@ async function assetNews(request, asset) {
 const QUOTE_SYMBOLS = {
   PRATA: "SI=F",
   COBRE: "HG=F",
+  OURO: "GC=F",
   URANIO: "URNM",
 };
 
@@ -1020,7 +1021,7 @@ const CANDLE_PERIODS = {
   "1S": { interval: "1wk", range: "5y", group: 1 },
   "1M": { interval: "1mo", range: "max", group: 1 },
 };
-const CANDLE_SYMBOL_ALIAS = { PRATA: "SI=F", COBRE: "HG=F", URANIO: "URNM" };
+const CANDLE_SYMBOL_ALIAS = { PRATA: "SI=F", COBRE: "HG=F", OURO: "GC=F", URANIO: "URNM" };
 
 function buildCandles(raw, groupSize) {
   const result = raw && Array.isArray(raw.chart?.result) ? raw.chart.result[0] : null;
