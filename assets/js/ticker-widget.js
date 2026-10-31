@@ -220,7 +220,7 @@
             volume: quote.volume,
             volumeLabel: "Volume hoje",
           };
-          return { symbol: quote.symbol, currency: "USD", price: quote.price, changePct: quote.changePct };
+          return { symbol: quote.symbol, currency: "USD", price: quote.price, changePct: quote.changePct, shortHistory: quote.shortHistory === true };
         });
       })
       .catch(function () { return []; });

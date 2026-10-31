@@ -295,4 +295,12 @@ describe('TTL por origem + prioridade (caminho real)', () => {
       TICKER_SRC.includes('localeCompare('), 'ordem alfabética pt-BR');
     assert.ok(TICKER_SRC.includes('grahamHistory.slice().sort('), 'sort só na renderização');
   });
+
+  it('widget: cards STOCKS preservam shortHistory do Worker e mantêm 90D completo', () => {
+    assert.ok(TICKER_SRC.includes('shortHistory: quote.shortHistory === true'), 'fetchStocks repassa a flag ao card');
+    assert.ok(TICKER_SRC.includes('quote.shortHistory === true ? null'), 'card exibe — quando a série é curta');
+    assert.ok(TICKER_SRC.includes('Menos de ' + '1 ano de histórico'), 'card informa 1Y curto no title');
+    assert.ok(TICKER_SRC.includes('activeWindow === "90d"'), 'card diferencia a janela 90D');
+    assert.ok(TICKER_SRC.includes('delete cardChange1y[p]'), 'valor 1Y anterior é limpo');
+  });
 });
