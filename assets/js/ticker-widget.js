@@ -74,6 +74,7 @@
   var cardChangePct = {}; // variação do dia (%) por monitorado (não sobrescreve preço)
   var cardChange30d = {}; // variação 30d (%) por monitorado (janela fixa; só memória)
   var cardChange1y = {}; // variação 1 ano (%) por monitorado (janela fixa; só memória)
+  var cardShortHistory1y = {}; // 1Y curto na última resposta do Worker
   var cardCloses24Len = {}; // nº de fechamentos do batch 24h (1mo) por ticker
   var last30dAt = 0; // último agendamento do lote 30d (marca antes do fetch)
   var MONITOR_30D_EVERY_MS = 5 * 60000; // 30d a cada 5 min, no mesmo ciclo de 60s
@@ -118,8 +119,10 @@
   function isCrypto(sym) { return !!cryptoSymbols[sym]; }
 
   function card(quote) {
-    var change = typeof quote.changePct === "number" ? quote.changePct : null;
+    var change = quote.shortHistory === true ? null : (typeof quote.changePct === "number" ? quote.changePct : null);
     var pct = change === null ? "—" : (change >= 0 ? "+" : "") + change.toFixed(2).replace(".", ",") + "%";
+    var shortWindowLabel = activeWindow === "1y" ? "1 ano" : (activeWindow === "90d" ? "90 dias" : "30 dias");
+    var pctTitle = quote.shortHistory === true ? ' title="Menos de ' + shortWindowLabel + ' de histórico"' : "";
     var price = typeof livePrices[quote.symbol] === "number" ? livePrices[quote.symbol] : quote.price;
     var currency = symbolCurrency[quote.symbol] || "USD";
     var small = quote.symbol === "BTC" || quote.symbol === "ETH" || quote.symbol === "PAXG" ? " tq-sm" : "";
@@ -136,7 +139,7 @@
       '<b class="tqSym' + smallLabel + '">' + esc(label) + "</b>" +
       bell +
       grahamBtn +
-      '<span class="tqPct">' + pct + "</span>" +
+      '<span class="tqPct"' + pctTitle + '>' + pct + "</span>" +
       '<strong class="tqPrice' + small + '">' + fmtPrice(price, currency, !isCrypto(quote.symbol)) + "</strong>" +
       "</div>";
   }
@@ -621,8 +624,12 @@
           var q = payload.quotes[k] || {};
           var pure = wantMap[String(q.symbol || "").trim().toUpperCase()];
           if (!pure) continue;
+          if (q.shortHistory === true) {
+            pending1y[pure] = { shortHistory: true, ch: null };
+            continue;
+          }
           var ch = Number(q.changePct);
-          if (Number.isFinite(ch)) pending1y[pure] = ch;
+          if (Number.isFinite(ch)) pending1y[pure] = { shortHistory: false, ch: ch };
         }
       }
       var jobs = [];
@@ -671,7 +678,13 @@
           }
         });
         Object.keys(pending1y).forEach(function (p) {
-          cardChange1y[p] = pending1y[p];
+          if (pending1y[p].shortHistory) {
+            delete cardChange1y[p];
+            cardShortHistory1y[p] = true;
+          } else {
+            cardChange1y[p] = pending1y[p].ch;
+            delete cardShortHistory1y[p];
+          }
           touched1y = true;
         });
         if ((touched || touched30d || touched1y) && activeTab === "stocks") { try { renderGrahamHistory(); } catch (e) {} }
@@ -872,10 +885,11 @@
       var day30Ch = Number(cardChange30d[h.ticker]);
       if (!Number.isFinite(day30Ch)) day30Ch = null;
       var day30Cls = day30Ch == null ? "" : (day30Ch > 0 ? "tq-h-up" : (day30Ch < 0 ? "tq-h-down" : "tq-h-flat"));
-      // 1y: mesma janela fixa do 30d; falha mantém o último valor válido.
+      // 1y: histórico curto remove o valor anterior e mostra ausência explícita.
       var day1yCh = Number(cardChange1y[h.ticker]);
       if (!Number.isFinite(day1yCh)) day1yCh = null;
       var day1yCls = day1yCh == null ? "" : (day1yCh > 0 ? "tq-h-up" : (day1yCh < 0 ? "tq-h-down" : "tq-h-flat"));
+      var day1yTitle = cardShortHistory1y[h.ticker] ? ' title="Menos de 1 ano de histórico"' : "";
       // Selo p/ linhas antigas sem justo calculável (só visual, sem apagar).
       var flag = (h.fairUSD == null && h.fairBRL == null)
         ? ' <span class="tq-h-flag">dados incompletos</span>' : '';
@@ -886,7 +900,7 @@
         '<td><b>' + esc(fmtShortUSD(livePrice)) + '</b>' + dotHtml + '</td>' +
         '<td class="' + dayCls + '">' + esc(fmtPctSigned(dayCh)) + '</td>' +
         '<td class="' + day30Cls + '">' + esc(fmtPctSigned(day30Ch)) + '</td>' +
-        '<td class="' + day1yCls + '">' + esc(fmtPctSigned(day1yCh)) + '</td>' +
+        '<td class="' + day1yCls + '"' + day1yTitle + '>' + esc(fmtPctSigned(day1yCh)) + '</td>' +
         '<td>' + esc(fmtShortBRL(reais)) + '</td>' +
         '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +
         '<td><b>' + esc(fmtShortUSD(fairUsdShown)) + '</b></td>' +

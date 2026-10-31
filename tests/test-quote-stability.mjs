@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { computeQuote, exchangeDateKey } from '../cloudflare/bitcoiniciantes-ia/src/index.js';
 
+const TICKER_SRC = fs.readFileSync(new URL('../assets/js/ticker-widget.js', import.meta.url), 'utf8');
+
 const TZ_NY = 'America/New_York';
 const TZ_B3 = 'America/Sao_Paulo';
 const NOW_A = Date.parse('2026-10-30T23:59:00Z');
@@ -30,6 +32,13 @@ function point(iso, close) {
 }
 function replaceLast(points, close) {
   return points.map((item, index) => (index === points.length - 1 ? { ...item, close } : item));
+}
+function dailyPoints(count, lastIso = '2026-10-31T13:30:00Z') {
+  const last = Date.parse(lastIso);
+  return Array.from({ length: count }, (_, index) => {
+    const time = new Date(last - (count - 1 - index) * 24 * 60 * 60 * 1000).toISOString();
+    return point(time, 100 + index);
+  });
 }
 function makeRaw(points, meta = {}) {
   return {
@@ -319,6 +328,41 @@ describe('estabilidade de preço e base das cotações', () => {
     assert.ok(source.includes('computeQuote(raw, symbol, item, nowMs)'));
     assert.ok(source.includes('export { rlKeyFor, rlTtlSeconds, FUND_RL_LIMIT, computeQuote, exchangeDateKey };'));
     assert.ok(source.includes('export default {'));
+  });
+
+  it('14. marca histórico curto somente nas janelas longas e preserva changePct', () => {
+    const short = computeQuote(makeRaw(dailyPoints(120)), 'SHORT', WINDOWS['1y'], NOW_B);
+    assert.equal(short.shortHistory, true);
+    assert.equal(round2(short.changePct), 119);
+
+    const complete = computeQuote(makeRaw(dailyPoints(400)), 'COMPLETE', WINDOWS['1y'], NOW_B);
+    assert.equal('shortHistory' in complete, false);
+
+    const exactBase = [
+      point('2025-10-31T13:30:00Z', 100),
+      point('2026-10-31T13:30:00Z', 200),
+    ];
+    const exact = computeQuote(makeRaw(exactBase), 'EXACT', WINDOWS['1y'], NOW_B);
+    assert.equal('shortHistory' in exact, false);
+
+    const weekendBase = [
+      point('2025-10-31T13:30:00Z', 100),
+      point('2026-11-02T14:30:00Z', 200),
+    ];
+    const weekend = computeQuote(makeRaw(weekendBase), 'WEEKEND', WINDOWS['1y'], Date.parse('2026-11-02T21:00:00Z'));
+    assert.equal('shortHistory' in weekend, false);
+
+    assert.equal(computeQuote(makeRaw(dailyPoints(60)), 'SHORT90', WINDOWS['90d'], NOW_B).shortHistory, true);
+    assert.equal(computeQuote(makeRaw(dailyPoints(15)), 'SHORT30', WINDOWS['30d'], NOW_B).shortHistory, true);
+    for (const windowKey of ['24h', '7d']) {
+      assert.equal('shortHistory' in computeQuote(makeRaw(dailyPoints(2)), windowKey, WINDOWS[windowKey], NOW_B), false);
+    }
+  });
+
+  it('15. frontend esconde histórico curto sem convertê-lo em 0,00%', () => {
+    assert.ok(TICKER_SRC.includes('quote.shortHistory === true ? null'), 'card usa ausência para histórico curto');
+    assert.ok(TICKER_SRC.includes('delete cardChange1y[p]'), 'tabela limpa o 1Y anterior');
+    assert.ok(TICKER_SRC.includes('Menos de 1 ano de histórico'), 'tabela informa o histórico curto no title');
   });
 });
 

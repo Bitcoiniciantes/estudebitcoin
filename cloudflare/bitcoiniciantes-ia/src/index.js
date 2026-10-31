@@ -627,6 +627,12 @@ function computeQuote(raw, symbol, cfg, nowMs = Date.now()) {
   const last = points[points.length - 1];
   if (!last) return null;
   const baseTime = last.time - cfg.windowMs / 1000;
+  const longWindowMs = new Set([
+    30 * 24 * 60 * 60 * 1000,
+    90 * 24 * 60 * 60 * 1000,
+    365 * 24 * 60 * 60 * 1000,
+  ]);
+  const shortHistory = longWindowMs.has(cfg.windowMs) && points[0].time > baseTime;
   let base = points[0];
   for (const point of points) {
     if (point.time <= baseTime) base = point;
@@ -635,7 +641,7 @@ function computeQuote(raw, symbol, cfg, nowMs = Date.now()) {
   if (base.time >= last.time) base = points[Math.max(0, points.length - 2)] || base;
   const changePct = base.close ? ((last.close - base.close) / base.close) * 100 : 0;
   const meta = result.meta || {};
-  return {
+  const quote = {
     symbol: meta.symbol || symbol,
     name: meta.shortName || meta.longName || symbol,
     price: last.close,
@@ -644,6 +650,8 @@ function computeQuote(raw, symbol, cfg, nowMs = Date.now()) {
     currency: meta.currency || "USD",
     closes: downsample(points.map((point) => point.close), 40),
   };
+  if (shortHistory) quote.shortHistory = true;
+  return quote;
 }
 
 async function cachedQuotesBody(key) {
