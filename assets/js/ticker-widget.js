@@ -73,6 +73,7 @@
   var cardPrices = {}; // último preço visto por símbolo (p/ modal Graham)
   var cardChangePct = {}; // variação do dia (%) por monitorado (não sobrescreve preço)
   var cardChange30d = {}; // variação 30d (%) por monitorado (janela fixa; só memória)
+  var cardChange1y = {}; // variação 1 ano (%) por monitorado (janela fixa; só memória)
   var cardCloses24Len = {}; // nº de fechamentos do batch 24h (1mo) por ticker
   var last30dAt = 0; // último agendamento do lote 30d (marca antes do fetch)
   var MONITOR_30D_EVERY_MS = 5 * 60000; // 30d a cada 5 min, no mesmo ciclo de 60s
@@ -591,6 +592,7 @@
         }
       }
       var touched30d = false;
+      var touched1y = false;
       // 30d em mapa próprio: nunca toca em preço/cardPrices nem no % do dia.
       // A série de 3mo (30d) tem mais fechamentos que a de 1mo (24h) quando o
       // ativo já existia 30 dias atrás; sem pontos extras, histórico curto → "—".
@@ -609,6 +611,19 @@
         // Sem sinal de 1mo (batch falhou) mantém o valor do Worker.
         if (!Number.isFinite(len30) || !Number.isFinite(len24) || len30 <= 0) return true;
         return len30 > len24;
+      }
+      // 1 ano em mapa próprio: mesma janela fixa do 30d. Falha/resposta de
+      // outra janela NÃO apaga o último valor válido (só "—" se nunca houve).
+      var pending1y = {};
+      function collect1y(payload) {
+        if (!payload || payload.window !== "1y" || !Array.isArray(payload.quotes)) return;
+        for (var k = 0; k < payload.quotes.length; k++) {
+          var q = payload.quotes[k] || {};
+          var pure = wantMap[String(q.symbol || "").trim().toUpperCase()];
+          if (!pure) continue;
+          var ch = Number(q.changePct);
+          if (Number.isFinite(ch)) pending1y[pure] = ch;
+        }
       }
       var jobs = [];
       for (var c = 0; c < wanted.length; c += MONITOR_BATCH) {
@@ -633,6 +648,15 @@
               .catch(function () {}));
           } catch (e) { /* lote 30d falhou: mantém os valores anteriores */ }
         }
+        for (var c1y = 0; c1y < wanted.length; c1y += MONITOR_BATCH) {
+          var group1y = wanted.slice(c1y, c1y + MONITOR_BATCH);
+          try {
+            jobs.push(fetch(WORKER + "?assets=" + encodeURIComponent(group1y.join(",")) + "&window=1y", { cache: "no-store" })
+              .then(function (response) { return response.ok ? response.json() : null; })
+              .then(collect1y)
+              .catch(function () {}));
+          } catch (e) { /* lote 1y falhou: mantém os valores anteriores */ }
+        }
       }
       Promise.all(jobs).then(function () {
         // Decide o 30d só depois do 24h: assim cardCloses24Len já está pronto.
@@ -646,7 +670,11 @@
             touched30d = true;
           }
         });
-        if ((touched || touched30d) && activeTab === "stocks") { try { renderGrahamHistory(); } catch (e) {} }
+        Object.keys(pending1y).forEach(function (p) {
+          cardChange1y[p] = pending1y[p];
+          touched1y = true;
+        });
+        if ((touched || touched30d || touched1y) && activeTab === "stocks") { try { renderGrahamHistory(); } catch (e) {} }
       });
     } catch (e) {}
   }
@@ -778,6 +806,13 @@
     return sign + Math.abs(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
   }
 
+  function shortName(name) {
+    var full = String(name || "");
+    var chars = Array.from(full);
+    if (chars.length <= 10) return full;
+    return chars.slice(0, 10).join("").replace(/\s+$/, "") + "\u2026";
+  }
+
   function fmtShortUSD(v) {
     if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) return "—";
     return "$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -803,7 +838,7 @@
       if (c !== 0) return c;
       return String(a.ticker || '').localeCompare(String(b.ticker || ''), 'pt-BR', { sensitivity: 'base' });
     });
-    var html = '<div class="tq-graham-hist-title">Ativos monitorados</div><table><thead><tr><th>Empresa</th><th>Hoje</th><th>% Dia</th><th>% 30D</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th><th></th></tr></thead><tbody>';
+    var html = '<div class="tq-graham-hist-title">Ativos monitorados</div><table><thead><tr><th>Empresa</th><th>Hoje</th><th>% Dia</th><th>% 30D</th><th>% 1Y</th><th>Reais</th><th>Preço Justo R$</th><th>Preço Justo USD</th><th>Upside (%)</th><th></th></tr></thead><tbody>';
     // Taxa p/ a coluna Reais (Atual USD → BRL): vem do próprio ticker USDT-BRL.
     var rate = Number(cardPrices["USDT-BRL"]);
     if (!Number.isFinite(rate) || rate <= 0) rate = null;
@@ -837,14 +872,21 @@
       var day30Ch = Number(cardChange30d[h.ticker]);
       if (!Number.isFinite(day30Ch)) day30Ch = null;
       var day30Cls = day30Ch == null ? "" : (day30Ch > 0 ? "tq-h-up" : (day30Ch < 0 ? "tq-h-down" : "tq-h-flat"));
+      // 1y: mesma janela fixa do 30d; falha mantém o último valor válido.
+      var day1yCh = Number(cardChange1y[h.ticker]);
+      if (!Number.isFinite(day1yCh)) day1yCh = null;
+      var day1yCls = day1yCh == null ? "" : (day1yCh > 0 ? "tq-h-up" : (day1yCh < 0 ? "tq-h-down" : "tq-h-flat"));
       // Selo p/ linhas antigas sem justo calculável (só visual, sem apagar).
       var flag = (h.fairUSD == null && h.fairBRL == null)
         ? ' <span class="tq-h-flag">dados incompletos</span>' : '';
+      var fullName = h.name || h.ticker;
+      var shownName = shortName(h.name || '—');
       html += '<tr data-ticker="' + esc(symbolKey(h.ticker)) + '">' +
-        '<td><span class="tq-h-name" title="' + esc(h.name || h.ticker) + '">' + esc(h.name || '—') + '</span><br><span class="tq-h-ticker">' + esc(h.ticker) + '</span>' + flag + '</td>' +
+        '<td title="' + esc(fullName) + '"><span class="tq-h-name" title="' + esc(fullName) + '" aria-label="' + esc(fullName) + '">' + esc(shownName) + '</span><br><span class="tq-h-ticker">' + esc(h.ticker) + '</span>' + flag + '</td>' +
         '<td><b>' + esc(fmtShortUSD(livePrice)) + '</b>' + dotHtml + '</td>' +
         '<td class="' + dayCls + '">' + esc(fmtPctSigned(dayCh)) + '</td>' +
         '<td class="' + day30Cls + '">' + esc(fmtPctSigned(day30Ch)) + '</td>' +
+        '<td class="' + day1yCls + '">' + esc(fmtPctSigned(day1yCh)) + '</td>' +
         '<td>' + esc(fmtShortBRL(reais)) + '</td>' +
         '<td>' + esc(fmtShortBRL(h.fairBRL)) + '</td>' +
         '<td><b>' + esc(fmtShortUSD(fairUsdShown)) + '</b></td>' +
