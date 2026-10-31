@@ -550,16 +550,80 @@ function downsample(points, max) {
   return out;
 }
 
-function computeQuote(raw, symbol, cfg) {
+function exchangeDateKey(seconds, timeZone) {
+  if (!Number.isFinite(seconds)) return null;
+  const date = new Date(seconds * 1000);
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: timeZone || "UTC",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(date);
+    const part = (type) => parts.find((item) => item.type === type)?.value;
+    const year = part("year");
+    const month = part("month");
+    const day = part("day");
+    if (year && month && day) return `${year}-${month}-${day}`;
+  } catch {}
+  return date.toISOString().slice(0, 10);
+}
+
+function fillLastCandle(result, nowMs, symbol) {
+  const timestamps = Array.isArray(result.timestamp) ? result.timestamp : [];
+  const closes = result.indicators?.quote?.[0]?.close;
+  if (!timestamps.length || !Array.isArray(closes)) return null;
+  const lastIndex = timestamps.length - 1;
+  const lastTime = timestamps[lastIndex];
+  const lastClose = closes[lastIndex];
+  if (Number.isFinite(lastClose) && lastClose > 0) return null;
+  const meta = result.meta || {};
+  const regularPrice = Number(meta.regularMarketPrice);
+  const regularTime = Number(meta.regularMarketTime);
+  if (!Number.isFinite(regularPrice) || regularPrice <= 0) {
+    console.warn(`[quote-fill] ${symbol}: regularMarketPrice invalido; candle final descartado.`);
+    return null;
+  }
+  if (!Number.isFinite(regularTime)) {
+    console.warn(`[quote-fill] ${symbol}: regularMarketTime invalido; candle final descartado.`);
+    return null;
+  }
+  if (Number.isFinite(nowMs) && lastTime * 1000 > nowMs + 60 * 1000) {
+    console.warn(`[quote-fill] ${symbol}: candle final no futuro; preenchimento nao aplicado.`);
+    return null;
+  }
+  const timeZone = meta.exchangeTimezoneName || "UTC";
+  const candleDate = exchangeDateKey(lastTime, timeZone);
+  const regularDate = exchangeDateKey(regularTime, timeZone);
+  if (!candleDate || !regularDate || candleDate !== regularDate) {
+    console.warn(`[quote-fill] ${symbol}: data do candle (${candleDate}) diferente de regularMarketTime (${regularDate}); preenchimento nao aplicado.`);
+    return null;
+  }
+  const volumes = result.indicators?.quote?.[0]?.volume;
+  return {
+    time: lastTime,
+    close: regularPrice,
+    volume: Array.isArray(volumes) ? volumes[lastIndex] : undefined,
+  };
+}
+
+function computeQuote(raw, symbol, cfg, nowMs = Date.now()) {
   const result = raw && Array.isArray(raw.chart?.result) ? raw.chart.result[0] : null;
   if (!result) return null;
   const timestamps = Array.isArray(result.timestamp) ? result.timestamp : [];
   const closes = result.indicators?.quote?.[0]?.close;
   if (!timestamps.length || !Array.isArray(closes)) return null;
   const volumes = result.indicators?.quote?.[0]?.volume;
-  const points = timestamps
-    .map((time, index) => ({ time, close: closes[index], volume: volumes ? volumes[index] : undefined }))
-    .filter((point) => Number.isFinite(point.close));
+  const lastIndex = timestamps.length - 1;
+  const points = [];
+  for (let index = 0; index < timestamps.length; index += 1) {
+    const close = closes[index];
+    if (!Number.isFinite(close)) continue;
+    if (index === lastIndex && close <= 0) continue;
+    points.push({ time: timestamps[index], close, volume: volumes ? volumes[index] : undefined });
+  }
+  const filled = fillLastCandle(result, nowMs, symbol);
+  if (filled) points.push(filled);
   const last = points[points.length - 1];
   if (!last) return null;
   const baseTime = last.time - cfg.windowMs / 1000;
@@ -643,12 +707,13 @@ async function assetQuotes(request) {
   const cached = await cachedQuotesBody(cacheKey);
   if (cached) return json(request, cached);
   const configs = [cfg].concat(cfg.fallbacks || []);
+  const nowMs = Date.now();
   const results = await mapLimit(rawAssets, 4, async (symbol) => {
     for (const item of configs) {
       try {
         const response = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${item.interval}&range=${item.range}`);
         const raw = await response.json();
-        const quote = computeQuote(raw, symbol, item);
+        const quote = computeQuote(raw, symbol, item, nowMs);
         if (quote) return quote;
       } catch (error) {
         // tenta a próxima configuração
@@ -657,7 +722,7 @@ async function assetQuotes(request) {
     return null;
   });
   const quotes = results.filter(Boolean);
-  const body = { window: windowKey, updatedAt: new Date().toISOString(), quotes };
+  const body = { window: windowKey, updatedAt: new Date(nowMs).toISOString(), quotes };
   if (quotes.length) await storeQuotesBody(cacheKey, body);
   return json(request, body);
 }
@@ -767,7 +832,7 @@ function rlClientIp(request) {
   }
 }
 
-export { rlKeyFor, rlTtlSeconds, FUND_RL_LIMIT };
+export { rlKeyFor, rlTtlSeconds, FUND_RL_LIMIT, computeQuote, exchangeDateKey };
 function pickNum(...vals) {
   for (const v of vals) {
     const n = Number(v);
