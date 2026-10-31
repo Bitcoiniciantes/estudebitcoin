@@ -538,6 +538,7 @@ const QUOTE_WINDOWS = {
   "7d": { range: "1mo", interval: "1d", windowMs: 7 * 24 * 60 * 60 * 1000 },
   "30d": { range: "3mo", interval: "1d", windowMs: 30 * 24 * 60 * 60 * 1000 },
   "90d": { range: "6mo", interval: "1d", windowMs: 90 * 24 * 60 * 60 * 1000 },
+  "1y": { range: "2y", interval: "1d", windowMs: 365 * 24 * 60 * 60 * 1000 },
 };
 
 function downsample(points, max) {
