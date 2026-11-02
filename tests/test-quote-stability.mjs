@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
 import { computeQuote, exchangeDateKey } from '../cloudflare/bitcoiniciantes-ia/src/index.js';
 
 const TICKER_SRC = fs.readFileSync(new URL('../assets/js/ticker-widget.js', import.meta.url), 'utf8');
@@ -15,6 +16,7 @@ const WINDOWS = {
   '30d': { windowMs: 30 * 24 * 60 * 60 * 1000 },
   '90d': { windowMs: 90 * 24 * 60 * 60 * 1000 },
   '1y': { windowMs: 365 * 24 * 60 * 60 * 1000 },
+  '3y': { windowMs: 1096 * 24 * 60 * 60 * 1000 },
 };
 const EXPECTED = {
   SNDK: { '24h': -13.47, '7d': -7.04, '30d': -33.85, '90d': -5.26, '1y': 487.73 },
@@ -365,6 +367,272 @@ describe('estabilidade de preço e base das cotações', () => {
     assert.ok(TICKER_SRC.includes('Menos de 1 ano de histórico'), 'tabela informa o histórico curto no title');
   });
 });
+
+describe('janela 3y e caminho do shortHistory no front', () => {
+  const Y3_LAST = '2026-10-30T13:30:00Z';
+  const Y3_LAST_TS = ts(Y3_LAST);
+
+  it('16. 3y ancora a base no último candle (last.time - 1096d), não em "agora"', () => {
+    const points = [
+      point('2023-09-01T13:30:00Z', 50),
+      point('2023-10-27T13:30:00Z', 90),
+      point('2023-10-31T13:30:00Z', 95),
+      point(Y3_LAST, 180),
+    ];
+    const raw = makeRaw(points);
+    const quote = computeQuote(raw, 'Y3', WINDOWS['3y'], Date.parse('2026-11-02T20:00:00Z'));
+    assert.equal(quote.price, 180);
+    // baseTime = 2023-10-30T13:30Z => base = candle de 27/10 (90). Se a base
+    // fosse "agora - 1096d" (31/10 20:00Z) o candle de 31/10 (95) seria a base.
+    assert.equal(quote.changePct, 100);
+    assert.notEqual(quote.changePct, ((180 - 95) / 95) * 100);
+    assert.equal(quote.shortHistory, undefined);
+  });
+
+  it('17. 3y em sábado, domingo e feriado mantém preço e % do último pregão', () => {
+    const raw = makeRaw([point('2023-10-27T13:30:00Z', 100), point(Y3_LAST, 150)]);
+    const friday = computeQuote(raw, 'Y3W', WINDOWS['3y'], Date.parse('2026-10-30T23:59:00Z'));
+    const saturday = computeQuote(raw, 'Y3W', WINDOWS['3y'], Date.parse('2026-10-31T15:00:00Z'));
+    const sunday = computeQuote(raw, 'Y3W', WINDOWS['3y'], Date.parse('2026-11-01T15:00:00Z'));
+    assert.equal(friday.changePct, 50);
+    assert.equal(saturday.price, friday.price);
+    assert.equal(saturday.changePct, friday.changePct);
+    assert.equal(sunday.price, friday.price);
+    assert.equal(sunday.changePct, friday.changePct);
+
+    const holidayRaw = makeRaw([point('2023-12-22T14:30:00Z', 80), point('2026-12-24T14:30:00Z', 120)]);
+    const beforeHoliday = computeQuote(holidayRaw, 'Y3H', WINDOWS['3y'], Date.parse('2026-12-24T23:59:00Z'));
+    const holiday = computeQuote(holidayRaw, 'Y3H', WINDOWS['3y'], Date.parse('2026-12-25T15:00:00Z'));
+    assert.equal(beforeHoliday.changePct, 50);
+    assert.equal(holiday.price, beforeHoliday.price);
+    assert.equal(holiday.changePct, beforeHoliday.changePct);
+  });
+
+  it('18. 3y marca shortHistory só quando falta histórico (300 curto, longo e base exata sem flag)', () => {
+    const short = computeQuote(makeRaw(dailyPoints(300)), 'SHORT3Y', WINDOWS['3y'], NOW_B);
+    assert.equal(short.shortHistory, true);
+    assert.equal(short.price, 399);
+
+    const complete = computeQuote(makeRaw(dailyPoints(1200)), 'COMPLETE3Y', WINDOWS['3y'], NOW_B);
+    assert.equal('shortHistory' in complete, false);
+
+    const exactBase = [
+      point('2023-10-30T13:30:00Z', 100),
+      point(Y3_LAST, 200),
+    ];
+    const exact = computeQuote(makeRaw(exactBase), 'EXACT3Y', WINDOWS['3y'], NOW_B);
+    assert.equal('shortHistory' in exact, false);
+    assert.equal(exact.changePct, 100);
+  });
+
+  it('19. Worker -> fetchStocks -> card: 3y curto mostra preço e "—" com o title da janela', async () => {
+    const { grid, cards, requests, clickTab, clickWindow } = mountTickerWidget();
+    await settle();
+    assert.ok(requests.some((u) => u.includes('window=24h')), 'boot busca 24h');
+
+    clickTab('stocks');
+    await settle();
+    const after24h = cards.filter((c) => c.symbol === 'NVDA').at(-1);
+    assert.equal('shortHistory' in after24h, false, '24h não cria shortHistory:false');
+
+    clickWindow('3y');
+    await settle();
+    assert.ok(requests.some((u) => u.includes('window=3y')), 'pediu a janela 3y');
+    const after3y = cards.filter((c) => c.symbol === 'NVDA').at(-1);
+    assert.equal(after3y.shortHistory, true, 'shortHistory preservado no objeto do card');
+    assert.equal(after3y.price, 204.64, 'preço continua disponível');
+    assert.ok(grid.innerHTML.includes('>204,64<'), 'preço renderizado');
+    assert.ok(grid.innerHTML.includes('title="Menos de 3 anos de histórico"'), 'title de 3 anos');
+    assert.ok(grid.innerHTML.includes('>—</span>'), 'percentual vira —');
+    assert.ok(grid.innerHTML.includes('class="tq flat"'), '— em cinza (flat)');
+
+    clickWindow('1y');
+    await settle();
+    assert.ok(grid.innerHTML.includes('title="Menos de 1 ano de histórico"'), '1y mantém o texto anterior');
+    assert.equal(cards.filter((c) => c.symbol === 'NVDA').at(-1).shortHistory, true);
+
+    for (const win of ['7d', '30d', '90d']) {
+      clickWindow(win);
+      await settle();
+      assert.equal('shortHistory' in cards.filter((c) => c.symbol === 'NVDA').at(-1), false, `${win} sem a propriedade`);
+      assert.ok(!grid.innerHTML.includes('de histórico"'), `${win} sem title de histórico curto`);
+    }
+    assert.ok(grid.innerHTML.includes('>204,64<'), 'preço segue visível fora das janelas curtas');
+  });
+
+  it('20. 3Y só em STOCKS e sem estado residual ao voltar', async () => {
+    const { buttons, requests, clickTab, clickWindow } = mountTickerWidget();
+    await settle();
+    assert.equal(buttons['3y'].hidden, true, '3Y oculto em CRIPTO');
+    assert.equal(buttons['1y'].hidden, true, '1Y oculto em CRIPTO');
+
+    clickTab('stocks');
+    await settle();
+    assert.equal(buttons['3y'].hidden, false, '3Y visível em STOCKS');
+    assert.equal(buttons['1y'].hidden, false, '1Y visível em STOCKS');
+
+    clickWindow('3y');
+    await settle();
+    assert.equal(buttons['3y'].classList.contains('active'), true, '3Y ativo');
+    const before = requests.length;
+
+    clickTab('crypto');
+    await settle();
+    assert.equal(buttons['3y'].hidden, true, 'CRIPTO oculta 3Y');
+    assert.equal(buttons['24h'].classList.contains('active'), true, 'volta para 24h');
+    const cryptoRequests = requests.slice(before);
+    assert.ok(cryptoRequests.length > 0, 'CRIPTO buscou preços');
+    assert.ok(!cryptoRequests.some((u) => u.includes('window=3y')), 'nenhuma request 3y em CRIPTO');
+    assert.ok(!cryptoRequests.some((u) => u.includes('/api/quotes')), 'CRIPTO não usa /api/quotes');
+
+    const beforeBack = requests.length;
+    clickTab('stocks');
+    await settle();
+    assert.equal(buttons['3y'].hidden, false, 'STOCKS volta a mostrar 3Y');
+    const back = requests.slice(beforeBack).filter((u) => u.includes('/api/quotes'));
+    assert.ok(back.length > 0, 'STOCKS voltou a buscar');
+    assert.ok(back.every((u) => u.includes('window=24h')), 'sem resíduo de 3y: volta em 24h');
+  });
+});
+
+function settle() {
+  return new Promise((resolve) => setTimeout(resolve, 25));
+}
+
+function widgetButton(attrs) {
+  const set = new Set();
+  return {
+    attrs,
+    hidden: false,
+    listeners: {},
+    classList: {
+      toggle(cls, on) { if (on) set.add(cls); else set.delete(cls); },
+      contains(cls) { return set.has(cls); },
+      add(cls) { set.add(cls); },
+      remove(cls) { set.delete(cls); },
+    },
+    getAttribute(name) { return name in attrs ? attrs[name] : null; },
+    addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); },
+    click() { (this.listeners.click || []).forEach((fn) => fn({ target: this })); },
+  };
+}
+
+// Monta o ticker-widget REAL num contexto vm com DOM mínimo. O payload do
+// Worker é criado DENTRO do contexto (mesmo Array.prototype) para observar o
+// objeto do card que fetchStocks monta.
+function mountTickerWidget() {
+  const requests = [];
+  const cards = [];
+  const intervals = [];
+  const buttons = {
+    '1h': widgetButton({ 'data-window': '1h' }),
+    '24h': widgetButton({ 'data-window': '24h' }),
+    '7d': widgetButton({ 'data-window': '7d' }),
+    '30d': widgetButton({ 'data-window': '30d' }),
+    '90d': widgetButton({ 'data-window': '90d', 'data-only-tab': 'stocks' }),
+    '1y': widgetButton({ 'data-window': '1y', 'data-only-tab': 'stocks' }),
+    '3y': widgetButton({ 'data-window': '3y', 'data-only-tab': 'stocks' }),
+  };
+  const windowButtons = Object.values(buttons);
+  const tabs = {
+    crypto: widgetButton({ 'data-tab': 'crypto' }),
+    stocks: widgetButton({ 'data-tab': 'stocks' }),
+  };
+  const tabButtons = Object.values(tabs);
+  tabs.crypto.classList.add('active');
+  buttons['24h'].classList.add('active');
+
+  const grid = {
+    innerHTML: '',
+    style: {},
+    parentNode: { insertBefore() {} },
+    nextSibling: null,
+    addEventListener() {},
+    querySelector() { return null; },
+    getBoundingClientRect() { return { top: 0, bottom: 0, left: 0, right: 0 }; },
+  };
+  const status = { textContent: '' };
+  const generic = () => ({
+    value: '', textContent: '', title: '', style: {}, hidden: false,
+    addEventListener() {}, querySelectorAll: () => [], setAttribute() {},
+    classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+  });
+  const els = { 'ticker-grid': grid, 'ticker-status': status };
+
+  const sandbox = {
+    console,
+    navigator: {},
+    CustomEvent: class {
+      constructor(type, init) { this.type = type; this.detail = init && init.detail; }
+    },
+    WebSocket: class { constructor() {} close() {} },
+    fetch: (url) => {
+      const target = String(url);
+      requests.push(target);
+      if (target.includes('/api/quotes')) {
+        const win = /[?&]window=([^&]+)/.exec(target);
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(sandbox.__payload(win ? win[1] : '24h')) });
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve(null) });
+    },
+    document: {
+      readyState: 'complete',
+      body: { appendChild() {}, removeChild() {} },
+      getElementById: (id) => els[id] || (els[id] = generic()),
+      querySelector: (sel) => {
+        const m = /data-window="([^"]+)"/.exec(sel);
+        return m ? buttons[m[1]] || null : null;
+      },
+      querySelectorAll: (sel) => {
+        if (sel === '.ticker-window button') return windowButtons;
+        if (sel === '.ticker-tabs button') return tabButtons;
+        return [];
+      },
+      addEventListener() {},
+      createElement: () => generic(),
+    },
+    window: {
+      innerHeight: 800,
+      addEventListener() {},
+      dispatchEvent() {},
+      setInterval: (fn, ms) => { intervals.push({ fn, ms }); return intervals.length; },
+      setTimeout: () => 0,
+      clearTimeout: () => {},
+    },
+  };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+
+  // Payload do Worker (mesmo formato de /api/quotes) criado no contexto.
+  vm.runInContext(`globalThis.__payload = function (win) {
+    var quotes = [
+      { symbol: "NVDA", name: "NVIDIA", price: 204.64, changePct: 55.3, volume: 1000, closes: [1, 2, 3], currency: "USD" },
+      { symbol: "GC=F", name: "OURO", price: 3884.9, changePct: 12.5, volume: 2000, closes: [1, 2, 3], currency: "USD" }
+    ];
+    if (win === "3y" || win === "1y") quotes[0].shortHistory = true;
+    return { window: win, updatedAt: "2026-11-02T20:00:00.000Z", quotes: quotes };
+  };`, sandbox);
+
+  // Observa o objeto do card devolvido por fetchStocks (mesmo caminho real).
+  const ctxArray = vm.runInContext('Array', sandbox);
+  const originalMap = ctxArray.prototype.map;
+  ctxArray.prototype.map = function (fn, thisArg) {
+    return originalMap.call(this, function (value, index, arr) {
+      const result = fn.call(thisArg, value, index, arr);
+      if (result && typeof result === 'object' && !Array.isArray(result) && typeof result.symbol === 'string' && 'currency' in result) {
+        cards.push(result);
+      }
+      return result;
+    });
+  };
+
+  const source = fs.readFileSync(new URL('../assets/js/ticker-widget.js', import.meta.url), 'utf8');
+  vm.runInContext(source, sandbox, { filename: 'ticker-widget.js' });
+
+  const clickTab = (name) => tabs[name].click();
+  const clickWindow = (name) => buttons[name].click();
+  return { grid, cards, requests, buttons, intervals, clickTab, clickWindow };
+}
 
 function compileCurrent(raw, cfg) {
   return legacyComputeQuote(raw, cfg);

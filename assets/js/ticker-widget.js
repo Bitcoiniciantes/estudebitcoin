@@ -121,7 +121,7 @@
   function card(quote) {
     var change = quote.shortHistory === true ? null : (typeof quote.changePct === "number" ? quote.changePct : null);
     var pct = change === null ? "—" : (change >= 0 ? "+" : "") + change.toFixed(2).replace(".", ",") + "%";
-    var shortWindowLabel = activeWindow === "1y" ? "1 ano" : (activeWindow === "90d" ? "90 dias" : "30 dias");
+    var shortWindowLabel = activeWindow === "3y" ? "3 anos" : activeWindow === "1y" ? "1 ano" : (activeWindow === "90d" ? "90 dias" : "30 dias");
     var pctTitle = quote.shortHistory === true ? ' title="Menos de ' + shortWindowLabel + ' de histórico"' : "";
     var price = typeof livePrices[quote.symbol] === "number" ? livePrices[quote.symbol] : quote.price;
     var currency = symbolCurrency[quote.symbol] || "USD";
@@ -220,7 +220,22 @@
             volume: quote.volume,
             volumeLabel: "Volume hoje",
           };
-          return { symbol: quote.symbol, currency: "USD", price: quote.price, changePct: quote.changePct, shortHistory: quote.shortHistory === true };
+          // Preserva o payload do Worker: shortHistory só existe quando o
+          // histórico é curto (nas janelas 24h/7d a propriedade fica ausente).
+          var cardQuote = {
+            symbol: quote.symbol,
+            currency: "USD",
+            price: quote.price,
+            changePct: quote.changePct,
+            name: quote.name,
+            volume: quote.volume,
+            closes: quote.closes,
+            shortHistory: quote.shortHistory === true,
+          };
+          // Fora das janelas longas o Worker não manda a flag: o card mantém
+          // a propriedade AUSENTE (não false, não null).
+          if (quote.shortHistory !== true) delete cardQuote.shortHistory;
+          return cardQuote;
         });
       })
       .catch(function () { return []; });
