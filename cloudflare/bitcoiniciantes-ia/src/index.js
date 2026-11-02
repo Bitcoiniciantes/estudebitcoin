@@ -528,6 +528,8 @@ async function assetQuote(request, asset) {
 // ---------- Widget de cotações em lote (CRIPTO via Binance no browser; STOCKS via Yahoo aqui) ----------
 
 const QUOTE_CACHE_TTL_MS = 10 * 1000;
+// 3y é uma série longa (busca por period1/period2); 60s basta para não repetir o download.
+const QUOTE_CACHE_TTL_3Y_MS = 60 * 1000;
 const QUOTE_WINDOWS = {
   "1h": {
     range: "1d",
@@ -540,6 +542,9 @@ const QUOTE_WINDOWS = {
   "30d": { range: "3mo", interval: "1d", windowMs: 30 * 24 * 60 * 60 * 1000 },
   "90d": { range: "6mo", interval: "1d", windowMs: 90 * 24 * 60 * 60 * 1000 },
   "1y": { range: "2y", interval: "1d", windowMs: 365 * 24 * 60 * 60 * 1000 },
+  // Yahoo não tem range=3y: busca explícita por period1/period2 (1110 dias de
+  // lookback para cobrir 1096 dias + feriados/fins de semana).
+  "3y": { interval: "1d", windowMs: 1096 * 24 * 60 * 60 * 1000, lookbackDays: 1110 },
 };
 
 function downsample(points, max) {
@@ -631,6 +636,7 @@ function computeQuote(raw, symbol, cfg, nowMs = Date.now()) {
     30 * 24 * 60 * 60 * 1000,
     90 * 24 * 60 * 60 * 1000,
     365 * 24 * 60 * 60 * 1000,
+    1096 * 24 * 60 * 60 * 1000,
   ]);
   const shortHistory = longWindowMs.has(cfg.windowMs) && points[0].time > baseTime;
   let base = points[0];
@@ -654,11 +660,11 @@ function computeQuote(raw, symbol, cfg, nowMs = Date.now()) {
   return quote;
 }
 
-async function cachedQuotesBody(key) {
+async function cachedQuotesBody(key, ttlMs = QUOTE_CACHE_TTL_MS) {
   try {
     const cached = await caches.default.match(`https://bitcoiniciantes-ia.workers.dev/_cache/quotes/${key}`);
     if (!cached) return null;
-    const stale = Date.now() - (Number(cached.headers.get("X-Cached-At")) || 0) > QUOTE_CACHE_TTL_MS;
+    const stale = Date.now() - (Number(cached.headers.get("X-Cached-At")) || 0) > ttlMs;
     if (stale) return null;
     return cached.json();
   } catch {
@@ -712,14 +718,19 @@ async function assetQuotes(request) {
   if (!rawAssets.length) return json(request, { error: "Informe assets.", window: windowKey }, 400);
   const cfg = QUOTE_WINDOWS[windowKey];
   const cacheKey = `${rawAssets.join(",")}|${windowKey}`;
-  const cached = await cachedQuotesBody(cacheKey);
+  const cacheTtlMs = windowKey === "3y" ? QUOTE_CACHE_TTL_3Y_MS : QUOTE_CACHE_TTL_MS;
+  const cached = await cachedQuotesBody(cacheKey, cacheTtlMs);
   if (cached) return json(request, cached);
   const configs = [cfg].concat(cfg.fallbacks || []);
   const nowMs = Date.now();
   const results = await mapLimit(rawAssets, 4, async (symbol) => {
     for (const item of configs) {
       try {
-        const response = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${item.interval}&range=${item.range}`);
+        // 3y: sem range equivalente no Yahoo — period1/period2 explícitos.
+        const query = item.lookbackDays
+          ? `interval=${item.interval}&period1=${Math.floor((nowMs - item.lookbackDays * 24 * 60 * 60 * 1000) / 1000)}&period2=${Math.floor(nowMs / 1000)}`
+          : `interval=${item.interval}&range=${item.range}`;
+        const response = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?${query}`);
         const raw = await response.json();
         const quote = computeQuote(raw, symbol, item, nowMs);
         if (quote) return quote;
