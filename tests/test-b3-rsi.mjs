@@ -82,6 +82,7 @@ function mountTicker() {
   const requests = [];
   const events = [];
   const intervals = [];
+  const pendingRsi = { resolve: null };
   const buttons = {
     '1h': widgetButton({ 'data-window': '1h' }),
     '24h': widgetButton({ 'data-window': '24h' }),
@@ -142,6 +143,9 @@ function mountTicker() {
       const assets = decodeURIComponent((/[?&]assets=([^&]+)/.exec(target) || [])[1] || '');
       const win = (/[?&]window=([^&]+)/.exec(target) || [])[1] || '24h';
       requests.push({ url: target, assets, window: win });
+      if (win === '1wk' && sandbox.__pendingRsi) {
+        return new Promise((resolve) => { pendingRsi.resolve = () => resolve({ ok: true, json: () => Promise.resolve(sandbox.__payload(assets, win)) }); });
+      }
       return Promise.resolve({ ok: true, json: () => Promise.resolve(sandbox.__payload(assets, win)) });
     },
     document: {
@@ -175,7 +179,7 @@ function mountTicker() {
   vm.createContext(sandbox);
   vm.runInContext('Date.now = function () { return __now; };', sandbox);
 
-  // Dados do Worker: 8 papéis da B3 (RSI por símbolo), STOCKS e 1wk.
+  // Dados do Worker: 8 papéis da B3, 24 STOCKS e RSI semanal por segmento.
   vm.runInContext(`
     globalThis.__B3 = [
       ["VALE3.SA", 60.00, 1.5],
@@ -215,14 +219,20 @@ function mountTicker() {
     globalThis.__payload = function (assets, win) {
       if (win === "1wk") {
         if (__payloadMode === "wrongWindow") return { window: "24h", quotes: __b3Quotes(false) };
-        return { window: "1wk", quotes: __b3Quotes(true) };
+        var list = assets.split(",");
+        if (list.indexOf("VALE3.SA") !== -1) return { window: "1wk", quotes: __b3Quotes(true) };
+        return { window: "1wk", quotes: [
+          { symbol: "NVDA", name: "NVIDIA", price: 204.64, changePct: 55.3, volume: 1000, closes: [1, 2, 3], currency: "USD", rsi: 68.5 },
+          { symbol: "^GSPC", name: "S&P 500", price: 5000, changePct: 0.5, volume: 1000, closes: [1, 2, 3], currency: "USD" },
+        ] };
       }
       var list = assets.split(",");
       if (list.indexOf("VALE3.SA") !== -1) return { window: win, quotes: __b3Quotes(false) };
       return {
         window: win,
         quotes: [
-          { symbol: "NVDA", name: "NVIDIA", price: 204.64, changePct: 55.3, volume: 1000, closes: [1, 2, 3], currency: "USD" }
+          { symbol: "NVDA", name: "NVIDIA", price: 204.64, changePct: 55.3, volume: 1000, closes: [1, 2, 3], currency: "USD" },
+          { symbol: "^GSPC", name: "S&P 500", price: 5000, changePct: 0.5, volume: 1000, closes: [1, 2, 3], currency: "USD" }
         ]
       };
     };
@@ -242,6 +252,7 @@ function mountTicker() {
     clickTab: (name) => tabs[name].click(),
     clickWindow: (name) => buttons[name].click(),
     tick5s: () => intervals[0].fn(),
+    pendingRsi,
   };
 }
 
@@ -258,8 +269,9 @@ function rsiRequests(requests) {
 function cardSegment(html, symbol) {
   const start = html.indexOf('data-tq="' + symbol + '"');
   assert.ok(start >= 0, 'card de ' + symbol + ' existe no grid');
+  const cardStart = html.lastIndexOf('<div', start);
   const next = html.indexOf('data-tq="', start + 10);
-  return html.slice(start, next === -1 ? html.length : next);
+  return html.slice(cardStart, next === -1 ? html.length : next);
 }
 
 describe('RSI semanal no Worker', () => {
@@ -415,7 +427,7 @@ describe('aba B3 no ticker', () => {
     assert.ok(cardSegment(grid.innerHTML, 'VALE3.SA').includes('role="img"'), 'selo com role=img');
   });
 
-  it('16. CRIPTO e STOCKS mantêm o markup anterior', async () => {
+  it('16. CRIPTO mantém o markup e STOCKS exibe RSI quando disponível', async () => {
     const { grid, clickTab } = mountTicker();
     await settle();
     const btc = '<div class="tq up5" data-tq="BTC"><b class="tqSym">BTC</b>' +
@@ -425,12 +437,14 @@ describe('aba B3 no ticker', () => {
 
     clickTab('stocks');
     await settle();
-    const nvda = '<div class="tq up5" data-tq="NVDA"><b class="tqSym">NVDA</b>' +
+    const nvda = '<div class="tq up5 has-rsi" data-tq="NVDA"><b class="tqSym">NVDA</b>' +
       '<button class="tq-graham" data-graham="NVDA" aria-label="Ver preço justo de NVDA"' +
       ' title="Preço justo (Graham)">&#9878;</button>' +
+      '<span class="tq-rsi tq-rsi-neutro" role="img" title="RSI 14 semanal: 68 — Neutro"' +
+      ' aria-label="RSI 68 — Neutro">68</span>' +
       '<span class="tqPct">+55,30%</span><strong class="tqPrice">204,64</strong></div>';
-    assert.ok(grid.innerHTML.includes(nvda), 'card STOCKS inalterado');
-    assert.equal(grid.innerHTML.includes('tq-rsi'), false, 'sem selo fora da B3');
+    assert.ok(grid.innerHTML.includes(nvda), 'card STOCKS com RSI quando disponível');
+    assert.equal(cardSegment(grid.innerHTML, '^GSPC').includes('tq-rsi'), false, 'sem selo quando RSI ausente');
   });
 
   it('17. selo usa o inteiro exibido para classificar a faixa', async () => {
@@ -476,19 +490,22 @@ describe('aba B3 no ticker', () => {
     assert.ok(segment.includes('title="RSI 14 semanal: 71 — Venda"'));
   });
 
-  it('20. legenda só aparece na aba B3', async () => {
+  it('20. legenda aparece em B3 e STOCKS, mas não em CRIPTO', async () => {
     const { legend, clickTab } = mountTicker();
     await settle();
     assert.equal(legend.hidden, true, 'CRIPTO esconde a legenda');
     clickTab('stocks');
     await settle();
-    assert.equal(legend.hidden, true, 'STOCKS esconde a legenda');
+    assert.equal(legend.hidden, false, 'STOCKS mostra a legenda');
     clickTab('b3');
     await settle();
     assert.equal(legend.hidden, false, 'B3 mostra a legenda');
     clickTab('crypto');
     await settle();
     assert.equal(legend.hidden, true, 'volta a esconder');
+    clickTab('stocks');
+    await settle();
+    assert.equal(legend.hidden, false, 'STOCKS volta a mostrar');
   });
 
   it('21. legenda é irmã do grid no HTML (não filha)', () => {
@@ -671,8 +688,10 @@ describe('aba B3 no ticker', () => {
     assert.ok(grid.innerHTML.includes('tq-rsi'));
     clickTab('stocks');
     await settle();
-    assert.equal(grid.innerHTML.includes('tq-rsi'), false, 'STOCKS sem selo');
+    assert.ok(grid.innerHTML.includes('tq-rsi'), 'STOCKS com seu próprio RSI');
     assert.ok(grid.innerHTML.includes('data-tq="NVDA"'), 'cards de STOCKS renderizados');
+    assert.ok(cardSegment(grid.innerHTML, 'NVDA').includes('tq-rsi-neutro'), 'RSI próprio de STOCKS');
+    assert.equal(cardSegment(grid.innerHTML, 'NVDA').includes('tq-rsi-verde'), false, 'não usa RSI da B3');
   });
 
   it('29. janela ativa é preservada ao entrar na B3', async () => {
@@ -699,5 +718,192 @@ describe('aba B3 no ticker', () => {
     await settle();
     assert.equal(buttons['3y'].hidden, true, '3Y oculto em CRIPTO');
     assert.equal(buttons['24h'].classList.contains('active'), true, 'volta para 24h');
+  });
+
+  it('31. STOCKS faz chamada semanal window=1wk ao ser ativada', async () => {
+    const { requests, clickTab } = mountTicker();
+    await settle();
+    clickTab('stocks');
+    await settle();
+    assert.equal(rsiRequests(requests).length, 1);
+  });
+
+  it('32. chamada semanal de STOCKS contém os 24 símbolos atuais', async () => {
+    const { requests, clickTab } = mountTicker();
+    await settle();
+    clickTab('stocks');
+    await settle();
+    const rsiReq = rsiRequests(requests)[0];
+    assert.ok(rsiReq);
+    const symbols = rsiReq.assets.split(',');
+    assert.equal(symbols.length, 24);
+    assert.ok(symbols.includes('NVDA'));
+    assert.ok(symbols.includes('^GSPC'));
+    assert.equal(symbols.includes('VALE3.SA'), false);
+  });
+
+  it('33. nenhuma chamada semanal excede 26 ativos', async () => {
+    const { requests, clickTab } = mountTicker();
+    await settle();
+    clickTab('b3');
+    await settle();
+    clickTab('stocks');
+    await settle();
+    for (const request of rsiRequests(requests)) assert.ok(request.assets.split(',').length <= 26);
+  });
+
+  it('34. cards STOCKS com RSI numérico exibem selo', async () => {
+    const { grid, clickTab } = mountTicker();
+    await settle();
+    clickTab('stocks');
+    await settle();
+    const segment = cardSegment(grid.innerHTML, 'NVDA');
+    assert.ok(segment.includes('tq-rsi'));
+    assert.ok(segment.includes('has-rsi'));
+  });
+
+  it('35. cards STOCKS sem RSI não exibem selo', async () => {
+    const { grid, clickTab } = mountTicker();
+    await settle();
+    clickTab('stocks');
+    await settle();
+    const segment = cardSegment(grid.innerHTML, '^GSPC');
+    assert.equal(segment.includes('tq-rsi'), false);
+    assert.equal(segment.includes('has-rsi'), false);
+  });
+
+  it('36. STOCKS usa seus próprios valores de RSI', async () => {
+    const { grid, clickTab } = mountTicker();
+    await settle();
+    clickTab('stocks');
+    await settle();
+    const segment = cardSegment(grid.innerHTML, 'NVDA');
+    assert.ok(segment.includes('>68</span>'));
+    assert.ok(segment.includes('tq-rsi-neutro'));
+  });
+
+  it('37. RSI de B3 não aparece em STOCKS', async () => {
+    const { grid, clickTab } = mountTicker();
+    await settle();
+    clickTab('b3');
+    await settle();
+    clickTab('stocks');
+    await settle();
+    assert.equal(cardSegment(grid.innerHTML, 'NVDA').includes('>39</span>'), false);
+    assert.equal(cardSegment(grid.innerHTML, 'NVDA').includes('>71</span>'), false);
+  });
+
+  it('38. RSI de STOCKS não aparece em B3', async () => {
+    const { grid, clickTab } = mountTicker();
+    await settle();
+    clickTab('stocks');
+    await settle();
+    clickTab('b3');
+    await settle();
+    assert.equal(grid.innerHTML.includes('data-tq="NVDA"'), false);
+    assert.equal(cardSegment(grid.innerHTML, 'VALE3.SA').includes('>68</span>'), false);
+  });
+
+  it('39. memo de B3 e STOCKS é independente', async () => {
+    const { requests, clickTab, tick5s } = mountTicker();
+    await settle();
+    clickTab('b3');
+    await settle();
+    assert.equal(rsiRequests(requests).length, 1);
+    clickTab('stocks');
+    await settle();
+    assert.equal(rsiRequests(requests).length, 2);
+    tick5s();
+    await settle();
+    assert.equal(rsiRequests(requests).length, 2);
+  });
+
+  it('40. refresh de 5s não repete chamada semanal válida de STOCKS', async () => {
+    const { requests, clickTab, tick5s } = mountTicker();
+    await settle();
+    clickTab('stocks');
+    await settle();
+    tick5s();
+    tick5s();
+    await settle();
+    assert.equal(rsiRequests(requests).length, 1);
+  });
+
+  it('41. após expirar TTL, nova chamada semanal de STOCKS é permitida', async () => {
+    const { requests, sandbox, clickTab, tick5s } = mountTicker();
+    await settle();
+    clickTab('stocks');
+    await settle();
+    sandbox.__now += 61 * 60 * 1000;
+    tick5s();
+    await settle();
+    assert.equal(rsiRequests(requests).length, 2);
+  });
+
+  it('42. legenda aparece em STOCKS', async () => {
+    const { legend, clickTab } = mountTicker();
+    await settle();
+    clickTab('stocks');
+    await settle();
+    assert.equal(legend.hidden, false);
+  });
+
+  it('43. legenda permanece escondida em CRIPTO', async () => {
+    const { legend, clickTab } = mountTicker();
+    await settle();
+    clickTab('stocks');
+    await settle();
+    clickTab('crypto');
+    await settle();
+    assert.equal(legend.hidden, true);
+  });
+
+  it('44. CRIPTO continua sem selo', async () => {
+    const { grid } = mountTicker();
+    await settle();
+    assert.equal(grid.innerHTML.includes('tq-rsi'), false);
+  });
+
+  it('45. STOCKS continua emitindo estudebitcoin:ticker-price', async () => {
+    const { events, clickTab } = mountTicker();
+    await settle();
+    events.length = 0;
+    clickTab('stocks');
+    await settle();
+    assert.ok(events.some((event) => event.type === 'estudebitcoin:ticker-price' && event.detail?.symbol === 'NVDA'));
+  });
+
+  it('46. STOCKS continua exibindo o botão Graham', async () => {
+    const { grid, clickTab } = mountTicker();
+    await settle();
+    clickTab('stocks');
+    await settle();
+    assert.ok(grid.innerHTML.includes('tq-graham'));
+    assert.ok(grid.innerHTML.includes('data-graham="NVDA"'));
+  });
+
+  it('47. chamadas semanais simultâneas de STOCKS são deduplicadas enquanto pendentes', async () => {
+    const { requests, sandbox, clickTab, tick5s, pendingRsi } = mountTicker();
+    sandbox.__pendingRsi = true;
+    await settle();
+    clickTab('stocks');
+    tick5s();
+    tick5s();
+    await settle();
+    assert.equal(rsiRequests(requests).length, 1);
+    assert.equal(typeof pendingRsi.resolve, 'function');
+    pendingRsi.resolve();
+    await settle();
+    assert.ok(rsiRequests(requests).length === 1);
+  });
+
+  it('48. B3 continua sem botão Graham após visitar STOCKS', async () => {
+    const { grid, clickTab } = mountTicker();
+    await settle();
+    clickTab('stocks');
+    await settle();
+    clickTab('b3');
+    await settle();
+    assert.equal(grid.innerHTML.includes('tq-graham'), false);
   });
 });
