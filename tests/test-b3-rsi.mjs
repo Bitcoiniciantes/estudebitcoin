@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { chromium } from 'playwright';
 import { computeQuote, rsiWilder, QUOTE_WINDOWS } from '../cloudflare/bitcoiniciantes-ia/src/index.js';
 
 const TICKER_SRC = fs.readFileSync(new URL('../assets/js/ticker-widget.js', import.meta.url), 'utf8');
@@ -392,8 +393,8 @@ describe('aba B3 no ticker', () => {
     clickTab('b3');
     await settle();
     const expected = '<div class="tq up1 has-rsi" data-tq="VALE3.SA"><b class="tqSym">VALE3</b>' +
-      '<span class="tq-rsi tq-rsi-verde" role="img" title="RSI 14 semanal: RSI 39 — sobrevendido"' +
-      ' aria-label="RSI 39 — sobrevendido">39</span>' +
+      '<span class="tq-rsi tq-rsi-verde" role="img" title="RSI 14 semanal: 39 — Compra"' +
+      ' aria-label="RSI 39 — Compra">39</span>' +
       '<span class="tqPct">+1,50%</span><strong class="tqPrice">R$ 60,00</strong></div>';
     assert.ok(grid.innerHTML.includes(expected), 'card VALE3 idêntico ao esperado');
     assert.equal(grid.innerHTML.includes('VALE3.SA</b>'), false, 'rótulo sem o sufixo .SA');
@@ -401,7 +402,7 @@ describe('aba B3 no ticker', () => {
     assert.ok(grid.innerHTML.includes('R$ 38,42'), 'preço em reais');
   });
 
-  it('15. cards da B3 não têm sino nem botão Graham', async () => {
+  it('15. cards da B3 não têm sino nem botão Graham e mantêm selo acessível', async () => {
     const { grid, clickTab } = mountTicker();
     await settle();
     clickTab('b3');
@@ -411,6 +412,7 @@ describe('aba B3 no ticker', () => {
       assert.equal(segment.includes('tq-bell'), false, symbol + ' sem sino');
       assert.equal(segment.includes('tq-graham'), false, symbol + ' sem Graham');
     }
+    assert.ok(cardSegment(grid.innerHTML, 'VALE3.SA').includes('role="img"'), 'selo com role=img');
   });
 
   it('16. CRIPTO e STOCKS mantêm o markup anterior', async () => {
@@ -470,8 +472,8 @@ describe('aba B3 no ticker', () => {
     await settle();
     const segment = cardSegment(grid.innerHTML, 'BBAS3.SA');
     assert.ok(segment.includes('role="img"'));
-    assert.ok(segment.includes('aria-label="RSI 71 — sobrecomprado"'));
-    assert.ok(segment.includes('title="RSI 14 semanal: RSI 71 — sobrecomprado"'));
+    assert.ok(segment.includes('aria-label="RSI 71 — Venda"'));
+    assert.ok(segment.includes('title="RSI 14 semanal: 71 — Venda"'));
   });
 
   it('20. legenda só aparece na aba B3', async () => {
@@ -498,6 +500,80 @@ describe('aba B3 no ticker', () => {
     const opens = (between.match(/<div\b/g) || []).length;
     const closes = (between.match(/<\/div>/g) || []).length;
     assert.ok(opens > 0 && opens === closes, 'todas as divs do grid fecham antes da legenda');
+  });
+
+  it('21a. legenda usa os quatro rótulos novos e nenhum termo antigo', () => {
+    assert.ok(HTML_SRC.includes('&lt;40 Compra'));
+    assert.ok(HTML_SRC.includes('40–45 Atenção'));
+    assert.ok(HTML_SRC.includes('&gt;45–70 Neutro'));
+    assert.ok(HTML_SRC.includes('&gt;70 Venda'));
+    assert.equal(HTML_SRC.includes('sobrevendido'), false);
+    assert.equal(HTML_SRC.includes('sobrecomprado'), false);
+  });
+
+  it('21b. selo e bolinha RSI têm dimensões e estilo computados', async () => {
+    const browser = await chromium.launch({
+      headless: true,
+      executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    });
+    try {
+      const page = await browser.newPage();
+      await page.goto(new URL('../index.html', import.meta.url).href, { waitUntil: 'domcontentloaded' });
+      const style = await page.evaluate(() => {
+        const badge = document.createElement('span');
+        badge.className = 'tq-rsi tq-rsi-verde';
+        badge.textContent = '39';
+        document.body.appendChild(badge);
+        const card = document.createElement('div');
+        card.className = 'tq has-rsi';
+        const symbol = document.createElement('b');
+        symbol.className = 'tqSym';
+        card.appendChild(symbol);
+        document.body.appendChild(card);
+        const dot = document.createElement('i');
+        dot.className = 'tq-rsi-dot tq-rsi-verde';
+        document.body.appendChild(dot);
+        const computed = getComputedStyle(badge);
+        const symbolComputed = getComputedStyle(symbol);
+        const dotComputed = getComputedStyle(dot);
+        return {
+          backgroundColor: computed.backgroundColor,
+          color: computed.color,
+          borderTopWidth: computed.borderTopWidth,
+          borderRightWidth: computed.borderRightWidth,
+          borderBottomWidth: computed.borderBottomWidth,
+          borderLeftWidth: computed.borderLeftWidth,
+          width: computed.width,
+          height: computed.height,
+          fontSize: computed.fontSize,
+          fontWeight: computed.fontWeight,
+          symbolPaddingRight: symbolComputed.paddingRight,
+          dotWidth: dotComputed.width,
+          dotHeight: dotComputed.height,
+          dotBorderWidth: dotComputed.borderTopWidth,
+          dotBackgroundColor: dotComputed.backgroundColor,
+        };
+      });
+      assert.equal(style.backgroundColor, 'rgb(255, 255, 255)');
+      assert.equal(style.color, 'rgb(0, 0, 0)');
+      assert.deepEqual([
+        style.borderTopWidth,
+        style.borderRightWidth,
+        style.borderBottomWidth,
+        style.borderLeftWidth,
+      ], ['4px', '4px', '4px', '4px']);
+      assert.equal(style.width, '28px');
+      assert.equal(style.height, '28px');
+      assert.equal(style.fontSize, '10px');
+      assert.equal(style.fontWeight, '800');
+      assert.equal(style.symbolPaddingRight, '16px');
+      assert.equal(style.dotWidth, '14px');
+      assert.equal(style.dotHeight, '14px');
+      assert.equal(style.dotBorderWidth, '3px');
+      assert.equal(style.dotBackgroundColor, 'rgb(255, 255, 255)');
+    } finally {
+      await browser.close();
+    }
   });
 
   it('22. 90D/1Y/3Y continuam disponíveis na B3', async () => {

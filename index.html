@@ -769,11 +769,12 @@
   .tqPrice { font-size:.66rem; font-weight:700; white-space:nowrap; }
   .tqPrice.tq-sm { font-size:.56rem; }
   /* --- Selo de RSI semanal (aba B3) --- */
-  .tq-rsi { position:absolute; top:3px; right:3px; width:26px; height:26px; border-radius:50%;
+  .tq-rsi { position:absolute; top:3px; right:3px; width:28px; height:28px; border-radius:50%;
     display:flex; align-items:center; justify-content:center; pointer-events:none;
-    background:rgba(0,0,0,.45); color:#fff; border:2px solid #9ca3af;
-    font:800 11px/1 ui-monospace,SFMono-Regular,Consolas,monospace; }
-  .tq.has-rsi .tqSym { padding-right:14px; }
+    box-sizing:border-box; background:#fff; color:#000; border:4px solid #9ca3af;
+    font:800 10px/1 ui-monospace,SFMono-Regular,Consolas,monospace;
+    letter-spacing:-.5px; }
+  .tq.has-rsi .tqSym { padding-right:16px; }
   .tq-rsi-verde { border-color:#22c55e; }
   .tq-rsi-amarelo { border-color:#eab308; }
   .tq-rsi-neutro { border-color:#9ca3af; }
@@ -782,13 +783,13 @@
     gap:6px 16px; margin-top:10px; color:#8fa396; font-size:.72rem; font-weight:700; }
   .tq-rsi-legend[hidden] { display:none; }
   .tq-rsi-legend span { display:inline-flex; align-items:center; gap:6px; }
-  .tq-rsi-dot { display:inline-block; width:10px; height:10px; border-radius:50%;
-    border:2px solid #9ca3af; background:rgba(0,0,0,.45); }
+  .tq-rsi-dot { display:inline-block; width:14px; height:14px; box-sizing:border-box;
+    border-radius:50%; border:3px solid #9ca3af; background:#fff; }
   .tq-rsi-dot.tq-rsi-verde { border-color:#22c55e; }
   .tq-rsi-dot.tq-rsi-amarelo { border-color:#eab308; }
   .tq-rsi-dot.tq-rsi-neutro { border-color:#9ca3af; }
   .tq-rsi-dot.tq-rsi-vermelho { border-color:#ef4444; }
-  /* Em cards estreitos o selo de 26px não cabe ao lado do ticker (medido:
+  /* Em cards estreitos o selo de 28px não cabe ao lado do ticker (medido:
      overlap de até 21px abaixo de 1280px). O conteúdo desce e o selo fica
      sozinho no canto superior direito, sem encostar no ticker. */
   @media(max-width:1279px){
@@ -1055,12 +1056,12 @@
   </div>
   <div class="ticker-grid" id="ticker-grid"><div class="tqEmpty">Carregando cotações…</div></div>
   <div class="tq-rsi-legend" id="tq-rsi-legend" hidden>
-    <span><i class="tq-rsi-dot tq-rsi-verde"></i>&lt;40 sobrevendido</span>
-    <span><i class="tq-rsi-dot tq-rsi-amarelo"></i>40–45 atenção</span>
-    <span><i class="tq-rsi-dot tq-rsi-neutro"></i>&gt;45–70 neutro</span>
-    <span><i class="tq-rsi-dot tq-rsi-vermelho"></i>&gt;70 sobrecomprado</span>
+    <span><i class="tq-rsi-dot tq-rsi-verde"></i>&lt;40 Compra</span>
+    <span><i class="tq-rsi-dot tq-rsi-amarelo"></i>40–45 Atenção</span>
+    <span><i class="tq-rsi-dot tq-rsi-neutro"></i>&gt;45–70 Neutro</span>
+    <span><i class="tq-rsi-dot tq-rsi-vermelho"></i>&gt;70 Venda</span>
   </div>
-  <p class="ticker-foot">Cotações Binance (cripto) &amp; Yahoo Finance (ações/índices) a cada 10s.</p>
+  <p class="ticker-foot">Cotações Binance (cripto) &amp; Yahoo Finance (ações/índices) a cada 5s. RSI semanal (B3).</p>
 </section>
 
   <div class="ws ws-3">

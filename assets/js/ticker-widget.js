@@ -154,19 +154,19 @@
     return "vermelho";
   }
   function rsiBandLabel(band) {
-    if (band === "verde") return "sobrevendido";
-    if (band === "amarelo") return "atenção";
-    if (band === "neutro") return "neutro";
-    return "sobrecomprado";
+    if (band === "verde") return "Compra";
+    if (band === "amarelo") return "Atenção";
+    if (band === "neutro") return "Neutro";
+    return "Venda";
   }
   function rsiBadge(rsi) {
     if (typeof rsi !== "number" || !Number.isFinite(rsi)) return "";
     var shown = Math.floor(rsi);
     var band = rsiBand(shown);
-    var text = "RSI " + shown + " — " + rsiBandLabel(band);
+    var label = rsiBandLabel(band);
     return '<span class="tq-rsi tq-rsi-' + band + '" role="img"' +
-      ' title="RSI 14 semanal: ' + text + '"' +
-      ' aria-label="' + text + '">' + shown + "</span>";
+      ' title="RSI 14 semanal: ' + shown + ' — ' + label + '"' +
+      ' aria-label="RSI ' + shown + ' — ' + label + '">' + shown + "</span>";
   }
 
   function card(quote) {
