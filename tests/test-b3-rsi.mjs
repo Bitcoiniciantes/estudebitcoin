@@ -220,7 +220,15 @@ function mountTicker() {
       if (win === "1wk") {
         if (__payloadMode === "wrongWindow") return { window: "24h", quotes: __b3Quotes(false) };
         var list = assets.split(",");
+        if (__payloadMode === "lowStocks" && list.indexOf("VALE3.SA") !== -1) {
+          var lowB3 = __b3Quotes(true);
+          lowB3[0].rsi = 24.5;
+          return { window: "1wk", quotes: lowB3 };
+        }
         if (list.indexOf("VALE3.SA") !== -1) return { window: "1wk", quotes: __b3Quotes(true) };
+        if (__payloadMode === "lowStocks") return { window: "1wk", quotes: [
+          { symbol: "NVDA", name: "NVIDIA", price: 204.64, changePct: 55.3, volume: 1000, closes: [1, 2, 3], currency: "USD", rsi: 24.5 },
+        ] };
         return { window: "1wk", quotes: [
           { symbol: "NVDA", name: "NVIDIA", price: 204.64, changePct: 55.3, volume: 1000, closes: [1, 2, 3], currency: "USD", rsi: 68.5 },
           { symbol: "^GSPC", name: "S&P 500", price: 5000, changePct: 0.5, volume: 1000, closes: [1, 2, 3], currency: "USD" },
@@ -905,5 +913,30 @@ describe('aba B3 no ticker', () => {
     clickTab('b3');
     await settle();
     assert.equal(grid.innerHTML.includes('tq-graham'), false);
+  });
+
+  it('49. B3 pulsa cards com RSI semanal abaixo de 25', async () => {
+    const { grid, sandbox, clickTab } = mountTicker();
+    sandbox.__payloadMode = 'lowStocks';
+    await settle();
+    clickTab('b3');
+    await settle();
+    assert.ok(cardSegment(grid.innerHTML, 'VALE3.SA').includes('rsi-low-pulse'), 'pulso exclusivo da B3');
+  });
+
+  it('50. STOCKS pulsa cards com RSI semanal abaixo de 25', async () => {
+    const { grid, sandbox, clickTab } = mountTicker();
+    sandbox.__payloadMode = 'lowStocks';
+    await settle();
+    clickTab('stocks');
+    await settle();
+    assert.ok(cardSegment(grid.innerHTML, 'NVDA').includes('rsi-low-pulse'), 'STOCKS com pulso');
+  });
+
+  it('51. pulso RSI é limitado a 20 ciclos e não reinicia indefinidamente', () => {
+    assert.ok(TICKER_SRC.includes('RSI_LOW_PULSE_LIMIT = 20'));
+    assert.ok(HTML_SRC.includes('tq-rsi-low-pulse 1.4s ease-in-out 20'));
+    assert.ok(TICKER_SRC.includes('animationiteration'));
+    assert.ok(TICKER_SRC.includes('animationend'));
   });
 });
