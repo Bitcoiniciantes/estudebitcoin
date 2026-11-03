@@ -77,6 +77,7 @@
   });
   var B3_FIXED_ASSETS = B3_ASSETS.slice();
   var b3AdditionalAssets = [];
+  var b3VisitorExtra = [];
   var b3ValidationPending = {};
   var b3SessionGeneration = 0;
   var b3AuthUid = null;
@@ -209,6 +210,10 @@
     return out;
   }
 
+  function mergeB3Extras(first, second) {
+    return normalizeStoredB3((first || []).concat(second || []));
+  }
+
   function renderB3Controls() {
     var controls = document.getElementById("b3-custom-controls");
     var count = document.getElementById("b3-count");
@@ -217,7 +222,7 @@
     var login = document.getElementById("b3-login-link");
     var status = document.getElementById("b3-add-status");
     var user = currentB3User();
-    var canEdit = !!user && !b3PreferencesLoading && b3AdditionalAssets.length < 8;
+    var canEdit = !b3PreferencesLoading && (user ? b3AdditionalAssets.length < 8 : true);
     var extras = document.getElementById("b3-extra-list");
     if (count) count.textContent = getB3Assets().length + "/16";
     if (input) {
@@ -286,8 +291,12 @@
   function validateAndAddB3() {
     var input = document.getElementById("b3-add-input");
     var user = currentB3User();
-    if (!user) return showB3Message("Faça login para adicionar seus ativos.", true);
     if (b3PreferencesLoading) return showB3Message("Aguarde o carregamento dos seus ativos B3.", true);
+    if (!user && b3AdditionalAssets.length >= 1) {
+      showB3Message("Faça login para adicionar outro ativo.", true);
+      if (window.EstudeAuth && typeof window.EstudeAuth.openModal === "function") window.EstudeAuth.openModal("login");
+      return;
+    }
     var raw = input ? input.value : "";
     var symbol = canonicalB3Symbol(raw);
     if (!symbol) return showB3Message("Informe um ticker B3 válido, como PETR4 ou BPAC11.", true);
@@ -893,7 +902,8 @@
       return database.ref("users/" + user.id + "/preferences/b3AdditionalSymbols").once("value");
     }).then(function (snapshot) {
       if (generation !== b3SessionGeneration || b3AuthUid !== user.id) return;
-      b3AdditionalAssets = normalizeStoredB3(snapshot && snapshot.val());
+      b3AdditionalAssets = mergeB3Extras(snapshot && snapshot.val(), b3VisitorExtra);
+      b3VisitorExtra = [];
       b3PreferencesLoading = false;
       persistB3Extras(user.id, b3AdditionalAssets).then(function (ok) {
         if (!ok) showB3Message("Preferências carregadas, mas não foi possível consolidá-las no Firebase.", true);
@@ -915,10 +925,12 @@
     if (!user || user.anonymous || !user.id || !user.verified) {
       b3AuthUid = null;
       b3AdditionalAssets = [];
+      b3VisitorExtra = [];
       b3PreferencesLoading = false;
       invalidateB3AndRefresh();
       return;
     }
+    if (!b3AuthUid) b3VisitorExtra = normalizeStoredB3(b3AdditionalAssets).slice(0, 1);
     b3AuthUid = user.id;
     b3AdditionalAssets = [];
     b3PreferencesLoading = true;
@@ -1226,8 +1238,9 @@
     }
   }, true);
 
-  // Busca avulsa de preço justo: fica ABAIXO do grid e só aparece na aba
-  // STOCKS (nunca na primeira página/CRIPTO).
+  // Busca avulsa de preço justo: fica abaixo da legenda e só aparece na aba
+  // STOCKS (nunca na primeira página/CRIPTO). O formulário B3 fica entre o
+  // grid e a legenda, portanto o Graham deve ser inserido depois dele.
   var grahamBar = document.createElement("div");
   grahamBar.className = "tq-graham-bar";
   grahamBar.style.display = "none";
@@ -1235,7 +1248,8 @@
     '<input id="tq-graham-input" placeholder="TICKER (ex: PETR4, AAPL)" maxlength="14" autocomplete="off" spellcheck="false" value="ITUB4" />' +
     '<input id="tq-graham-name" placeholder="EMPRESA (ex: Petrobras)" maxlength="40" autocomplete="off" spellcheck="false" value="Itau Unibanco Holding SA Pfd" />' +
     '<button type="button" id="tq-graham-go">Consultar</button>';
-  grid.parentNode.insertBefore(grahamBar, grid.nextSibling);
+  var b3Controls = document.getElementById("b3-custom-controls");
+  grid.parentNode.insertBefore(grahamBar, b3Controls ? b3Controls.nextSibling : grid.nextSibling);
   // A legenda RSI deve ficar imediatamente acima da consulta Graham.
   var rsiLegend = document.getElementById("tq-rsi-legend");
   if (rsiLegend && rsiLegend.parentNode) rsiLegend.parentNode.insertBefore(rsiLegend, grahamBar);

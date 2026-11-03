@@ -5,12 +5,14 @@ import fs from 'node:fs';
 const ticker = fs.readFileSync(new URL('../assets/js/ticker-widget.js', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
-test('B3 personalizável exige login, mantém os 8 fixos e limita a 8 extras', () => {
+test('B3 permite um extra temporário e exige login para o próximo', () => {
   assert.match(ticker, /var B3_FIXED_ASSETS = B3_ASSETS\.slice\(\);/);
   assert.match(ticker, /var b3AdditionalAssets = \[\];/);
   assert.match(ticker, /b3AdditionalAssets\.length \+ Object\.keys\(b3ValidationPending\)\.length >= 8/);
   assert.match(ticker, /function getB3Assets\(\)/);
-  assert.match(ticker, /if \(!user\) return showB3Message\("Faça login para adicionar seus ativos\./);
+  assert.match(ticker, /if \(!user && b3AdditionalAssets\.length >= 1\)/);
+  assert.match(ticker, /EstudeAuth\.openModal\("login"\)/);
+  assert.match(ticker, /var b3VisitorExtra = \[\];/);
   assert.match(ticker, /b3PreferencesLoading = true/);
 });
 
@@ -46,12 +48,11 @@ test('UI B3 tem contador, inclusão, remoção somente de extras e acessibilidad
   assert.match(ticker, /setAttribute\("aria-label", "Remover /);
 });
 
-test('visitante não mescla extras e recebe controles desativados', () => {
-  assert.doesNotMatch(ticker, /mergeB3Extras/);
-  assert.match(ticker, /b3AdditionalAssets = normalizeStoredB3\(snapshot && snapshot\.val\(\)\)/);
-  assert.match(ticker, /input\.disabled = !canEdit/);
-  assert.match(ticker, /add\.disabled = !canEdit/);
-  assert.match(ticker, /EstudeAuth\.openModal\("login"\)/);
+test('visitante recebe um extra temporário e a sessão limpa ao recarregar/logout', () => {
+  assert.match(ticker, /var canEdit = !b3PreferencesLoading && \(user \? b3AdditionalAssets\.length < 8 : true\)/);
+  assert.match(ticker, /b3AdditionalAssets = mergeB3Extras\(snapshot && snapshot\.val\(\), b3VisitorExtra\)/);
+  assert.match(ticker, /b3VisitorExtra = \[\];/);
+  assert.match(ticker, /b3AdditionalAssets = \[\];/);
 });
 
 test('persistência B3 usa UID, fila serializada e não usa storage local', () => {
