@@ -788,6 +788,12 @@
   .tq-rsi-dot.tq-rsi-amarelo { border-color:#eab308; }
   .tq-rsi-dot.tq-rsi-neutro { border-color:#9ca3af; }
   .tq-rsi-dot.tq-rsi-vermelho { border-color:#ef4444; }
+  /* Em cards estreitos o selo de 26px não cabe ao lado do ticker (medido:
+     overlap de até 21px abaixo de 1280px). O conteúdo desce e o selo fica
+     sozinho no canto superior direito, sem encostar no ticker. */
+  @media(max-width:1279px){
+    .tq.has-rsi { padding-top:32px; min-height:96px; }
+  }
   .tq-tooltip { position:fixed; z-index:1200; max-width:250px; background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:10px; padding:10px 12px; color:#4a4a4a; font:400 .78rem var(--font-body); line-height:1.5; box-shadow:0 8px 24px rgba(0,0,0,.18); pointer-events:none; opacity:0; transform:translate(-50%,-6px); transition:opacity .15s ease, transform .15s ease; }
   .tq-tooltip.show { opacity:1; transform:translate(-50%,0); }
   .tq-tooltip b { display:block; font-size:.84rem; color:#333; margin-bottom:3px; }
