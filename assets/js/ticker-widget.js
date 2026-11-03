@@ -111,6 +111,9 @@
     stocks: { at: 0, bySymbol: null, pending: null },
   };
   var RSI_TTL_MS = 60 * 60 * 1000;
+  var RSI_LOW_PULSE_THRESHOLD = 25;
+  var RSI_LOW_PULSE_LIMIT = 20;
+  var rsiPulseCounts = {};
   var displayToPair = {};
   CRYPTO.forEach(function (entry) {
     pairSymbol[entry[1].toLowerCase()] = entry[0];
@@ -195,7 +198,10 @@
     // Selo de RSI: disponível nas abas B3 e STOCKS; cada uma usa seu memo.
     var quoteSymbol = String(quote.symbol || "").toUpperCase();
     var badge = (activeTab === "b3" || activeTab === "stocks") ? rsiBadge(rsiBySymbol[quoteSymbol]) : '';
-    return '<div class="tq ' + changeClass(change) + (badge ? ' has-rsi' : '') + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
+    var lowRsiPulse = (activeTab === "b3" || activeTab === "stocks") && typeof rsiBySymbol[quoteSymbol] === "number" &&
+      Number.isFinite(rsiBySymbol[quoteSymbol]) && rsiBySymbol[quoteSymbol] < RSI_LOW_PULSE_THRESHOLD &&
+      (rsiPulseCounts[quoteSymbol] || 0) < RSI_LOW_PULSE_LIMIT;
+    return '<div class="tq ' + changeClass(change) + (badge ? ' has-rsi' : '') + (lowRsiPulse ? ' rsi-low-pulse' : '') + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
       '<b class="tqSym' + smallLabel + '">' + esc(label) + "</b>" +
       bell +
       grahamBtn +
@@ -592,6 +598,22 @@
   });
   grid.addEventListener("mouseout", function (event) {
     if (event.target.closest(".tq") && !pinnedSymbol) hideTooltip();
+  });
+  grid.addEventListener("animationiteration", function (event) {
+    if (event.animationName !== "tq-rsi-low-pulse") return;
+    var cardEl = event.target.closest ? event.target.closest(".tq") : null;
+    var symbol = cardEl && cardEl.getAttribute("data-tq");
+    if (!symbol) return;
+    rsiPulseCounts[symbol] = (rsiPulseCounts[symbol] || 0) + 1;
+    if (rsiPulseCounts[symbol] >= RSI_LOW_PULSE_LIMIT) cardEl.classList.remove("rsi-low-pulse");
+  });
+  grid.addEventListener("animationend", function (event) {
+    if (event.animationName !== "tq-rsi-low-pulse") return;
+    var cardEl = event.target.closest ? event.target.closest(".tq") : null;
+    var symbol = cardEl && cardEl.getAttribute("data-tq");
+    if (!symbol) return;
+    rsiPulseCounts[symbol] = RSI_LOW_PULSE_LIMIT;
+    cardEl.classList.remove("rsi-low-pulse");
   });
   grid.addEventListener("click", function (event) {
     if (event.target.closest(".tq-bell, .tq-graham")) return;
