@@ -238,7 +238,7 @@
       status.textContent = "Faça login para adicionar seus ativos";
       status.className = "b3-add-status";
     } else if (status && b3PreferencesLoading) {
-      status.textContent = "Carregando seus ativos B3…";
+      status.textContent = "";
       status.className = "b3-add-status";
     }
     if (!extras) return;

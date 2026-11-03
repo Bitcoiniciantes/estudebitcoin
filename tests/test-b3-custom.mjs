@@ -13,6 +13,8 @@ test('B3 permite um extra temporário e exige login para o próximo', () => {
   assert.match(ticker, /if \(!user && b3AdditionalAssets\.length >= 1\)/);
   assert.match(ticker, /EstudeAuth\.openModal\("login"\)/);
   assert.match(ticker, /var b3VisitorExtra = \[\];/);
+  assert.match(ticker, /else if \(status && b3PreferencesLoading\)/);
+  assert.doesNotMatch(ticker, /Carregando seus ativos B3/);
   assert.match(ticker, /b3PreferencesLoading = true/);
 });
 
