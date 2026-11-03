@@ -106,7 +106,10 @@
   // última resposta válida por 1h — o refresh de 5s NÃO pode bater no Worker.
   // O memo é independente de `cache` (que o refresh(true) apaga a cada ciclo).
   var rsiBySymbol = {};
-  var rsiMemo = { at: 0, bySymbol: null };
+  var rsiMemo = {
+    b3: { at: 0, bySymbol: null, pending: null },
+    stocks: { at: 0, bySymbol: null, pending: null },
+  };
   var RSI_TTL_MS = 60 * 60 * 1000;
   var displayToPair = {};
   CRYPTO.forEach(function (entry) {
@@ -189,8 +192,9 @@
     var grahamBtn = !isCrypto(quote.symbol) && activeTab !== "b3"
       ? '<button class="tq-graham" data-graham="' + esc(symbolKey(quote.symbol)) + '" aria-label="Ver preço justo de ' + esc(symbolKey(quote.symbol)) + '" title="Preço justo (Graham)">&#9878;</button>'
       : '';
-    // Selo de RSI: exclusivo da aba B3.
-    var badge = activeTab === "b3" ? rsiBadge(rsiBySymbol[quote.symbol]) : '';
+    // Selo de RSI: disponível nas abas B3 e STOCKS; cada uma usa seu memo.
+    var quoteSymbol = String(quote.symbol || "").toUpperCase();
+    var badge = (activeTab === "b3" || activeTab === "stocks") ? rsiBadge(rsiBySymbol[quoteSymbol]) : '';
     return '<div class="tq ' + changeClass(change) + (badge ? ' has-rsi' : '') + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
       '<b class="tqSym' + smallLabel + '">' + esc(label) + "</b>" +
       bell +
@@ -334,35 +338,49 @@
 
   // RSI semanal (fonte única: janela interna `1wk`, que o Worker calcula sobre
   // a série de 5 anos). Só é chamado quando o memo está vazio ou vencido.
-  function fetchRsi() {
+  function fetchRsi(assets, memoKey) {
     var now = Date.now();
-    return fetch(WORKER + "?assets=" + encodeURIComponent(B3_ASSETS.join(",")) + "&window=1wk", { cache: "no-store" })
+    var memo = rsiMemo[memoKey];
+    var request = fetch(WORKER + "?assets=" + encodeURIComponent(assets.join(",")) + "&window=1wk", { cache: "no-store" })
       .then(function (response) { return response.ok ? response.json() : null; })
       .then(function (payload) {
         // Se o Worker não tiver a janela `1wk` ele cai em `24h` em silêncio e o
         // RSI sairia de uma série diária. Descarta e mantém o memo anterior.
         if (!payload || payload.window !== "1wk" || !Array.isArray(payload.quotes)) {
-          return rsiMemo.bySymbol || {};
+          return memo.bySymbol || {};
         }
         var map = {};
         payload.quotes.forEach(function (quote) {
-          if (typeof quote.rsi === "number" && Number.isFinite(quote.rsi)) map[quote.symbol] = quote.rsi;
+          var symbol = String(quote && quote.symbol || "").toUpperCase();
+          if (symbol && typeof quote.rsi === "number" && Number.isFinite(quote.rsi)) map[symbol] = quote.rsi;
         });
-        rsiMemo = { at: now, bySymbol: map };
+        memo.at = now;
+        memo.bySymbol = map;
         return map;
       })
-      .catch(function () { return rsiMemo.bySymbol || {}; });
+      .catch(function () { return memo.bySymbol || {}; })
+      .then(function (map) {
+        if (memo.pending === request) memo.pending = null;
+        return map;
+      });
+    memo.pending = request;
+    return request;
   }
 
   // Porta de entrada do RSI no ciclo de render. Com memo válido (1h) resolve
   // na hora, sem request — é o que impede o refresh de 5s de bater no Worker.
-  function ensureRsi() {
+  function ensureRsi(assets, memoKey) {
     var now = Date.now();
-    if (rsiMemo.bySymbol && (now - rsiMemo.at) < RSI_TTL_MS) {
-      rsiBySymbol = rsiMemo.bySymbol;
+    var memo = rsiMemo[memoKey];
+    if (memo.bySymbol && (now - memo.at) < RSI_TTL_MS) {
+      rsiBySymbol = memo.bySymbol;
       return Promise.resolve(rsiBySymbol);
     }
-    return fetchRsi().then(function (map) {
+    if (memo.pending) return memo.pending.then(function (map) {
+      rsiBySymbol = map || {};
+      return rsiBySymbol;
+    });
+    return fetchRsi(assets, memoKey).then(function (map) {
       rsiBySymbol = map || {};
       return rsiBySymbol;
     });
@@ -433,9 +451,12 @@
       cache[key] = quotes;
       return quotes;
     });
-    // Na B3 o RSI é carregado junto, mas só na primeira vez (o memo de 1h
-    // resolve sem request nos ciclos seguintes de 5s).
-    var rsiPromise = tab === "b3" ? ensureRsi() : Promise.resolve(null);
+    // B3 e STOCKS carregam RSI semanal por memos independentes de 1h.
+    var rsiAssets = tab === "b3" ? B3_ASSETS : STOCKS;
+    var rsiMemoKey = tab === "b3" ? "b3" : "stocks";
+    var rsiPromise = (tab === "b3" || tab === "stocks")
+      ? ensureRsi(rsiAssets, rsiMemoKey)
+      : Promise.resolve(null);
     Promise.all([quotesPromise, rsiPromise]).then(function (results) {
       if (gen !== uiStateGen) return;
       var quotes = results[0];
@@ -634,9 +655,9 @@
     });
     // A legenda do RSI é IRMÃ do grid (o render() substitui o innerHTML do
     // grid a cada 5s e apagaria a legenda se ela fosse filha) e só aparece
-    // na aba B3.
+    // nas abas B3 e STOCKS.
     var legend = document.getElementById("tq-rsi-legend");
-    if (legend) legend.hidden = activeTab !== "b3";
+    if (legend) legend.hidden = activeTab !== "b3" && activeTab !== "stocks";
   }
 
   function setActiveWindow(win) {
@@ -961,6 +982,9 @@
     '<input id="tq-graham-name" placeholder="EMPRESA (ex: Petrobras)" maxlength="40" autocomplete="off" spellcheck="false" value="Itau Unibanco Holding SA Pfd" />' +
     '<button type="button" id="tq-graham-go">Consultar</button>';
   grid.parentNode.insertBefore(grahamBar, grid.nextSibling);
+  // A legenda RSI deve ficar imediatamente acima da consulta Graham.
+  var rsiLegend = document.getElementById("tq-rsi-legend");
+  if (rsiLegend && rsiLegend.parentNode) rsiLegend.parentNode.insertBefore(rsiLegend, grahamBar);
 
   // Histórico da sessão (só memória; some ao recarregar). Tabela abaixo da
   // busca, visível só na aba STOCKS. Linha clicável reabre o modal.
