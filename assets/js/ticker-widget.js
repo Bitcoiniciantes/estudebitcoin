@@ -55,6 +55,26 @@
     "BZ=F": "BRENT",
     "^NDX": "NASDAQ 100",
   };
+  // Aba B3 — lista fixa, sempre em reais. O sufixo .SA é obrigatório: sem ele o
+  // Worker devolve zero cotações (Yahoo não reconhece PETR4, só PETR4.SA).
+  // Nomes são fixos no front porque o meta.shortName da B3 vem sujo
+  // ("ITAUUNIBANCOPN      N1").
+  var B3 = [
+    { sym: "VALE3.SA", label: "VALE3", name: "Vale ON" },
+    { sym: "PETR4.SA", label: "PETR4", name: "Petrobras PN" },
+    { sym: "ITUB4.SA", label: "ITUB4", name: "Itaú Unibanco PN" },
+    { sym: "BBDC4.SA", label: "BBDC4", name: "Bradesco PN" },
+    { sym: "BPAC11.SA", label: "BPAC11", name: "BTG Pactual Unit" },
+    { sym: "BBAS3.SA", label: "BBAS3", name: "Banco do Brasil ON" },
+    { sym: "WEGE3.SA", label: "WEGE3", name: "WEG ON" },
+    { sym: "USIM5.SA", label: "USIM5", name: "Usiminas PNA" },
+  ];
+  var B3_META = {};
+  var B3_ASSETS = [];
+  B3.forEach(function (item) {
+    B3_META[item.sym] = item;
+    B3_ASSETS.push(item.sym);
+  });
   var KLINE_CFG = {
     "1h": { interval: "1h", limit: 12, baseFromPrev: true },
     "24h": { interval: "1h", limit: 25 },
@@ -82,6 +102,12 @@
   var quoteData = {};
   var pairSymbol = {};
   var symbolCurrency = {};
+  // RSI semanal da aba B3. `rsiBySymbol` é o que o card lê; `rsiMemo` guarda a
+  // última resposta válida por 1h — o refresh de 5s NÃO pode bater no Worker.
+  // O memo é independente de `cache` (que o refresh(true) apaga a cada ciclo).
+  var rsiBySymbol = {};
+  var rsiMemo = { at: 0, bySymbol: null };
+  var RSI_TTL_MS = 60 * 60 * 1000;
   var displayToPair = {};
   CRYPTO.forEach(function (entry) {
     pairSymbol[entry[1].toLowerCase()] = entry[0];
@@ -118,29 +144,60 @@
   CRYPTO.forEach(function (e) { cryptoSymbols[e[0]] = true; });
   function isCrypto(sym) { return !!cryptoSymbols[sym]; }
 
+  // Faixas do RSI semanal. A classificação usa o INTEIRO EXIBIDO (Math.floor),
+  // não o valor bruto: senão 45,9 apareceria como "45" (amarelo na legenda) e
+  // seria classificado como neutro (>45). Número e cor sempre coincidem.
+  function rsiBand(shown) {
+    if (shown < 40) return "verde";
+    if (shown <= 45) return "amarelo";
+    if (shown <= 70) return "neutro";
+    return "vermelho";
+  }
+  function rsiBandLabel(band) {
+    if (band === "verde") return "sobrevendido";
+    if (band === "amarelo") return "atenção";
+    if (band === "neutro") return "neutro";
+    return "sobrecomprado";
+  }
+  function rsiBadge(rsi) {
+    if (typeof rsi !== "number" || !Number.isFinite(rsi)) return "";
+    var shown = Math.floor(rsi);
+    var band = rsiBand(shown);
+    var text = "RSI " + shown + " — " + rsiBandLabel(band);
+    return '<span class="tq-rsi tq-rsi-' + band + '" role="img"' +
+      ' title="RSI 14 semanal: ' + text + '"' +
+      ' aria-label="' + text + '">' + shown + "</span>";
+  }
+
   function card(quote) {
     var change = quote.shortHistory === true ? null : (typeof quote.changePct === "number" ? quote.changePct : null);
     var pct = change === null ? "—" : (change >= 0 ? "+" : "") + change.toFixed(2).replace(".", ",") + "%";
     var shortWindowLabel = activeWindow === "3y" ? "3 anos" : activeWindow === "1y" ? "1 ano" : (activeWindow === "90d" ? "90 dias" : "30 dias");
     var pctTitle = quote.shortHistory === true ? ' title="Menos de ' + shortWindowLabel + ' de histórico"' : "";
     var price = typeof livePrices[quote.symbol] === "number" ? livePrices[quote.symbol] : quote.price;
-    var currency = symbolCurrency[quote.symbol] || "USD";
+    // Moeda do próprio objeto de cotação primeiro: a B3 chega com BRL do
+    // Worker. CRIPTO e STOCKS continuam com o mesmo valor de antes.
+    var currency = quote.currency || symbolCurrency[quote.symbol] || "USD";
     var small = quote.symbol === "BTC" || quote.symbol === "ETH" || quote.symbol === "PAXG" ? " tq-sm" : "";
     var smallLabel = quote.symbol === "^NDX" ? " tq-label-sm" : "";
-    var label = STOCK_LABELS[quote.symbol] || quote.symbol;
+    var label = (B3_META[quote.symbol] && B3_META[quote.symbol].label) || STOCK_LABELS[quote.symbol] || quote.symbol;
     var bell = isCrypto(quote.symbol)
       ? '<button class="tq-bell" data-bell="' + esc(symbolKey(quote.symbol)) + '" aria-label="Dispensar alerta" title="Dispensar alerta">&#128276;</button>'
       : '';
-    // Preço Justo (Graham): só em STOCKS (cripto não tem LPA/VPA).
-    var grahamBtn = !isCrypto(quote.symbol)
+    // Preço Justo (Graham): só em STOCKS (cripto não tem LPA/VPA; a aba B3
+    // ficou fora do escopo do ⚖).
+    var grahamBtn = !isCrypto(quote.symbol) && activeTab !== "b3"
       ? '<button class="tq-graham" data-graham="' + esc(symbolKey(quote.symbol)) + '" aria-label="Ver preço justo de ' + esc(symbolKey(quote.symbol)) + '" title="Preço justo (Graham)">&#9878;</button>'
       : '';
-    return '<div class="tq ' + changeClass(change) + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
+    // Selo de RSI: exclusivo da aba B3.
+    var badge = activeTab === "b3" ? rsiBadge(rsiBySymbol[quote.symbol]) : '';
+    return '<div class="tq ' + changeClass(change) + (badge ? ' has-rsi' : '') + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
       '<b class="tqSym' + smallLabel + '">' + esc(label) + "</b>" +
       bell +
       grahamBtn +
+      badge +
       '<span class="tqPct"' + pctTitle + '>' + pct + "</span>" +
-      '<strong class="tqPrice' + small + '">' + fmtPrice(price, currency, !isCrypto(quote.symbol)) + "</strong>" +
+      '<strong class="tqPrice' + small + '">' + fmtPrice(price, currency, !isCrypto(quote.symbol) && currency !== "BRL") + "</strong>" +
       "</div>";
   }
 
@@ -241,6 +298,76 @@
       .catch(function () { return []; });
   }
 
+  // Cotações da aba B3: chamada própria (nunca reaproveita fetchStocks), 8
+  // ativos, cache `b3|janela` próprio. Como são só 8, o teto de 26 ativos do
+  // Worker nem é tocado.
+  function fetchB3() {
+    return fetch(WORKER + "?assets=" + encodeURIComponent(B3_ASSETS.join(",")) + "&window=" + activeWindow, { cache: "no-store" })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (payload) {
+        if (!payload || !Array.isArray(payload.quotes)) return [];
+        if (payload.window !== activeWindow) return [];
+        return payload.quotes.map(function (quote) {
+          var meta = B3_META[quote.symbol] || {};
+          var name = meta.name || quote.name || quote.symbol;
+          quoteData[quote.symbol] = {
+            name: name,
+            volume: quote.volume,
+            volumeLabel: "Volume hoje",
+          };
+          var cardQuote = {
+            symbol: quote.symbol,
+            currency: String(quote.currency || "").trim().toUpperCase() === "BRL" ? "BRL" : "USD",
+            price: quote.price,
+            changePct: quote.changePct,
+            name: name,
+            volume: quote.volume,
+            closes: quote.closes,
+            shortHistory: quote.shortHistory === true,
+          };
+          if (quote.shortHistory !== true) delete cardQuote.shortHistory;
+          return cardQuote;
+        });
+      })
+      .catch(function () { return []; });
+  }
+
+  // RSI semanal (fonte única: janela interna `1wk`, que o Worker calcula sobre
+  // a série de 5 anos). Só é chamado quando o memo está vazio ou vencido.
+  function fetchRsi() {
+    var now = Date.now();
+    return fetch(WORKER + "?assets=" + encodeURIComponent(B3_ASSETS.join(",")) + "&window=1wk", { cache: "no-store" })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (payload) {
+        // Se o Worker não tiver a janela `1wk` ele cai em `24h` em silêncio e o
+        // RSI sairia de uma série diária. Descarta e mantém o memo anterior.
+        if (!payload || payload.window !== "1wk" || !Array.isArray(payload.quotes)) {
+          return rsiMemo.bySymbol || {};
+        }
+        var map = {};
+        payload.quotes.forEach(function (quote) {
+          if (typeof quote.rsi === "number" && Number.isFinite(quote.rsi)) map[quote.symbol] = quote.rsi;
+        });
+        rsiMemo = { at: now, bySymbol: map };
+        return map;
+      })
+      .catch(function () { return rsiMemo.bySymbol || {}; });
+  }
+
+  // Porta de entrada do RSI no ciclo de render. Com memo válido (1h) resolve
+  // na hora, sem request — é o que impede o refresh de 5s de bater no Worker.
+  function ensureRsi() {
+    var now = Date.now();
+    if (rsiMemo.bySymbol && (now - rsiMemo.at) < RSI_TTL_MS) {
+      rsiBySymbol = rsiMemo.bySymbol;
+      return Promise.resolve(rsiBySymbol);
+    }
+    return fetchRsi().then(function (map) {
+      rsiBySymbol = map || {};
+      return rsiBySymbol;
+    });
+  }
+
   function render(quotes) {
     grid.innerHTML = quotes.length
       ? quotes.map(card).join("")
@@ -300,13 +427,22 @@
     var gen = uiStateGen;
     var key = tab + "|" + win;
     if (force) delete cache[key];
-    var promise = cache[key] ? Promise.resolve(cache[key]) : (tab === "crypto" ? fetchCrypto() : fetchStocks()).then(function (quotes) {
+    // Três caminhos explícitos: a aba B3 nunca pode cair no fluxo de STOCKS.
+    var loader = tab === "crypto" ? fetchCrypto : (tab === "stocks" ? fetchStocks : fetchB3);
+    var quotesPromise = cache[key] ? Promise.resolve(cache[key]) : loader().then(function (quotes) {
       cache[key] = quotes;
       return quotes;
     });
-    promise.then(function (quotes) {
+    // Na B3 o RSI é carregado junto, mas só na primeira vez (o memo de 1h
+    // resolve sem request nos ciclos seguintes de 5s).
+    var rsiPromise = tab === "b3" ? ensureRsi() : Promise.resolve(null);
+    Promise.all([quotesPromise, rsiPromise]).then(function (results) {
       if (gen !== uiStateGen) return;
-      broadcastQuotes(quotes); render(quotes);
+      var quotes = results[0];
+      // B3 NUNCA vai para o evento global: preço em BRL contaminaria o
+      // portfólio (USD), o Risk Engine e o histórico do Graham.
+      if (tab !== "b3") broadcastQuotes(quotes);
+      render(quotes);
     }).catch(function () { if (gen === uiStateGen) render([]); });
   }
 
@@ -479,18 +615,28 @@
     if (pinnedCard) positionTooltip(pinnedCard);
   });
 
+  function tabAllowedBy(only, tab) {
+    if (!only) return true;
+    return only.split(",").indexOf(tab) !== -1;
+  }
+
   function isWindowAllowedForTab(win, tab) {
     var btn = document.querySelector('.ticker-window button[data-window="' + win + '"]');
     var only = btn ? btn.getAttribute("data-only-tab") : null;
-    if (only) return only === tab;
+    if (only) return tabAllowedBy(only, tab);
     return !!KLINE_CFG[win];
   }
 
   function applyWindowVisibility() {
     document.querySelectorAll(".ticker-window button").forEach(function (btn) {
       var only = btn.getAttribute("data-only-tab");
-      btn.hidden = !!(only && only !== activeTab);
+      btn.hidden = !!(only && !tabAllowedBy(only, activeTab));
     });
+    // A legenda do RSI é IRMÃ do grid (o render() substitui o innerHTML do
+    // grid a cada 5s e apagaria a legenda se ela fosse filha) e só aparece
+    // na aba B3.
+    var legend = document.getElementById("tq-rsi-legend");
+    if (legend) legend.hidden = activeTab !== "b3";
   }
 
   function setActiveWindow(win) {

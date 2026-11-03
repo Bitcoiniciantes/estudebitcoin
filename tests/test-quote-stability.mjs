@@ -328,7 +328,7 @@ describe('estabilidade de preço e base das cotações', () => {
     const source = fs.readFileSync(new URL('../cloudflare/bitcoiniciantes-ia/src/index.js', import.meta.url), 'utf8');
     assert.ok(source.includes('const nowMs = Date.now();'));
     assert.ok(source.includes('computeQuote(raw, symbol, item, nowMs)'));
-    assert.ok(source.includes('export { rlKeyFor, rlTtlSeconds, FUND_RL_LIMIT, computeQuote, exchangeDateKey };'));
+    assert.ok(source.includes('export { rlKeyFor, rlTtlSeconds, FUND_RL_LIMIT, computeQuote, exchangeDateKey, rsiWilder, QUOTE_WINDOWS };'));
     assert.ok(source.includes('export default {'));
   });
 

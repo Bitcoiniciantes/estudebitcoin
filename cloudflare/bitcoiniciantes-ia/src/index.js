@@ -530,6 +530,9 @@ async function assetQuote(request, asset) {
 const QUOTE_CACHE_TTL_MS = 10 * 1000;
 // 3y é uma série longa (busca por period1/period2); 60s basta para não repetir o download.
 const QUOTE_CACHE_TTL_3Y_MS = 60 * 1000;
+// 1wk existe só para o RSI semanal (indicador de 14 semanas): a série é longa
+// (5y = ~262 velas) e o valor muda devagar. 1h evita rebaixar tudo a cada minuto.
+const QUOTE_CACHE_TTL_1WK_MS = 60 * 60 * 1000;
 const QUOTE_WINDOWS = {
   "1h": {
     range: "1d",
@@ -545,6 +548,10 @@ const QUOTE_WINDOWS = {
   // Yahoo não tem range=3y: busca explícita por period1/period2 (1110 dias de
   // lookback para cobrir 1096 dias + feriados/fins de semana).
   "3y": { interval: "1d", windowMs: 1096 * 24 * 60 * 60 * 1000, lookbackDays: 1110 },
+  // Janela INTERNA (sem botão na UI): fonte exclusiva do RSI semanal da aba B3.
+  // 5y devolve ~262 velas — muito mais que as 40 do downsample, por isso o RSI
+  // é calculado sobre `points` antes da redução. Nunca alimenta preço/variação.
+  "1wk": { range: "5y", interval: "1wk", windowMs: 7 * 24 * 60 * 60 * 1000, rsi: 14 },
 };
 
 function downsample(points, max) {
@@ -553,6 +560,38 @@ function downsample(points, max) {
   const out = [];
   for (let i = 0; i < max; i += 1) out.push(points[Math.round(i * step)]);
   return out;
+}
+
+// RSI de Wilder (suavização exponencial, alpha = 1/period). Recebe a série de
+// fechamentos CRUA e em ordem cronológica — nunca a versão reduzida pelo
+// downsample, que distorce o indicador (40 pontos de uma série de 262 velas
+// espaçam as amostras e mudam o RSI em até ~4 pontos).
+// Retorna null quando não há histórico suficiente (period + 1 fechamentos) ou
+// quando a série é totalmente plana (ganho = perda = 0).
+function rsiWilder(closes, period = 14) {
+  const n = Number(period) > 0 ? Math.floor(Number(period)) : 14;
+  if (!Array.isArray(closes) || closes.length < n + 1) return null;
+  // Valida a série inteira antes de diferenciar: `null - 3` vira -3 em JS e
+  // passaria pelo Number.isFinite do delta, mascarando dado ausente.
+  for (let i = 0; i < closes.length; i += 1) {
+    if (!Number.isFinite(closes[i])) return null;
+  }
+  let gain = 0;
+  let loss = 0;
+  for (let i = 1; i <= n; i += 1) {
+    const delta = closes[i] - closes[i - 1];
+    if (delta >= 0) gain += delta;
+    else loss -= delta;
+  }
+  gain /= n;
+  loss /= n;
+  for (let i = n + 1; i < closes.length; i += 1) {
+    const delta = closes[i] - closes[i - 1];
+    gain = (gain * (n - 1) + Math.max(delta, 0)) / n;
+    loss = (loss * (n - 1) + Math.max(-delta, 0)) / n;
+  }
+  if (loss === 0) return gain === 0 ? null : 100;
+  return 100 - 100 / (1 + gain / loss);
 }
 
 function exchangeDateKey(seconds, timeZone) {
@@ -627,6 +666,10 @@ function computeQuote(raw, symbol, cfg, nowMs = Date.now()) {
     if (index === lastIndex && close <= 0) continue;
     points.push({ time: timestamps[index], close, volume: volumes ? volumes[index] : undefined });
   }
+  // RSI (só quando a janela pede): série CRUA, antes do downsample e antes do
+  // fillLastCandle — o fill injeta o preço vivo como um ponto extra da última
+  // vela e, na semana em formação, contaria o mesmo período duas vezes.
+  const rsiCloses = cfg.rsi ? points.map((point) => point.close) : null;
   const filled = fillLastCandle(result, nowMs, symbol);
   if (filled) points.push(filled);
   const last = points[points.length - 1];
@@ -656,6 +699,7 @@ function computeQuote(raw, symbol, cfg, nowMs = Date.now()) {
     currency: meta.currency || "USD",
     closes: downsample(points.map((point) => point.close), 40),
   };
+  if (rsiCloses) quote.rsi = rsiWilder(rsiCloses, cfg.rsi);
   if (shortHistory) quote.shortHistory = true;
   return quote;
 }
@@ -718,7 +762,12 @@ async function assetQuotes(request) {
   if (!rawAssets.length) return json(request, { error: "Informe assets.", window: windowKey }, 400);
   const cfg = QUOTE_WINDOWS[windowKey];
   const cacheKey = `${rawAssets.join(",")}|${windowKey}`;
-  const cacheTtlMs = windowKey === "3y" ? QUOTE_CACHE_TTL_3Y_MS : QUOTE_CACHE_TTL_MS;
+  const cacheTtlMs =
+    windowKey === "1wk"
+      ? QUOTE_CACHE_TTL_1WK_MS
+      : windowKey === "3y"
+        ? QUOTE_CACHE_TTL_3Y_MS
+        : QUOTE_CACHE_TTL_MS;
   const cached = await cachedQuotesBody(cacheKey, cacheTtlMs);
   if (cached) return json(request, cached);
   const configs = [cfg].concat(cfg.fallbacks || []);
@@ -851,7 +900,7 @@ function rlClientIp(request) {
   }
 }
 
-export { rlKeyFor, rlTtlSeconds, FUND_RL_LIMIT, computeQuote, exchangeDateKey };
+export { rlKeyFor, rlTtlSeconds, FUND_RL_LIMIT, computeQuote, exchangeDateKey, rsiWilder, QUOTE_WINDOWS };
 function pickNum(...vals) {
   for (const v of vals) {
     const n = Number(v);

@@ -768,6 +768,26 @@
   .tqPct { font:800 .88rem ui-monospace,SFMono-Regular,Consolas,monospace; white-space:nowrap; }
   .tqPrice { font-size:.66rem; font-weight:700; white-space:nowrap; }
   .tqPrice.tq-sm { font-size:.56rem; }
+  /* --- Selo de RSI semanal (aba B3) --- */
+  .tq-rsi { position:absolute; top:3px; right:3px; width:26px; height:26px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; pointer-events:none;
+    background:rgba(0,0,0,.45); color:#fff; border:2px solid #9ca3af;
+    font:800 11px/1 ui-monospace,SFMono-Regular,Consolas,monospace; }
+  .tq.has-rsi .tqSym { padding-right:14px; }
+  .tq-rsi-verde { border-color:#22c55e; }
+  .tq-rsi-amarelo { border-color:#eab308; }
+  .tq-rsi-neutro { border-color:#9ca3af; }
+  .tq-rsi-vermelho { border-color:#ef4444; }
+  .tq-rsi-legend { display:flex; flex-wrap:wrap; justify-content:center; align-items:center;
+    gap:6px 16px; margin-top:10px; color:#8fa396; font-size:.72rem; font-weight:700; }
+  .tq-rsi-legend[hidden] { display:none; }
+  .tq-rsi-legend span { display:inline-flex; align-items:center; gap:6px; }
+  .tq-rsi-dot { display:inline-block; width:10px; height:10px; border-radius:50%;
+    border:2px solid #9ca3af; background:rgba(0,0,0,.45); }
+  .tq-rsi-dot.tq-rsi-verde { border-color:#22c55e; }
+  .tq-rsi-dot.tq-rsi-amarelo { border-color:#eab308; }
+  .tq-rsi-dot.tq-rsi-neutro { border-color:#9ca3af; }
+  .tq-rsi-dot.tq-rsi-vermelho { border-color:#ef4444; }
   .tq-tooltip { position:fixed; z-index:1200; max-width:250px; background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:10px; padding:10px 12px; color:#4a4a4a; font:400 .78rem var(--font-body); line-height:1.5; box-shadow:0 8px 24px rgba(0,0,0,.18); pointer-events:none; opacity:0; transform:translate(-50%,-6px); transition:opacity .15s ease, transform .15s ease; }
   .tq-tooltip.show { opacity:1; transform:translate(-50%,0); }
   .tq-tooltip b { display:block; font-size:.84rem; color:#333; margin-bottom:3px; }
@@ -1015,18 +1035,25 @@
       <button type="button" data-window="24h" class="active">24H</button>
       <button type="button" data-window="7d">7D</button>
       <button type="button" data-window="30d">30D</button>
-      <button type="button" data-window="90d" data-only-tab="stocks" hidden>90D</button>
-      <button type="button" data-window="1y" data-only-tab="stocks" hidden>1Y</button>
-      <button type="button" data-window="3y" data-only-tab="stocks" hidden>3Y</button>
+      <button type="button" data-window="90d" data-only-tab="stocks,b3" hidden>90D</button>
+      <button type="button" data-window="1y" data-only-tab="stocks,b3" hidden>1Y</button>
+      <button type="button" data-window="3y" data-only-tab="stocks,b3" hidden>3Y</button>
     </div>
     <div class="ticker-tabs" role="tablist" aria-label="Mercado">
       <button type="button" class="active" data-tab="crypto">CRIPTO</button>
       <button type="button" data-tab="stocks">STOCKS</button>
+      <button type="button" data-tab="b3">B3</button>
     </div>
     <span class="ticker-status" id="ticker-status"></span>
     <button type="button" id="push-activate-btn" class="push-btn" style="display:none">Ativar alertas</button>
   </div>
   <div class="ticker-grid" id="ticker-grid"><div class="tqEmpty">Carregando cotações…</div></div>
+  <div class="tq-rsi-legend" id="tq-rsi-legend" hidden>
+    <span><i class="tq-rsi-dot tq-rsi-verde"></i>&lt;40 sobrevendido</span>
+    <span><i class="tq-rsi-dot tq-rsi-amarelo"></i>40–45 atenção</span>
+    <span><i class="tq-rsi-dot tq-rsi-neutro"></i>&gt;45–70 neutro</span>
+    <span><i class="tq-rsi-dot tq-rsi-vermelho"></i>&gt;70 sobrecomprado</span>
+  </div>
   <p class="ticker-foot">Cotações Binance (cripto) &amp; Yahoo Finance (ações/índices) a cada 10s.</p>
 </section>
 

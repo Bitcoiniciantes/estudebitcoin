@@ -228,7 +228,8 @@ describe('TTL por origem + prioridade (caminho real)', () => {
   it('widget: sources e broadcasts íntegros', () => {
     assert.ok(TICKER_SRC.includes("source: \"websocket\""), 'WS marca origem');
     assert.ok(TICKER_SRC.includes("source: \"snapshot\""), 'snapshot marca origem');
-    assert.ok(TICKER_SRC.includes('broadcastQuotes(quotes); render(quotes);'), 'refresh transmite');
+    assert.ok(TICKER_SRC.includes('if (tab !== "b3") broadcastQuotes(quotes);'), 'refresh transmite fora da B3');
+    assert.ok(TICKER_SRC.includes('render(quotes);'), 'refresh renderiza');
     assert.ok(TICKER_SRC.includes('refreshStocksBroadcast'), 'loop stocks');
   });
 
