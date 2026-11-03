@@ -783,6 +783,30 @@
     gap:6px 16px; margin-top:10px; color:#8fa396; font-size:.72rem; font-weight:700; }
   .tq-rsi-legend[hidden] { display:none; }
   .tq-rsi-legend span { display:inline-flex; align-items:center; gap:6px; }
+   #b3-custom-controls { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:5px 6px; margin:6px 0 3px; color:#334155; font-size:.76rem; }
+   #b3-custom-controls[hidden] { display:none; }
+   #b3-add-input { width:92px; min-height:26px; box-sizing:border-box; border:1px solid #0284c7; border-radius:5px; padding:4px 6px; text-transform:uppercase; color:#075985; background:#f0f9ff; font-size:.75rem; }
+   #b3-add-input:focus-visible, #b3-add-button:focus-visible, #b3-login-link:focus-visible, .b3-extra-remove:focus-visible { outline:2px solid #0369a1; outline-offset:2px; }
+   #b3-add-input:disabled { cursor:not-allowed; opacity:.62; }
+   #b3-add-button { min-height:26px; border:1px solid #0369a1; border-radius:5px; padding:4px 7px; cursor:pointer; color:#fff; background:#0369a1; font-size:.75rem; }
+   #b3-add-button:hover:not(:disabled), #b3-add-button:focus-visible { background:#075985; }
+   #b3-add-button:disabled { cursor:not-allowed; opacity:.55; }
+   #b3-count { font-weight:700; }
+   #b3-extra-list { display:flex; flex-wrap:wrap; gap:3px; }
+   .b3-extra-item { display:inline-flex; align-items:center; gap:1px; border:1px solid #0284c7; border-radius:999px; padding:2px 4px 2px 6px; color:#075985; background:#e0f2fe; font-size:11px; line-height:1.2; }
+   .b3-extra-remove { width:24px; height:24px; margin:-5px -4px -5px 0; border:0; border-radius:50%; background:transparent; color:#075985; cursor:pointer; padding:5px; font-size:14px; line-height:14px; }
+   .b3-extra-remove:hover, .b3-extra-remove:focus-visible { background:#bae6fd; color:#0c4a6e; }
+   #b3-login-link { border:0; padding:2px 3px; color:#075985; background:transparent; cursor:pointer; font-size:.72rem; text-decoration:underline; }
+   .b3-add-status { width:100%; min-height:1em; font-size:.7rem; color:#075985; }
+   .b3-add-status.error { color:#b42318; }
+   @media (prefers-color-scheme: dark) {
+     #b3-custom-controls { color:#cbd5e1; }
+     #b3-add-input { color:#bae6fd; background:#082f49; border-color:#38bdf8; }
+     .b3-extra-item { color:#bae6fd; background:#082f49; border-color:#38bdf8; }
+     .b3-extra-remove, #b3-login-link, .b3-add-status { color:#bae6fd; }
+     .b3-extra-remove:hover, .b3-extra-remove:focus-visible { background:#075985; color:#e0f2fe; }
+     #b3-login-link:focus-visible, .b3-extra-remove:focus-visible { outline-color:#7dd3fc; }
+   }
   .tq-rsi-dot { display:inline-block; width:14px; height:14px; box-sizing:border-box;
     border-radius:50%; border:3px solid #9ca3af; background:#fff; }
   .tq-rsi-dot.tq-rsi-verde { border-color:#22c55e; }
@@ -1059,6 +1083,14 @@
     </div>
     <span class="ticker-status" id="ticker-status"></span>
     <button type="button" id="push-activate-btn" class="push-btn" style="display:none">Ativar alertas</button>
+  </div>
+  <div id="b3-custom-controls" hidden aria-label="Personalizar ativos B3">
+    <span>Ativos B3: <strong id="b3-count">8/16</strong></span>
+    <input id="b3-add-input" type="text" maxlength="8" autocomplete="off" placeholder="Ex.: PETR4" aria-label="Ticker B3 adicional">
+    <button id="b3-add-button" type="button">Adicionar</button>
+    <button id="b3-login-link" type="button" hidden>Entrar para adicionar</button>
+    <span id="b3-extra-list" aria-live="polite"></span>
+    <span id="b3-add-status" class="b3-add-status" role="status" aria-live="polite"></span>
   </div>
   <div class="ticker-grid" id="ticker-grid"><div class="tqEmpty">Carregando cotações…</div></div>
   <div class="tq-rsi-legend" id="tq-rsi-legend" hidden>

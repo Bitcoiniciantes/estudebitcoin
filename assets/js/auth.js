@@ -1080,6 +1080,11 @@
   var EstudeAuth = {
     isConfigured: isConfigured,
     getUser: function () { return currentUser; },
+    getDatabase: function () {
+      return ensureFirebase().then(function (fb) {
+        return fb ? fb.database() : null;
+      });
+    },
     whenReady: function () {
       return awaitAuthReady().then(function (fu) {
         if (fu) return normUser(fu);

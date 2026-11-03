@@ -75,6 +75,15 @@
     B3_META[item.sym] = item;
     B3_ASSETS.push(item.sym);
   });
+  var B3_FIXED_ASSETS = B3_ASSETS.slice();
+  var b3AdditionalAssets = [];
+  var b3ValidationPending = {};
+  var b3SessionGeneration = 0;
+  var b3AuthUid = null;
+  var b3PreferencesLoading = true;
+  var b3WriteQueues = {};
+  var b3MessageTimer = null;
+  var B3_TICKER_RE = /^[A-Z][A-Z0-9]{3}[0-9]{1,2}$/;
   var KLINE_CFG = {
     "1h": { interval: "1h", limit: 12, baseFromPrev: true },
     "24h": { interval: "1h", limit: 25 },
@@ -107,8 +116,8 @@
   // O memo é independente de `cache` (que o refresh(true) apaga a cada ciclo).
   var rsiBySymbol = {};
   var rsiMemo = {
-    b3: { at: 0, bySymbol: null, pending: null },
-    stocks: { at: 0, bySymbol: null, pending: null },
+    b3: { at: 0, bySymbol: null, pending: null, signature: "" },
+    stocks: { at: 0, bySymbol: null, pending: null, signature: "stocks" },
   };
   var RSI_TTL_MS = 60 * 60 * 1000;
   var RSI_LOW_PULSE_THRESHOLD = 25;
@@ -150,6 +159,164 @@
   CRYPTO.forEach(function (e) { cryptoSymbols[e[0]] = true; });
   function isCrypto(sym) { return !!cryptoSymbols[sym]; }
 
+  function getB3Assets() {
+    return B3_FIXED_ASSETS.concat(b3AdditionalAssets);
+  }
+
+  function b3Signature(assets) { return assets.join(","); }
+
+  function canonicalB3Symbol(value) {
+    var raw = String(value || "").trim().toUpperCase();
+    if (raw.slice(-3) === ".SA") raw = raw.slice(0, -3);
+    return B3_TICKER_RE.test(raw) ? raw + ".SA" : "";
+  }
+
+  function isFixedB3(symbol) { return B3_FIXED_ASSETS.indexOf(symbol) !== -1; }
+
+  function clearB3Data() {
+    Object.keys(cache).forEach(function (key) { if (key.indexOf("b3|") === 0) delete cache[key]; });
+    rsiMemo.b3 = { at: 0, bySymbol: null, pending: null, signature: "" };
+    if (activeTab === "b3") rsiBySymbol = {};
+  }
+
+  function currentB3User() {
+    var auth = window.EstudeAuth;
+    var user = auth && auth.getUser ? auth.getUser() : null;
+    return user && user.id && !user.anonymous && user.verified ? user : null;
+  }
+
+  function persistB3Extras(uid, assets) {
+    if (!uid || !window.EstudeAuth || !window.EstudeAuth.getDatabase) return Promise.resolve(false);
+    var snapshot = assets.slice();
+    var queue = b3WriteQueues[uid] || Promise.resolve();
+    b3WriteQueues[uid] = queue.then(function () {
+      return window.EstudeAuth.getDatabase().then(function (database) {
+        if (!database) return false;
+        return database.ref("users/" + uid + "/preferences/b3AdditionalSymbols").set(snapshot).then(function () { return true; });
+      });
+    }).catch(function () { return false; });
+    return b3WriteQueues[uid];
+  }
+
+  function normalizeStoredB3(value) {
+    var source = Array.isArray(value) ? value : (value && typeof value === "object" ? Object.keys(value).map(function (key) { return value[key]; }) : []);
+    var out = [];
+    source.forEach(function (item) {
+      var symbol = canonicalB3Symbol(item);
+      if (!symbol || isFixedB3(symbol) || out.indexOf(symbol) !== -1 || out.length >= 8) return;
+      out.push(symbol);
+    });
+    return out;
+  }
+
+  function renderB3Controls() {
+    var controls = document.getElementById("b3-custom-controls");
+    var count = document.getElementById("b3-count");
+    var input = document.getElementById("b3-add-input");
+    var add = document.getElementById("b3-add-button");
+    var login = document.getElementById("b3-login-link");
+    var status = document.getElementById("b3-add-status");
+    var user = currentB3User();
+    var canEdit = !!user && !b3PreferencesLoading && b3AdditionalAssets.length < 8;
+    var extras = document.getElementById("b3-extra-list");
+    if (count) count.textContent = getB3Assets().length + "/16";
+    if (input) {
+      input.disabled = !canEdit;
+      input.setAttribute("aria-disabled", canEdit ? "false" : "true");
+    }
+    if (add) {
+      add.disabled = !canEdit;
+      add.setAttribute("aria-disabled", canEdit ? "false" : "true");
+    }
+    if (login) login.hidden = !!user || b3PreferencesLoading;
+    if (status && !user && !b3PreferencesLoading) {
+      status.textContent = "Faça login para adicionar seus ativos";
+      status.className = "b3-add-status";
+    } else if (status && b3PreferencesLoading) {
+      status.textContent = "Carregando seus ativos B3…";
+      status.className = "b3-add-status";
+    }
+    if (!extras) return;
+    extras.textContent = "";
+    b3AdditionalAssets.forEach(function (symbol) {
+      var item = document.createElement("span");
+      item.className = "b3-extra-item";
+      item.textContent = symbol.replace(/\.SA$/, "");
+      var remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "b3-extra-remove";
+      remove.setAttribute("aria-label", "Remover " + symbol.replace(/\.SA$/, ""));
+      remove.textContent = "×";
+      remove.addEventListener("click", function () { removeB3Extra(symbol); });
+      item.appendChild(remove);
+      extras.appendChild(item);
+    });
+    if (controls) controls.hidden = activeTab !== "b3";
+  }
+
+  function showB3Message(message, isError) {
+    var el = document.getElementById("b3-add-status");
+    if (!el) return;
+    if (b3MessageTimer) window.clearTimeout(b3MessageTimer);
+    el.textContent = message || "";
+    el.className = isError ? "b3-add-status error" : "b3-add-status";
+    if (message) b3MessageTimer = window.setTimeout(function () {
+      el.textContent = "";
+      b3MessageTimer = null;
+    }, 4500);
+  }
+
+  function invalidateB3AndRefresh() {
+    clearB3Data();
+    renderB3Controls();
+    if (activeTab === "b3") refresh(true);
+  }
+
+  function removeB3Extra(symbol) {
+    var index = b3AdditionalAssets.indexOf(symbol);
+    if (index === -1) return;
+    b3AdditionalAssets.splice(index, 1);
+    var user = currentB3User();
+    if (user) persistB3Extras(user.id, b3AdditionalAssets).then(function (ok) {
+      if (!ok) showB3Message("Não foi possível salvar a remoção. A sessão atual foi mantida.", true);
+    });
+    invalidateB3AndRefresh();
+  }
+
+  function validateAndAddB3() {
+    var input = document.getElementById("b3-add-input");
+    var user = currentB3User();
+    if (!user) return showB3Message("Faça login para adicionar seus ativos.", true);
+    if (b3PreferencesLoading) return showB3Message("Aguarde o carregamento dos seus ativos B3.", true);
+    var raw = input ? input.value : "";
+    var symbol = canonicalB3Symbol(raw);
+    if (!symbol) return showB3Message("Informe um ticker B3 válido, como PETR4 ou BPAC11.", true);
+    if (isFixedB3(symbol) || b3AdditionalAssets.indexOf(symbol) !== -1 || b3ValidationPending[symbol]) return showB3Message("Esse ativo já está na lista.", true);
+    if (b3AdditionalAssets.length + Object.keys(b3ValidationPending).length >= 8) return showB3Message("Limite de 16 ativos atingido.", true);
+    var generation = b3SessionGeneration;
+    b3ValidationPending[symbol] = true;
+    renderB3Controls();
+    showB3Message("Validando " + symbol.replace(/\.SA$/, "") + "…", false);
+    fetch(WORKER + "?assets=" + encodeURIComponent(symbol) + "&window=24h", { cache: "no-store" })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (payload) {
+        var quote = payload && Array.isArray(payload.quotes) && payload.quotes.find(function (item) { return item && String(item.symbol).toUpperCase() === symbol; });
+        var valid = payload && payload.window === "24h" && quote && typeof quote.price === "number" && Number.isFinite(quote.price) && quote.price > 0;
+        if (generation !== b3SessionGeneration) return;
+        if (!valid) return showB3Message("Não foi possível validar a cotação de " + symbol.replace(/\.SA$/, "") + ".", true);
+        if (b3AdditionalAssets.length >= 8 || getB3Assets().indexOf(symbol) !== -1) return;
+        b3AdditionalAssets.push(symbol);
+        if (user) persistB3Extras(user.id, b3AdditionalAssets).then(function (ok) {
+          if (!ok) showB3Message("Ativo incluído nesta sessão, mas não foi possível salvar no Firebase.", true);
+        });
+        if (input) input.value = "";
+        showB3Message("Ativo incluído.", false);
+        invalidateB3AndRefresh();
+      })
+      .catch(function () { if (generation === b3SessionGeneration) showB3Message("Não foi possível validar a cotação agora.", true); })
+      .then(function () { delete b3ValidationPending[symbol]; renderB3Controls(); });
+  }
+
   // Faixas do RSI semanal. A classificação usa o INTEIRO EXIBIDO (Math.floor),
   // não o valor bruto: senão 45,9 apareceria como "45" (amarelo na legenda) e
   // seria classificado como neutro (>45). Número e cor sempre coincidem.
@@ -186,7 +353,8 @@
     var currency = quote.currency || symbolCurrency[quote.symbol] || "USD";
     var small = quote.symbol === "BTC" || quote.symbol === "ETH" || quote.symbol === "PAXG" ? " tq-sm" : "";
     var smallLabel = quote.symbol === "^NDX" ? " tq-label-sm" : "";
-    var label = (B3_META[quote.symbol] && B3_META[quote.symbol].label) || STOCK_LABELS[quote.symbol] || quote.symbol;
+    var fallbackLabel = activeTab === "b3" ? quote.symbol.replace(/\.SA$/, "") : quote.symbol;
+    var label = (B3_META[quote.symbol] && B3_META[quote.symbol].label) || STOCK_LABELS[quote.symbol] || fallbackLabel;
     var bell = isCrypto(quote.symbol)
       ? '<button class="tq-bell" data-bell="' + esc(symbolKey(quote.symbol)) + '" aria-label="Dispensar alerta" title="Dispensar alerta">&#128276;</button>'
       : '';
@@ -197,9 +365,11 @@
       : '';
     // Selo de RSI: disponível nas abas B3 e STOCKS; cada uma usa seu memo.
     var quoteSymbol = String(quote.symbol || "").toUpperCase();
-    var badge = (activeTab === "b3" || activeTab === "stocks") ? rsiBadge(rsiBySymbol[quoteSymbol]) : '';
-    var lowRsiPulse = (activeTab === "b3" || activeTab === "stocks") && typeof rsiBySymbol[quoteSymbol] === "number" &&
-      Number.isFinite(rsiBySymbol[quoteSymbol]) && rsiBySymbol[quoteSymbol] < RSI_LOW_PULSE_THRESHOLD &&
+    var activeRsiMap = activeTab === "b3" ? (rsiMemo.b3.bySymbol || {}) : (activeTab === "stocks" ? (rsiMemo.stocks.bySymbol || {}) : {});
+    var activeRsi = activeRsiMap[quoteSymbol];
+    var badge = (activeTab === "b3" || activeTab === "stocks") ? rsiBadge(activeRsi) : '';
+    var lowRsiPulse = (activeTab === "b3" || activeTab === "stocks") && typeof activeRsi === "number" &&
+      Number.isFinite(activeRsi) && activeRsi < RSI_LOW_PULSE_THRESHOLD &&
       (rsiPulseCounts[quoteSymbol] || 0) < RSI_LOW_PULSE_LIMIT;
     return '<div class="tq ' + changeClass(change) + (badge ? ' has-rsi' : '') + (lowRsiPulse ? ' rsi-low-pulse' : '') + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
       '<b class="tqSym' + smallLabel + '">' + esc(label) + "</b>" +
@@ -311,8 +481,9 @@
   // Cotações da aba B3: chamada própria (nunca reaproveita fetchStocks), 8
   // ativos, cache `b3|janela` próprio. Como são só 8, o teto de 26 ativos do
   // Worker nem é tocado.
-  function fetchB3() {
-    return fetch(WORKER + "?assets=" + encodeURIComponent(B3_ASSETS.join(",")) + "&window=" + activeWindow, { cache: "no-store" })
+  function fetchB3(assets) {
+    // B3_ASSETS.join(",") remains the fixed baseline; runtime requests use getB3Assets().
+    return fetch(WORKER + "?assets=" + encodeURIComponent(assets.join(",")) + "&window=" + activeWindow, { cache: "no-store" })
       .then(function (response) { return response.ok ? response.json() : null; })
       .then(function (payload) {
         if (!payload || !Array.isArray(payload.quotes)) return [];
@@ -344,7 +515,7 @@
 
   // RSI semanal (fonte única: janela interna `1wk`, que o Worker calcula sobre
   // a série de 5 anos). Só é chamado quando o memo está vazio ou vencido.
-  function fetchRsi(assets, memoKey) {
+  function fetchRsi(assets, memoKey, signature) {
     var now = Date.now();
     var memo = rsiMemo[memoKey];
     var request = fetch(WORKER + "?assets=" + encodeURIComponent(assets.join(",")) + "&window=1wk", { cache: "no-store" })
@@ -362,6 +533,7 @@
         });
         memo.at = now;
         memo.bySymbol = map;
+        memo.signature = signature;
         return map;
       })
       .catch(function () { return memo.bySymbol || {}; })
@@ -375,10 +547,10 @@
 
   // Porta de entrada do RSI no ciclo de render. Com memo válido (1h) resolve
   // na hora, sem request — é o que impede o refresh de 5s de bater no Worker.
-  function ensureRsi(assets, memoKey) {
+  function ensureRsi(assets, memoKey, signature) {
     var now = Date.now();
     var memo = rsiMemo[memoKey];
-    if (memo.bySymbol && (now - memo.at) < RSI_TTL_MS) {
+    if (memo.bySymbol && memo.signature === signature && (now - memo.at) < RSI_TTL_MS) {
       rsiBySymbol = memo.bySymbol;
       return Promise.resolve(rsiBySymbol);
     }
@@ -386,7 +558,7 @@
       rsiBySymbol = map || {};
       return rsiBySymbol;
     });
-    return fetchRsi(assets, memoKey).then(function (map) {
+    return fetchRsi(assets, memoKey, signature).then(function (map) {
       rsiBySymbol = map || {};
       return rsiBySymbol;
     });
@@ -449,19 +621,21 @@
     var tab = activeTab;
     var win = activeWindow;
     var gen = uiStateGen;
-    var key = tab + "|" + win;
+    var assets = tab === "b3" ? getB3Assets() : null;
+    var signature = tab === "b3" ? b3Signature(assets) : tab;
+    var key = tab + "|" + win + (tab === "b3" ? "|" + signature : "");
     if (force) delete cache[key];
     // Três caminhos explícitos: a aba B3 nunca pode cair no fluxo de STOCKS.
-    var loader = tab === "crypto" ? fetchCrypto : (tab === "stocks" ? fetchStocks : fetchB3);
+    var loader = tab === "crypto" ? fetchCrypto : (tab === "stocks" ? fetchStocks : function () { return fetchB3(assets); });
     var quotesPromise = cache[key] ? Promise.resolve(cache[key]) : loader().then(function (quotes) {
       cache[key] = quotes;
       return quotes;
     });
     // B3 e STOCKS carregam RSI semanal por memos independentes de 1h.
-    var rsiAssets = tab === "b3" ? B3_ASSETS : STOCKS;
+    var rsiAssets = tab === "b3" ? assets : STOCKS;
     var rsiMemoKey = tab === "b3" ? "b3" : "stocks";
     var rsiPromise = (tab === "b3" || tab === "stocks")
-      ? ensureRsi(rsiAssets, rsiMemoKey)
+      ? ensureRsi(rsiAssets, rsiMemoKey, signature)
       : Promise.resolve(null);
     Promise.all([quotesPromise, rsiPromise]).then(function (results) {
       if (gen !== uiStateGen) return;
@@ -704,6 +878,7 @@
       btn.addEventListener("click", function () {
         activeTab = btn.getAttribute("data-tab") || "crypto";
         document.querySelectorAll(".ticker-tabs button").forEach(function (b) { b.classList.toggle("active", b === btn); });
+        renderB3Controls();
         setActiveWindow(activeWindow);
         applyWindowVisibility();
         refresh(true);
@@ -711,7 +886,64 @@
     });
   }
 
+  function loadB3Preferences(user, generation) {
+    if (!user || !window.EstudeAuth || !window.EstudeAuth.getDatabase) return;
+    window.EstudeAuth.getDatabase().then(function (database) {
+      if (!database) return null;
+      return database.ref("users/" + user.id + "/preferences/b3AdditionalSymbols").once("value");
+    }).then(function (snapshot) {
+      if (generation !== b3SessionGeneration || b3AuthUid !== user.id) return;
+      b3AdditionalAssets = normalizeStoredB3(snapshot && snapshot.val());
+      b3PreferencesLoading = false;
+      persistB3Extras(user.id, b3AdditionalAssets).then(function (ok) {
+        if (!ok) showB3Message("Preferências carregadas, mas não foi possível consolidá-las no Firebase.", true);
+      });
+      invalidateB3AndRefresh();
+    }).catch(function () {
+      if (generation === b3SessionGeneration && b3AuthUid === user.id) {
+        b3PreferencesLoading = false;
+        renderB3Controls();
+        showB3Message("Não foi possível carregar seus ativos B3 salvos.", true);
+      }
+    });
+  }
+
+  function handleB3AuthChange(event) {
+    var user = event && event.detail ? event.detail.user : null;
+    b3SessionGeneration++;
+    b3ValidationPending = {};
+    if (!user || user.anonymous || !user.id || !user.verified) {
+      b3AuthUid = null;
+      b3AdditionalAssets = [];
+      b3PreferencesLoading = false;
+      invalidateB3AndRefresh();
+      return;
+    }
+    b3AuthUid = user.id;
+    b3AdditionalAssets = [];
+    b3PreferencesLoading = true;
+    invalidateB3AndRefresh();
+    loadB3Preferences(user, b3SessionGeneration);
+  }
+
+  function bindB3Controls() {
+    var input = document.getElementById("b3-add-input");
+    var add = document.getElementById("b3-add-button");
+    var login = document.getElementById("b3-login-link");
+    if (add) add.addEventListener("click", validateAndAddB3);
+    if (login) login.addEventListener("click", function () {
+      if (window.EstudeAuth && typeof window.EstudeAuth.openModal === "function") window.EstudeAuth.openModal("login");
+    });
+    if (input) input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") { event.preventDefault(); validateAndAddB3(); }
+      if (event.key === "Escape") { input.value = ""; input.blur(); }
+    });
+    window.addEventListener("estudebitcoin:auth-change", handleB3AuthChange);
+    renderB3Controls();
+  }
+
   bindButtons();
+  bindB3Controls();
   setActiveWindow(activeWindow);
   applyWindowVisibility();
   window.setInterval(function () { refresh(true); }, 5000);

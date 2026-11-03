@@ -61,6 +61,7 @@ function loadWidget() {
     body: makeEl('body'),
     getElementById(id) { return els[id] || (els[id] = makeEl(id)); },
     createElement() { return makeEl(''); },
+    querySelector() { return makeEl('ticker-window-button'); },
     querySelectorAll() { return []; },
     addEventListener(type, fn) { ((docListeners[type] = docListeners[type] || [])).push(fn); },
     removeEventListener() {},

@@ -711,6 +711,15 @@ push/mural/alertas seguem locais. Conta e-mail/senha só sincroniza após
 `emailVerified` (Google já vem verificado). Painel `sim` via ponte `calc-persist.js`
 (não reescrever o bundle; seletores ancorados no DOM atual).
 
+### Personalização B3
+
+A aba B3 mantém 8 ativos fixos. A personalização é exclusiva para usuários
+logados: visitantes veem somente os 8 fixos e não podem adicionar ativos.
+Usuários autenticados podem salvar até 8 extras em
+`users/{uid}/preferences/b3AdditionalSymbols`, totalizando no máximo 16 ativos.
+Os extras são recuperados por UID, a remoção também é persistida e logout ou
+troca de conta restaura a lista fixa de 8 ativos.
+
 
 ---
 
@@ -754,5 +763,14 @@ cron faz 0 PUTs típicos, 1 em ciclos com evento). Front intocado.
 **PENDENTE:** proteção contra rotação de IP fora desta versão — revisitar só
 com abuso real, com mecanismo fora do KV. Teste:
 `cloudflare/bitcoiniciantes-ia/test/test-ratelimit.mjs` (9, KV/fetch stubados).
+
+**HG v2 tentado sem sucesso (2026-09-28, revertido; código guardado no branch
+`backup-antes-desfazer-hg`):** o fallback HG v1 (`finance/stock_price`, sem
+`financials`) foi trocado por `v2/fundamentals` + plano B `v2/balance-sheets`,
+mas BBAS3/BBDC4/SANB11/USIM5 seguiram sem VPA. Diagnóstico correto é chamar
+o endpoint **direto do terminal com a chave** (ex.: `curl` no
+`v2/finance/fundamentals?tickers=B3:BBAS3&key=…`) e ler status/campos na
+resposta — não via Worker (logs não mostram o corpo do upstream e o cache
+de 24h mascara novas tentativas).
 
 
