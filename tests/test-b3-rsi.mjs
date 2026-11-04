@@ -12,6 +12,12 @@ const HTML_SRC = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf
 const B3_SYMBOLS = ['VALE3.SA', 'PETR4.SA', 'ITUB4.SA', 'BBDC4.SA', 'BPAC11.SA', 'BBAS3.SA', 'WEGE3.SA', 'USIM5.SA'];
 const TZ_B3 = 'America/Sao_Paulo';
 const NOW = Date.parse('2026-11-02T20:00:00Z');
+const CRYPTO_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const CRYPTO_WEEKLY_ROWS = Array.from({ length: 20 }, (_, index) => {
+  const open = NOW - (20 - index) * CRYPTO_WEEK_MS;
+  const close = 100 + ((index % 5) * 3) + (index % 2 ? 1 : -1);
+  return [open, String(close - 1), String(close + 2), String(close - 2), String(close), '1000', open + CRYPTO_WEEK_MS - 1, '1000', 100, '500', '500', '0'];
+});
 
 // Série clássica de Wilder (33 fechamentos) — referência de cálculo do RSI.
 const WILDER_CLOSES = [
@@ -78,11 +84,13 @@ function widgetButton(attrs) {
 // Monta o ticker-widget REAL num contexto vm com DOM mínimo, com os três
 // painéis (CRIPTO/STOCKS/B3) e a legenda do RSI. O payload do Worker é criado
 // DENTRO do contexto para que o objeto observado seja o mesmo que o widget usa.
-function mountTicker() {
+function mountTicker(options = {}) {
   const requests = [];
   const events = [];
   const intervals = [];
+  const binanceRequests = [];
   const pendingRsi = { resolve: null };
+  const pendingCryptoTime = { resolve: null };
   const buttons = {
     '1h': widgetButton({ 'data-window': '1h' }),
     '24h': widgetButton({ 'data-window': '24h' }),
@@ -130,6 +138,26 @@ function mountTicker() {
     fetch: (url) => {
       const target = String(url);
       if (target.includes('api.binance.com')) {
+        binanceRequests.push(target);
+        if (target.includes('/api/v3/time')) {
+          if (sandbox.__cryptoTimePending) {
+            return new Promise((resolve) => { pendingCryptoTime.resolve = () => resolve({ ok: true, json: () => Promise.resolve({ serverTime: sandbox.__cryptoServerTime }) }); });
+          }
+          if (sandbox.__cryptoTimeFail) return Promise.resolve({ ok: false, json: () => Promise.resolve(null) });
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ serverTime: sandbox.__cryptoServerTime }) });
+        }
+        const pairMatch = /[?&]symbol=([^&]+)/.exec(target);
+        const pair = pairMatch ? pairMatch[1] : '';
+        if (sandbox.__cryptoRsiMode && target.includes('interval=1w')) {
+          if (pair === sandbox.__cryptoFailPair) return Promise.resolve({ ok: false, json: () => Promise.resolve(null) });
+          if (pair === sandbox.__cryptoInvalidPair) return Promise.resolve({ ok: true, json: () => Promise.resolve([CRYPTO_WEEKLY_ROWS[0], CRYPTO_WEEKLY_ROWS[0]]) });
+          if (pair === sandbox.__cryptoFormingPair) {
+            const rows = CRYPTO_WEEKLY_ROWS.slice(0, 15).map((row) => row.slice());
+            rows[rows.length - 1][6] = sandbox.__cryptoServerTime + 1;
+            return Promise.resolve({ ok: true, json: () => Promise.resolve(rows) });
+          }
+          return Promise.resolve({ ok: true, json: () => Promise.resolve(CRYPTO_WEEKLY_ROWS) });
+        }
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve([
@@ -176,6 +204,13 @@ function mountTicker() {
   sandbox.globalThis = sandbox;
   sandbox.__now = NOW;
   sandbox.__payloadMode = 'ok';
+  sandbox.__cryptoServerTime = NOW;
+  sandbox.__cryptoRsiMode = options.cryptoRsi === true;
+  sandbox.__cryptoFailPair = options.cryptoFailPair || '';
+  sandbox.__cryptoInvalidPair = options.cryptoInvalidPair || '';
+  sandbox.__cryptoFormingPair = options.cryptoFormingPair || '';
+  sandbox.__cryptoTimeFail = options.cryptoTimeFail === true;
+  sandbox.__cryptoTimePending = options.cryptoTimePending === true;
   vm.createContext(sandbox);
   vm.runInContext('Date.now = function () { return __now; };', sandbox);
 
@@ -255,12 +290,14 @@ function mountTicker() {
     events,
     requests,
     intervals,
+    binanceRequests,
     buttons,
     sandbox,
     clickTab: (name) => tabs[name].click(),
     clickWindow: (name) => buttons[name].click(),
     tick5s: () => intervals[0].fn(),
     pendingRsi,
+    pendingCryptoTime,
   };
 }
 
@@ -498,10 +535,10 @@ describe('aba B3 no ticker', () => {
     assert.ok(segment.includes('title="RSI 14 semanal: 71 — Venda"'));
   });
 
-  it('20. legenda aparece em B3 e STOCKS, mas não em CRIPTO', async () => {
+  it('20. legenda aparece em CRIPTO, B3 e STOCKS', async () => {
     const { legend, clickTab } = mountTicker();
     await settle();
-    assert.equal(legend.hidden, true, 'CRIPTO esconde a legenda');
+    assert.equal(legend.hidden, false, 'CRIPTO mostra a legenda');
     clickTab('stocks');
     await settle();
     assert.equal(legend.hidden, false, 'STOCKS mostra a legenda');
@@ -510,7 +547,7 @@ describe('aba B3 no ticker', () => {
     assert.equal(legend.hidden, false, 'B3 mostra a legenda');
     clickTab('crypto');
     await settle();
-    assert.equal(legend.hidden, true, 'volta a esconder');
+    assert.equal(legend.hidden, false, 'volta a mostrar em CRIPTO');
     clickTab('stocks');
     await settle();
     assert.equal(legend.hidden, false, 'STOCKS volta a mostrar');
@@ -856,14 +893,14 @@ describe('aba B3 no ticker', () => {
     assert.equal(legend.hidden, false);
   });
 
-  it('43. legenda permanece escondida em CRIPTO', async () => {
+  it('43. legenda permanece visível em CRIPTO', async () => {
     const { legend, clickTab } = mountTicker();
     await settle();
     clickTab('stocks');
     await settle();
     clickTab('crypto');
     await settle();
-    assert.equal(legend.hidden, true);
+    assert.equal(legend.hidden, false);
   });
 
   it('44. CRIPTO continua sem selo', async () => {
@@ -939,5 +976,116 @@ describe('aba B3 no ticker', () => {
     assert.ok(HTML_SRC.includes('tq-rsi-low-pulse 1.4s ease-in-out 20'));
     assert.ok(TICKER_SRC.includes('animationiteration'));
     assert.ok(TICKER_SRC.includes('animationend'));
+  });
+
+  it('52. CRIPTO usa o mapeamento explícito dos oito pares Binance', () => {
+    for (const [symbol, pair] of [
+      ['BTC', 'BTCUSDT'], ['ETH', 'ETHUSDT'], ['SOL', 'SOLUSDT'], ['LINK', 'LINKUSDT'],
+      ['AVAX', 'AVAXUSDT'], ['RENDER', 'RENDERUSDT'], ['PAXG', 'PAXGUSDT'], ['USDT-BRL', 'USDTBRL'],
+    ]) {
+      assert.ok(TICKER_SRC.includes('["' + symbol + '", "' + pair + '",'), symbol + ' mapeado');
+    }
+    assert.equal(TICKER_SRC.includes('RNDRUSDT'), false, 'não usa RNDRUSDT');
+  });
+
+  it('53. CRIPTO busca RSI semanal para os oito pares e exibe os selos', async () => {
+    const { grid, binanceRequests } = mountTicker({ cryptoRsi: true });
+    await settle();
+    const weekly = binanceRequests.filter((url) => url.includes('interval=1w'));
+    assert.equal(weekly.length, 8);
+    assert.ok(weekly.some((url) => url.includes('symbol=BTCUSDT')));
+    assert.ok(weekly.some((url) => url.includes('symbol=USDTBRL')));
+    assert.ok(cardSegment(grid.innerHTML, 'BTC').includes('tq-rsi'));
+    assert.ok(cardSegment(grid.innerHTML, 'USDT-BRL').includes('RSI 14 semanal do par USDT/BRL'));
+  });
+
+  it('54. candle semanal em formação não entra no RSI', async () => {
+    const { grid } = mountTicker({ cryptoRsi: true, cryptoFormingPair: 'BTCUSDT' });
+    await settle();
+    assert.equal(cardSegment(grid.innerHTML, 'BTC').includes('tq-rsi'), false);
+    assert.ok(cardSegment(grid.innerHTML, 'ETH').includes('tq-rsi'));
+  });
+
+  it('55. RSI cripto respeita TTL individual de uma hora', async () => {
+    const { binanceRequests, sandbox, tick5s } = mountTicker({ cryptoRsi: true });
+    await settle();
+    const before = binanceRequests.filter((url) => url.includes('interval=1w')).length;
+    tick5s();
+    await settle();
+    assert.equal(binanceRequests.filter((url) => url.includes('interval=1w')).length, before);
+    sandbox.__now += 60 * 60 * 1000 + 1;
+    tick5s();
+    await settle();
+    assert.equal(binanceRequests.filter((url) => url.includes('interval=1w')).length, before + 8);
+  });
+
+  it('56. falha de um par não invalida os demais e reintenta após cinco minutos', async () => {
+    const { grid, binanceRequests, sandbox, tick5s } = mountTicker({ cryptoRsi: true, cryptoFailPair: 'RENDERUSDT' });
+    await settle();
+    assert.ok(cardSegment(grid.innerHTML, 'BTC').includes('tq-rsi'));
+    assert.equal(cardSegment(grid.innerHTML, 'RENDER').includes('tq-rsi'), false);
+    const initial = binanceRequests.filter((url) => url.includes('interval=1w')).length;
+    sandbox.__now += 4 * 60 * 1000;
+    tick5s();
+    await settle();
+    assert.equal(binanceRequests.filter((url) => url.includes('interval=1w')).length, initial);
+    sandbox.__now += 60 * 1000 + 1;
+    sandbox.__cryptoFailPair = '';
+    tick5s();
+    await settle();
+    assert.equal(binanceRequests.filter((url) => url.includes('interval=1w')).length, initial + 1);
+  });
+
+  it('57. resposta inválida de um par não afeta os outros', async () => {
+    const { grid } = mountTicker({ cryptoRsi: true, cryptoInvalidPair: 'PAXGUSDT' });
+    await settle();
+    assert.equal(cardSegment(grid.innerHTML, 'PAXG').includes('tq-rsi'), false);
+    assert.ok(cardSegment(grid.innerHTML, 'ETH').includes('tq-rsi'));
+  });
+
+  it('58. falha global de /time usa cooldown global sem marcar oito falhas individuais', async () => {
+    const { grid, binanceRequests, sandbox, tick5s } = mountTicker({ cryptoRsi: true, cryptoTimeFail: true });
+    await settle();
+    assert.equal(binanceRequests.filter((url) => url.includes('/api/v3/time')).length, 1);
+    assert.equal(binanceRequests.filter((url) => url.includes('interval=1w')).length, 0);
+    assert.equal(cardSegment(grid.innerHTML, 'BTC').includes('tq-rsi'), false);
+    sandbox.__cryptoTimeFail = false;
+    sandbox.__now += 5 * 60 * 1000 + 1;
+    tick5s();
+    await settle();
+    assert.equal(binanceRequests.filter((url) => url.includes('interval=1w')).length, 8);
+  });
+
+  it('59. requisições RSI cripto simultâneas compartilham a mesma pendência', async () => {
+    const { binanceRequests, pendingCryptoTime, sandbox, tick5s } = mountTicker({ cryptoRsi: true, cryptoTimePending: true });
+    await settle();
+    tick5s();
+    tick5s();
+    await settle();
+    assert.equal(binanceRequests.filter((url) => url.includes('/api/v3/time')).length, 1);
+    assert.equal(binanceRequests.filter((url) => url.includes('interval=1w')).length, 0);
+    assert.equal(typeof pendingCryptoTime.resolve, 'function');
+    sandbox.__cryptoTimePending = false;
+    pendingCryptoTime.resolve();
+    await settle();
+    assert.equal(binanceRequests.filter((url) => url.includes('interval=1w')).length, 8);
+  });
+
+  it('60. RSI vencido deixa de ser exibido durante falha de atualização', async () => {
+    const { grid, sandbox, tick5s } = mountTicker({ cryptoRsi: true });
+    await settle();
+    assert.ok(cardSegment(grid.innerHTML, 'BTC').includes('tq-rsi'));
+    sandbox.__now += 60 * 60 * 1000 + 1;
+    sandbox.__cryptoTimeFail = true;
+    tick5s();
+    await settle();
+    assert.equal(cardSegment(grid.innerHTML, 'BTC').includes('tq-rsi'), false);
+  });
+
+  it('61. selo RSI cripto não substitui alertFlash nem cria pulso RSI', () => {
+    assert.ok(HTML_SRC.includes('.tq.alert-triggered'));
+    assert.ok(HTML_SRC.includes('animation: alertFlash 0.8s infinite'));
+    assert.ok(TICKER_SRC.includes('(activeTab === "b3" || activeTab === "stocks") && typeof activeRsi'));
+    assert.equal(TICKER_SRC.includes('activeTab === "crypto" && typeof activeRsi'), false);
   });
 });

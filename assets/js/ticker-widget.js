@@ -121,6 +121,15 @@
     stocks: { at: 0, bySymbol: null, pending: null, signature: "stocks" },
   };
   var RSI_TTL_MS = 60 * 60 * 1000;
+  var CRYPTO_RSI_TTL_MS = 60 * 60 * 1000;
+  var CRYPTO_RSI_FAILURE_COOLDOWN_MS = 5 * 60 * 1000;
+  var CRYPTO_RSI_LIMIT = 200;
+  var CRYPTO_RSI_MIN_CANDLES = 15;
+  var cryptoRsiMemo = {};
+  var cryptoRsiSync = { pending: null, failedAt: 0 };
+  CRYPTO.forEach(function (entry) {
+    cryptoRsiMemo[entry[0]] = { value: null, fetchedAt: 0, pending: null, failedAt: 0, failureCount: 0 };
+  });
   var RSI_LOW_PULSE_THRESHOLDS = { b3: 25, stocks: 31 };
   var RSI_LOW_PULSE_LIMIT = 20;
   var rsiPulseCounts = {};
@@ -341,13 +350,14 @@
     if (band === "neutro") return "Neutro";
     return "Venda";
   }
-  function rsiBadge(rsi) {
+  function rsiBadge(rsi, context) {
     if (typeof rsi !== "number" || !Number.isFinite(rsi)) return "";
     var shown = Math.floor(rsi);
     var band = rsiBand(shown);
     var label = rsiBandLabel(band);
+    var contextLabel = context ? " do par " + context : "";
     return '<span class="tq-rsi tq-rsi-' + band + '" role="img"' +
-      ' title="RSI 14 semanal: ' + shown + ' — ' + label + '"' +
+      ' title="RSI 14 semanal' + contextLabel + ': ' + shown + ' — ' + label + '"' +
       ' aria-label="RSI ' + shown + ' — ' + label + '">' + shown + "</span>";
   }
 
@@ -372,11 +382,12 @@
     var grahamBtn = !isCrypto(quote.symbol) && activeTab !== "b3"
       ? '<button class="tq-graham" data-graham="' + esc(symbolKey(quote.symbol)) + '" aria-label="Ver preço justo de ' + esc(symbolKey(quote.symbol)) + '" title="Preço justo (Graham)">&#9878;</button>'
       : '';
-    // Selo de RSI: disponível nas abas B3 e STOCKS; cada uma usa seu memo.
+    // Selo de RSI: cada segmento consulta apenas seu próprio memo.
     var quoteSymbol = String(quote.symbol || "").toUpperCase();
-    var activeRsiMap = activeTab === "b3" ? (rsiMemo.b3.bySymbol || {}) : (activeTab === "stocks" ? (rsiMemo.stocks.bySymbol || {}) : {});
-    var activeRsi = activeRsiMap[quoteSymbol];
-    var badge = (activeTab === "b3" || activeTab === "stocks") ? rsiBadge(activeRsi) : '';
+    var activeRsi = activeTab === "crypto" ? cryptoRsiFresh(quoteSymbol, Date.now()) :
+      (activeTab === "b3" ? (rsiMemo.b3.bySymbol || {})[quoteSymbol] : (activeTab === "stocks" ? (rsiMemo.stocks.bySymbol || {})[quoteSymbol] : null));
+    var rsiContext = activeTab === "crypto" && quoteSymbol === "USDT-BRL" ? "USDT/BRL" : "";
+    var badge = (activeTab === "crypto" || activeTab === "b3" || activeTab === "stocks") ? rsiBadge(activeRsi, rsiContext) : '';
     var pulseKey = activeTab + "|" + quoteSymbol;
     var pulseThreshold = RSI_LOW_PULSE_THRESHOLDS[activeTab];
     var lowRsiPulse = (activeTab === "b3" || activeTab === "stocks") && typeof activeRsi === "number" &&
@@ -454,6 +465,121 @@
         .catch(function () { return null; });
     });
     return Promise.all(jobs).then(function (quotes) { return quotes.filter(Boolean); });
+  }
+
+  function cryptoRsiWilder(closes, period) {
+    var n = Number(period) > 0 ? Math.floor(Number(period)) : 14;
+    if (!Array.isArray(closes) || closes.length < n + 1) return null;
+    for (var i = 0; i < closes.length; i++) {
+      if (typeof closes[i] !== "number" || !Number.isFinite(closes[i])) return null;
+    }
+    var gain = 0;
+    var loss = 0;
+    for (var j = 1; j <= n; j++) {
+      var firstDelta = closes[j] - closes[j - 1];
+      if (firstDelta >= 0) gain += firstDelta;
+      else loss -= firstDelta;
+    }
+    gain /= n;
+    loss /= n;
+    for (var k = n + 1; k < closes.length; k++) {
+      var delta = closes[k] - closes[k - 1];
+      gain = (gain * (n - 1) + Math.max(delta, 0)) / n;
+      loss = (loss * (n - 1) + Math.max(-delta, 0)) / n;
+    }
+    if (loss === 0) return gain === 0 ? null : 100;
+    return 100 - 100 / (1 + gain / loss);
+  }
+
+  function closedCryptoWeeklyCloses(rows, serverTime) {
+    if (!Array.isArray(rows) || !Number.isFinite(serverTime)) return null;
+    var seen = {};
+    var previousOpen = -1;
+    var closes = [];
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (!Array.isArray(row) || row.length < 7) return null;
+      var openTime = Number(row[0]);
+      var closeTime = Number(row[6]);
+      if (!Number.isFinite(openTime) || !Number.isFinite(closeTime) || openTime <= previousOpen || seen[openTime]) return null;
+      seen[openTime] = true;
+      previousOpen = openTime;
+      if (closeTime >= serverTime) continue;
+      var close = Number(row[4]);
+      if (!Number.isFinite(close) || close <= 0) return null;
+      closes.push(close);
+    }
+    return closes.length >= CRYPTO_RSI_MIN_CANDLES ? closes : null;
+  }
+
+  function cryptoRsiFresh(symbol, now) {
+    var record = cryptoRsiMemo[symbol];
+    if (!record || typeof record.value !== "number" || !Number.isFinite(record.value)) return null;
+    return now - record.fetchedAt < CRYPTO_RSI_TTL_MS ? record.value : null;
+  }
+
+  function fetchCryptoRsiSymbol(entry, serverTime) {
+    var symbol = entry[0];
+    var pair = entry[1];
+    var record = cryptoRsiMemo[symbol];
+    if (record.pending) return record.pending;
+    var request = fetch("https://api.binance.com/api/v3/klines?symbol=" + pair + "&interval=1w&limit=" + CRYPTO_RSI_LIMIT, { cache: "no-store" })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (rows) {
+        var closes = closedCryptoWeeklyCloses(rows, serverTime);
+        var value = closes ? cryptoRsiWilder(closes, 14) : null;
+        if (typeof value !== "number" || !Number.isFinite(value)) throw new Error("RSI semanal inválido");
+        record.value = value;
+        record.fetchedAt = Date.now();
+        record.failedAt = 0;
+        record.failureCount = 0;
+        return value;
+      })
+      .catch(function () {
+        record.failedAt = Date.now();
+        record.failureCount += 1;
+        return null;
+      })
+      .then(function (value) {
+        if (record.pending === request) record.pending = null;
+        return value;
+      });
+    record.pending = request;
+    return request;
+  }
+
+  function ensureCryptoRsi() {
+    var now = Date.now();
+    var needed = CRYPTO.filter(function (entry) {
+      var record = cryptoRsiMemo[entry[0]];
+      var fresh = cryptoRsiFresh(entry[0], now) !== null;
+      var coolingDown = record.failedAt && now - record.failedAt < CRYPTO_RSI_FAILURE_COOLDOWN_MS;
+      return !fresh && !coolingDown;
+    });
+    if (!needed.length) return Promise.resolve();
+    if (cryptoRsiSync.pending) return cryptoRsiSync.pending;
+    if (cryptoRsiSync.failedAt && now - cryptoRsiSync.failedAt < CRYPTO_RSI_FAILURE_COOLDOWN_MS) return Promise.resolve();
+
+    cryptoRsiSync.pending = fetch("https://api.binance.com/api/v3/time", { cache: "no-store" })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (payload) {
+        var serverTime = payload && Number(payload.serverTime);
+        if (!Number.isFinite(serverTime)) throw new Error("Horário da Binance indisponível");
+        cryptoRsiSync.failedAt = 0;
+        return Promise.allSettled(needed.map(function (entry) {
+          return fetchCryptoRsiSymbol(entry, serverTime);
+        }));
+      })
+      .catch(function () {
+        // Falha de /time é global: não marca os oito pares como falhos.
+        cryptoRsiSync.failedAt = Date.now();
+        return null;
+      })
+      .then(function (result) {
+        cryptoRsiSync.pending = null;
+        return result;
+      });
+    return cryptoRsiSync.pending;
   }
 
   function fetchStocks() {
@@ -643,6 +769,19 @@
       return quotes;
     });
     // B3 e STOCKS carregam RSI semanal por memos independentes de 1h.
+    // CRIPTO usa um fluxo paralelo próprio, sem bloquear a primeira pintura.
+    if (tab === "crypto") {
+      var cryptoRsiPromise = ensureCryptoRsi();
+      quotesPromise.then(function (quotes) {
+        if (gen !== uiStateGen) return cryptoRsiPromise;
+        broadcastQuotes(quotes);
+        render(quotes);
+        return cryptoRsiPromise.then(function () {
+          if (gen === uiStateGen) render(quotes);
+        });
+      }).catch(function () { if (gen === uiStateGen) render([]); });
+      return;
+    }
     var rsiAssets = tab === "b3" ? assets : STOCKS;
     var rsiMemoKey = tab === "b3" ? "b3" : "stocks";
     var rsiPromise = (tab === "b3" || tab === "stocks")
@@ -865,7 +1004,7 @@
     // grid a cada 5s e apagaria a legenda se ela fosse filha) e só aparece
     // nas abas B3 e STOCKS.
     var legend = document.getElementById("tq-rsi-legend");
-    if (legend) legend.hidden = activeTab !== "b3" && activeTab !== "stocks";
+    if (legend) legend.hidden = activeTab !== "crypto" && activeTab !== "b3" && activeTab !== "stocks";
   }
 
   function setActiveWindow(win) {
