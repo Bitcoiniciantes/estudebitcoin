@@ -121,7 +121,7 @@
     stocks: { at: 0, bySymbol: null, pending: null, signature: "stocks" },
   };
   var RSI_TTL_MS = 60 * 60 * 1000;
-  var RSI_LOW_PULSE_THRESHOLD = 25;
+  var RSI_LOW_PULSE_THRESHOLDS = { b3: 25, stocks: 31 };
   var RSI_LOW_PULSE_LIMIT = 20;
   var rsiPulseCounts = {};
   var displayToPair = {};
@@ -377,9 +377,11 @@
     var activeRsiMap = activeTab === "b3" ? (rsiMemo.b3.bySymbol || {}) : (activeTab === "stocks" ? (rsiMemo.stocks.bySymbol || {}) : {});
     var activeRsi = activeRsiMap[quoteSymbol];
     var badge = (activeTab === "b3" || activeTab === "stocks") ? rsiBadge(activeRsi) : '';
+    var pulseKey = activeTab + "|" + quoteSymbol;
+    var pulseThreshold = RSI_LOW_PULSE_THRESHOLDS[activeTab];
     var lowRsiPulse = (activeTab === "b3" || activeTab === "stocks") && typeof activeRsi === "number" &&
-      Number.isFinite(activeRsi) && activeRsi < RSI_LOW_PULSE_THRESHOLD &&
-      (rsiPulseCounts[quoteSymbol] || 0) < RSI_LOW_PULSE_LIMIT;
+      Number.isFinite(activeRsi) && activeRsi < pulseThreshold &&
+      (rsiPulseCounts[pulseKey] || 0) < RSI_LOW_PULSE_LIMIT;
     return '<div class="tq ' + changeClass(change) + (badge ? ' has-rsi' : '') + (lowRsiPulse ? ' rsi-low-pulse' : '') + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
       '<b class="tqSym' + smallLabel + '">' + esc(label) + "</b>" +
       bell +
@@ -787,15 +789,16 @@
     var cardEl = event.target.closest ? event.target.closest(".tq") : null;
     var symbol = cardEl && cardEl.getAttribute("data-tq");
     if (!symbol) return;
-    rsiPulseCounts[symbol] = (rsiPulseCounts[symbol] || 0) + 1;
-    if (rsiPulseCounts[symbol] >= RSI_LOW_PULSE_LIMIT) cardEl.classList.remove("rsi-low-pulse");
+    var pulseKey = activeTab + "|" + symbol;
+    rsiPulseCounts[pulseKey] = (rsiPulseCounts[pulseKey] || 0) + 1;
+    if (rsiPulseCounts[pulseKey] >= RSI_LOW_PULSE_LIMIT) cardEl.classList.remove("rsi-low-pulse");
   });
   grid.addEventListener("animationend", function (event) {
     if (event.animationName !== "tq-rsi-low-pulse") return;
     var cardEl = event.target.closest ? event.target.closest(".tq") : null;
     var symbol = cardEl && cardEl.getAttribute("data-tq");
     if (!symbol) return;
-    rsiPulseCounts[symbol] = RSI_LOW_PULSE_LIMIT;
+    rsiPulseCounts[activeTab + "|" + symbol] = RSI_LOW_PULSE_LIMIT;
     cardEl.classList.remove("rsi-low-pulse");
   });
   grid.addEventListener("click", function (event) {
