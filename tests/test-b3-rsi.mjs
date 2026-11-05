@@ -991,6 +991,8 @@ describe('aba B3 no ticker', () => {
     assert.ok(TICKER_SRC.includes('RSI_LOW_PULSE_LIMIT = 20'));
     assert.ok(TICKER_SRC.includes('b3: 25, stocks: 31'));
     assert.ok(HTML_SRC.includes('tq-rsi-low-pulse 1.4s ease-in-out 20'));
+    assert.ok(HTML_SRC.includes('rgba(249,115,22,.5)'), 'pulso RSI usa laranja');
+    assert.equal(HTML_SRC.includes('rgba(34,197,94,.5)'), false, 'pulso RSI não usa verde');
     assert.ok(TICKER_SRC.includes('animationiteration'));
     assert.ok(TICKER_SRC.includes('animationend'));
   });
