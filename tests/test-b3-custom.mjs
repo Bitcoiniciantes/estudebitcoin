@@ -4,6 +4,7 @@ import fs from 'node:fs';
 
 const ticker = fs.readFileSync(new URL('../assets/js/ticker-widget.js', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const worker = fs.readFileSync(new URL('../cloudflare/bitcoiniciantes-ia/src/index.js', import.meta.url), 'utf8');
 
 test('B3 permite um extra temporário e exige login para o próximo', () => {
   assert.match(ticker, /var B3_FIXED_ASSETS = B3_ASSETS\.slice\(\);/);
@@ -21,7 +22,25 @@ test('B3 permite um extra temporário e exige login para o próximo', () => {
 test('regex B3 aceita ações, units, ETFs, FIIs e B3SA3', () => {
   const re = /^[A-Z][A-Z0-9]{3}[0-9]{1,2}$/;
   for (const value of ['B3SA3', 'PETR4', 'BPAC11', 'BOVA11', 'HGLG11']) assert.match(value, re);
+  assert.doesNotMatch('XYZ', re);
   assert.match(ticker, /var B3_TICKER_RE = \/\^\[A-Z\]\[A-Z0-9\]\{3\}\[0-9\]\{1,2\}\$\//);
+  assert.match(ticker, /if \(raw === "\^BVSP"\) return raw;/);
+});
+
+test('Ibov é fixo, primeiro, não é salvo como extra e BPAC11 não volta ao padrão', () => {
+  const fixed = ticker.match(/var B3 = \[([\s\S]*?)\n  \];/);
+  assert.ok(fixed);
+  assert.match(fixed[1], /\n    \{ sym: "\^BVSP", label: "IBOV"/);
+  assert.doesNotMatch(fixed[1], /BPAC11/);
+  assert.match(ticker, /function isFixedB3\(symbol\) \{ return B3_FIXED_ASSETS\.indexOf\(symbol\) !== -1; \}/);
+  assert.match(ticker, /if \(!symbol \|\| isFixedB3\(symbol\)/);
+  assert.match(ticker, /var isIbov = quote\.symbol === "\^BVSP"/);
+  assert.match(ticker, /toLocaleString\("pt-BR", \{ maximumFractionDigits: 0 \}\)/);
+});
+
+test('Worker permite apenas índices Yahoo conhecidos, incluindo ^BVSP', () => {
+  assert.match(worker, /new Set\(\["\^GSPC", "\^NDX", "\^BVSP"\]\)/);
+  assert.match(worker, /!item\.startsWith\("\^"\) \|\| QUOTE_INDEX_SYMBOLS\.has\(item\)/);
 });
 
 test('B3 usa a lista dinâmica em cotações, refresh e RSI', () => {

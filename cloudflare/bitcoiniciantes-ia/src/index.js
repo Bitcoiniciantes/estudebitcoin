@@ -533,6 +533,7 @@ const QUOTE_CACHE_TTL_3Y_MS = 60 * 1000;
 // 1wk existe só para o RSI semanal (indicador de 14 semanas): a série é longa
 // (5y = ~262 velas) e o valor muda devagar. 1h evita rebaixar tudo a cada minuto.
 const QUOTE_CACHE_TTL_1WK_MS = 60 * 60 * 1000;
+const QUOTE_INDEX_SYMBOLS = new Set(["^GSPC", "^NDX", "^BVSP"]);
 const QUOTE_WINDOWS = {
   "1h": {
     range: "1d",
@@ -756,7 +757,7 @@ async function assetQuotes(request) {
   const rawAssets = (url.searchParams.get("assets") || "")
     .split(",")
     .map((item) => item.trim().toUpperCase().replace(/[^A-Z0-9^.\-=]/g, ""))
-    .filter((item) => item && item.length <= 12)
+    .filter((item) => item && item.length <= 12 && (!item.startsWith("^") || QUOTE_INDEX_SYMBOLS.has(item)))
     .slice(0, 26);
   const windowKey = QUOTE_WINDOWS[url.searchParams.get("window")] ? url.searchParams.get("window") : "24h";
   if (!rawAssets.length) return json(request, { error: "Informe assets.", window: windowKey }, 400);

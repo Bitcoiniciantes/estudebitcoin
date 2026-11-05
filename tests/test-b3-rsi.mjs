@@ -9,7 +9,7 @@ const TICKER_SRC = fs.readFileSync(new URL('../assets/js/ticker-widget.js', impo
 const WORKER_SRC = fs.readFileSync(new URL('../cloudflare/bitcoiniciantes-ia/src/index.js', import.meta.url), 'utf8');
 const HTML_SRC = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
-const B3_SYMBOLS = ['VALE3.SA', 'PETR4.SA', 'ITUB4.SA', 'BBDC4.SA', 'BPAC11.SA', 'BBAS3.SA', 'WEGE3.SA', 'USIM5.SA'];
+const B3_SYMBOLS = ['^BVSP', 'VALE3.SA', 'PETR4.SA', 'ITUB4.SA', 'BBDC4.SA', 'BBAS3.SA', 'WEGE3.SA', 'USIM5.SA'];
 const TZ_B3 = 'America/Sao_Paulo';
 const NOW = Date.parse('2026-11-02T20:00:00Z');
 const CRYPTO_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -217,21 +217,21 @@ function mountTicker(options = {}) {
   // Dados do Worker: 8 papéis da B3, 24 STOCKS e RSI semanal por segmento.
   vm.runInContext(`
     globalThis.__B3 = [
+      ["^BVSP", 167563.47, 1.23],
       ["VALE3.SA", 60.00, 1.5],
       ["PETR4.SA", 38.42, 2.0],
       ["ITUB4.SA", 35.10, 3.2],
       ["BBDC4.SA", 15.20, -1.4],
-      ["BPAC11.SA", 42.00, 0.4],
       ["BBAS3.SA", 27.30, -2.2],
       ["WEGE3.SA", 52.00, 5.0],
       ["USIM5.SA", 6.10, 0]
     ];
     globalThis.__RSI = {
+      "^BVSP": 55.2,
       "VALE3.SA": 39.9,
       "PETR4.SA": 40,
       "ITUB4.SA": 45.9,
       "BBDC4.SA": 46,
-      "BPAC11.SA": 70.9,
       "BBAS3.SA": 71,
       "WEGE3.SA": 70,
       "USIM5.SA": null
@@ -257,7 +257,7 @@ function mountTicker(options = {}) {
         var list = assets.split(",");
         if (__payloadMode === "lowStocks" && list.indexOf("VALE3.SA") !== -1) {
           var lowB3 = __b3Quotes(true);
-          lowB3[0].rsi = 24.5;
+          lowB3.find(function (quote) { return quote.symbol === "VALE3.SA"; }).rsi = 24.5;
           return { window: "1wk", quotes: lowB3 };
         }
         if (list.indexOf("VALE3.SA") !== -1) return { window: "1wk", quotes: __b3Quotes(true) };
@@ -270,6 +270,9 @@ function mountTicker(options = {}) {
         ] };
       }
       var list = assets.split(",");
+      if (__payloadMode === "missingIbov" && list.indexOf("VALE3.SA") !== -1) {
+        return { window: win, quotes: __b3Quotes(false).filter(function (quote) { return quote.symbol !== "^BVSP"; }) };
+      }
       if (list.indexOf("VALE3.SA") !== -1) return { window: win, quotes: __b3Quotes(false) };
       return {
         window: win,
@@ -413,11 +416,11 @@ describe('RSI semanal no Worker', () => {
 });
 
 describe('aba B3 no ticker', () => {
-  it('11. lista fixa dos 8 papéis, todos com sufixo .SA', () => {
+  it('11. lista fixa dos 8 ativos começa no Ibov e mantém ações .SA', () => {
     assert.ok(TICKER_SRC.includes('var B3 = ['));
-    for (const symbol of B3_SYMBOLS) {
-      assert.ok(TICKER_SRC.includes('"' + symbol + '"'), 'lista contém ' + symbol);
-    }
+    for (const symbol of B3_SYMBOLS) assert.ok(TICKER_SRC.includes('"' + symbol + '"'), 'lista contém ' + symbol);
+    assert.ok(TICKER_SRC.indexOf('{ sym: "^BVSP"') < TICKER_SRC.indexOf('{ sym: "VALE3.SA"'), 'Ibov é o primeiro fixo');
+    assert.equal(TICKER_SRC.includes('BPAC11.SA'), false, 'BPAC11 não é fixo');
     const declared = TICKER_SRC.match(/var B3 = \[([\s\S]*?)\n  \];/);
     assert.ok(declared, 'bloco B3 declarado');
     assert.equal((declared[1].match(/sym: "/g) || []).length, 8, 'exatamente 8 papéis');
@@ -431,7 +434,8 @@ describe('aba B3 no ticker', () => {
     const calls = b3Requests(requests);
     assert.equal(calls.length, 1, 'uma chamada para a aba B3');
     assert.equal(calls[0].assets.split(',').length, 8);
-    assert.ok(calls[0].assets.split(',').every((s) => s.endsWith('.SA')));
+    assert.equal(calls[0].assets.split(',')[0], '^BVSP');
+    assert.ok(calls[0].assets.split(',').slice(1).every((s) => s.endsWith('.SA')));
   });
 
   it('13. B3 não usa a lista de STOCKS nem depende do teto de 26', async () => {
@@ -457,6 +461,9 @@ describe('aba B3 no ticker', () => {
     assert.equal(grid.innerHTML.includes('VALE3.SA</b>'), false, 'rótulo sem o sufixo .SA');
     assert.equal(grid.innerHTML.includes('NOME SUJO DA FONTE'), false, 'nome fixo do front, não o da fonte');
     assert.ok(grid.innerHTML.includes('R$ 38,42'), 'preço em reais');
+    assert.ok(grid.innerHTML.indexOf('data-tq="^BVSP"') < grid.innerHTML.indexOf('data-tq="VALE3.SA"'), 'Ibov é o primeiro card');
+    assert.ok(grid.innerHTML.includes('<b class="tqSym">IBOV</b>'), 'rótulo IBOV');
+    assert.ok(grid.innerHTML.includes('+1,23%</span><strong class="tqPrice">167.563</strong>'), 'Ibov sem R$ nem pts');
   });
 
   it('15. cards da B3 não têm sino nem botão Graham e mantêm selo acessível', async () => {
@@ -502,7 +509,7 @@ describe('aba B3 no ticker', () => {
       ['PETR4.SA', 'amarelo', 40],
       ['ITUB4.SA', 'amarelo', 45],
       ['BBDC4.SA', 'neutro', 46],
-      ['BPAC11.SA', 'neutro', 70],
+      ['^BVSP', 'neutro', 55],
       ['BBAS3.SA', 'vermelho', 71],
       ['WEGE3.SA', 'neutro', 70],
     ];
@@ -522,6 +529,16 @@ describe('aba B3 no ticker', () => {
     assert.equal(segment.includes('tq-rsi'), false, 'USIM5 sem selo');
     assert.equal(segment.includes('has-rsi'), false, 'USIM5 sem a classe has-rsi');
     assert.equal(grid.innerHTML.includes('>undefined<'), false);
+  });
+
+  it('18a. falha isolada do Ibov mostra -- e preserva os demais cards', async () => {
+    const { grid, sandbox, clickTab } = mountTicker();
+    sandbox.__payloadMode = 'missingIbov';
+    await settle();
+    clickTab('b3');
+    await settle();
+    assert.ok(cardSegment(grid.innerHTML, '^BVSP').includes('<strong class="tqPrice">--</strong>'));
+    assert.ok(cardSegment(grid.innerHTML, 'VALE3.SA').includes('R$ 60,00'));
   });
 
   it('19. selo tem role=img e aria-label com o inteiro e a faixa', async () => {

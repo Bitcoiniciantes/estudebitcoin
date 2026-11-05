@@ -60,11 +60,11 @@
   // Nomes são fixos no front porque o meta.shortName da B3 vem sujo
   // ("ITAUUNIBANCOPN      N1").
   var B3 = [
+    { sym: "^BVSP", label: "IBOV", name: "Ibovespa" },
     { sym: "VALE3.SA", label: "VALE3", name: "Vale ON" },
     { sym: "PETR4.SA", label: "PETR4", name: "Petrobras PN" },
     { sym: "ITUB4.SA", label: "ITUB4", name: "Itaú Unibanco PN" },
     { sym: "BBDC4.SA", label: "BBDC4", name: "Bradesco PN" },
-    { sym: "BPAC11.SA", label: "BPAC11", name: "BTG Pactual Unit" },
     { sym: "BBAS3.SA", label: "BBAS3", name: "Banco do Brasil ON" },
     { sym: "WEGE3.SA", label: "WEGE3", name: "WEG ON" },
     { sym: "USIM5.SA", label: "USIM5", name: "Usiminas PNA" },
@@ -177,6 +177,7 @@
 
   function canonicalB3Symbol(value) {
     var raw = String(value || "").trim().toUpperCase();
+    if (raw === "^BVSP") return raw;
     if (raw.slice(-3) === ".SA") raw = raw.slice(0, -3);
     return B3_TICKER_RE.test(raw) ? raw + ".SA" : "";
   }
@@ -308,7 +309,7 @@
     }
     var raw = input ? input.value : "";
     var symbol = canonicalB3Symbol(raw);
-    if (!symbol) return showB3Message("Informe um ticker B3 válido, como PETR4 ou BPAC11.", true);
+    if (!symbol) return showB3Message("Informe um ticker B3 válido, como PETR4 ou ^BVSP.", true);
     if (isFixedB3(symbol) || b3AdditionalAssets.indexOf(symbol) !== -1 || b3ValidationPending[symbol]) return showB3Message("Esse ativo já está na lista.", true);
     if (b3AdditionalAssets.length + Object.keys(b3ValidationPending).length >= 8) return showB3Message("Limite de 16 ativos atingido.", true);
     var generation = b3SessionGeneration;
@@ -372,6 +373,10 @@
     var currency = quote.currency || symbolCurrency[quote.symbol] || "USD";
     var small = quote.symbol === "BTC" || quote.symbol === "ETH" || quote.symbol === "PAXG" ? " tq-sm" : "";
     var smallLabel = quote.symbol === "^NDX" ? " tq-label-sm" : "";
+    var isIbov = quote.symbol === "^BVSP";
+    var priceText = isIbov
+      ? (typeof price === "number" && Number.isFinite(price) ? price.toLocaleString("pt-BR", { maximumFractionDigits: 0 }) : "--")
+      : fmtPrice(price, currency, !isCrypto(quote.symbol) && currency !== "BRL");
     var fallbackLabel = activeTab === "b3" ? quote.symbol.replace(/\.SA$/, "") : quote.symbol;
     var label = (B3_META[quote.symbol] && B3_META[quote.symbol].label) || STOCK_LABELS[quote.symbol] || fallbackLabel;
     var bell = isCrypto(quote.symbol)
@@ -399,7 +404,7 @@
       grahamBtn +
       badge +
       '<span class="tqPct"' + pctTitle + '>' + pct + "</span>" +
-      '<strong class="tqPrice' + small + '">' + fmtPrice(price, currency, !isCrypto(quote.symbol) && currency !== "BRL") + "</strong>" +
+      '<strong class="tqPrice' + small + '">' + priceText + "</strong>" +
       "</div>";
   }
 
@@ -625,7 +630,16 @@
       .then(function (payload) {
         if (!payload || !Array.isArray(payload.quotes)) return [];
         if (payload.window !== activeWindow) return [];
-        return payload.quotes.map(function (quote) {
+        var quotesBySymbol = {};
+        payload.quotes.forEach(function (quote) {
+          if (quote && quote.symbol) quotesBySymbol[String(quote.symbol).toUpperCase()] = quote;
+        });
+        return assets.map(function (assetSymbol) {
+          var quote = quotesBySymbol[String(assetSymbol).toUpperCase()];
+          if (!quote) {
+            if (assetSymbol !== "^BVSP") return null;
+            quote = { symbol: "^BVSP", currency: "", price: null, changePct: null, name: "Ibovespa", volume: null, closes: [] };
+          }
           var meta = B3_META[quote.symbol] || {};
           var name = meta.name || quote.name || quote.symbol;
           quoteData[quote.symbol] = {
@@ -645,7 +659,7 @@
           };
           if (quote.shortHistory !== true) delete cardQuote.shortHistory;
           return cardQuote;
-        });
+        }).filter(function (quote) { return !!quote; });
       })
       .catch(function () { return []; });
   }
