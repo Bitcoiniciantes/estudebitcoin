@@ -1165,8 +1165,16 @@ function buildCandles(raw, groupSize) {
   const opens = quote.open, highs = quote.high, lows = quote.low, closes = quote.close, volumes = quote.volume;
   const points = [];
   for (let i = 0; i < timestamps.length; i += 1) {
-    const open = opens[i], high = highs[i], low = lows[i], close = closes[i];
+    let open = opens[i], high = highs[i], low = lows[i], close = closes[i];
     if (![open, high, low, close].every(Number.isFinite)) continue;
+    if (open === 0 && high === 0 && low === 0 && close > 0) {
+      // Yahoo sometimes emits the current daily/weekly/monthly bar with only
+      // the close populated. Keep it as a coherent flat candle instead of
+      // allowing zero to stretch the chart scale.
+      open = high = low = close;
+    }
+    if (open <= 0 || high <= 0 || low <= 0 || close <= 0) continue;
+    if (high < low || high < Math.max(open, close) || low > Math.min(open, close)) continue;
     points.push({
       time: timestamps[i] * 1000,
       open, high, low, close,

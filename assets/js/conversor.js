@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let resizeTimeout = null;
   let lastTouchMarkerAt = 0;
   let lastPublicMarkerUpdate = 0;
+  const EXTERNAL_SELECT_VALUE = '__EXTERNAL_ASSET__';
 
   // --- Escala Y manual (drag no eixo de preços) ---
   let yScaleManual = null; // { min, max } ou null (auto)
@@ -81,6 +82,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (previewContainer) previewContainer.appendChild(liveBadge);
   const liveDotEl = liveBadge.querySelector('.preev__live-dot');
   const liveTextEl = liveBadge.querySelector('.preev__live-text');
+  const restoreBtcBtn = document.createElement('button');
+  restoreBtcBtn.type = 'button';
+  restoreBtcBtn.className = 'preev__restore-btc';
+  restoreBtcBtn.textContent = 'Voltar para BTC/USD';
+  restoreBtcBtn.hidden = true;
+  restoreBtcBtn.style.cssText = 'align-self:flex-start;margin:2px 0 6px;padding:4px 8px;border:1px solid rgba(0,0,0,.2);border-radius:6px;background:#fff;color:#333;font-size:11px;cursor:pointer;';
+  if (previewContainer) previewContainer.insertBefore(restoreBtcBtn, chartWrap || previewContainer.firstChild);
 
   /**
    * Atualiza o indicador visual de conexão (verde pulsando / vermelho parado)
@@ -95,8 +103,26 @@ document.addEventListener('DOMContentLoaded', () => {
   /**
    * Ativa/desativa o modo "ativo carregado pelo ticker" (cripto ou stock).
    */
-  function setExternalAsset(asset) {
+  function setExternalAsset(asset, options = {}) {
+    const previousIdentity = externalAsset
+      ? `${externalAsset.kind}:${externalAsset.symbol}:${externalAsset.pair || ''}`
+      : `pair:${selectLeft.value}:${selectRight.value}`;
+    const nextIdentity = asset
+      ? `${asset.kind}:${asset.symbol}:${asset.pair || ''}`
+      : options.restoreBtc
+        ? 'pair:BTC:USD'
+        : `pair:${selectLeft.value}:${selectRight.value}`;
     externalAsset = asset || null;
+    syncExternalConverterUi(Boolean(options.restoreBtc));
+    if (previousIdentity !== nextIdentity) {
+      // Nunca deixe candles de um ativo aparecerem sob o título de outro.
+      candlesHistory = [];
+      pricesHistory = [];
+      openPriceReference = 0;
+      chartState = null;
+      const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
+      if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
     yScaleManual = null;
     yScaleDrag = null;
     // Desativar S/R ao trocar para stock (S/R só existe para criptos)
@@ -202,7 +228,11 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function updateChartTitle() {
     if (!titleEl) return;
-    // O título reflete SEMPRE o par do conversor (BTC/BRL/USD), mesmo com ativo externo carregado.
+    if (externalAsset) {
+      const label = externalAsset.label || externalAsset.symbol;
+      titleEl.textContent = `${label} para US Dólar`;
+      return;
+    }
     const fromName = assetNames[selectLeft.value] || selectLeft.value;
     const toName = assetNames[selectRight.value] || selectRight.value;
     titleEl.textContent = `${fromName} para ${toName}`;
@@ -245,6 +275,11 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function updateTitle() {
     if (titleEl) {
+      if (externalAsset) {
+        const label = externalAsset.label || externalAsset.symbol;
+        titleEl.textContent = `${label} para US Dólar`;
+        return;
+      }
       const fromName = assetNames[selectLeft.value] || selectLeft.value;
       const toName = assetNames[selectRight.value] || selectRight.value;
       titleEl.textContent = `${fromName} para ${toName}`;
@@ -268,6 +303,31 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.setAttribute('aria-label', 'Gráfico de tendência de preço no período selecionado');
   }
 
+  function syncExternalConverterUi(restoreBtc = false) {
+    if (!selectLeft || !selectRight) return;
+    const existing = selectLeft.querySelector(`option[value="${EXTERNAL_SELECT_VALUE}"]`);
+    if (externalAsset) {
+      const option = existing || document.createElement('option');
+      option.value = EXTERNAL_SELECT_VALUE;
+      option.textContent = externalAsset.label || externalAsset.symbol;
+      if (!existing) selectLeft.appendChild(option);
+      selectLeft.value = EXTERNAL_SELECT_VALUE;
+      selectRight.value = 'USD';
+      selectLeft.setAttribute('aria-label', `Ativo carregado: ${option.textContent}`);
+      selectRight.setAttribute('aria-label', 'Moeda de cotação');
+      restoreBtcBtn.hidden = false;
+      return;
+    }
+    if (existing) existing.remove();
+    if (restoreBtc) {
+      selectLeft.value = 'BTC';
+      selectRight.value = 'USD';
+    }
+    selectLeft.setAttribute('aria-label', 'Moeda de origem');
+    selectRight.setAttribute('aria-label', 'Moeda de destino');
+    restoreBtcBtn.hidden = true;
+  }
+
   /**
    * Limita as casas decimais dinamicamente conforme o ativo
    */
@@ -288,11 +348,12 @@ document.addEventListener('DOMContentLoaded', () => {
     input.value = valor.replace('.', ',');
   }
 
-  /**
-   * Config do CONVERSOR: par BTC/BRL/USD selecionado. Independente do ativo do gráfico.
-   * Nunca retorna config de ativo externo (ETH, stocks, etc.).
-   */
+  /** Configura o par usado pelo conversor e pelo gráfico ativo. */
   function getConverterConfig() {
+    if (externalAsset) {
+      if (externalAsset.kind === 'stock') return { symbol: externalAsset.symbol, invert: false, external: true, stock: true };
+      return { symbol: externalAsset.pair || `${externalAsset.symbol}USDT`, invert: false, external: true };
+    }
     const from = selectLeft.value;
     const to = selectRight.value;
     if (from === to) return null;
@@ -323,6 +384,24 @@ document.addEventListener('DOMContentLoaded', () => {
   function parseCleanFloat(val) {
     let raw = val.toString().replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
     return parseFloat(raw) || 0;
+  }
+
+  function normalizeCandle(candle) {
+    if (!candle) return null;
+    const time = Number(candle.time);
+    let open = Number(candle.open);
+    let high = Number(candle.high);
+    let low = Number(candle.low);
+    let close = Number(candle.close);
+    if (![time, open, high, low, close].every(Number.isFinite) || time <= 0 || close <= 0) return null;
+    if (open === 0 && high === 0 && low === 0) open = high = low = close;
+    if (open <= 0 || high <= 0 || low <= 0) return null;
+    if (high < low || high < Math.max(open, close) || low > Math.min(open, close)) return null;
+    return { time, open, high, low, close };
+  }
+
+  function validCandleArray(candles) {
+    return (Array.isArray(candles) ? candles : []).map(normalizeCandle).filter(Boolean);
   }
 
   function formatNumber(val, asset) {
@@ -356,8 +435,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchCurrentTicker() {
-    // O conversor usa SEMPRE o par BTC/BRL/USD selecionado, independente do gráfico.
     const config = getConverterConfig();
+
+    if (isExternalStock()) {
+      const last = normalizeCandle(candlesHistory[candlesHistory.length - 1]);
+      if (last) {
+        exchangeRate = last.close;
+        if (document.activeElement !== inputLeft && document.activeElement !== inputRight) calculateConversion('left');
+      }
+      return;
+    }
 
     // Sem par de conversão (selects iguais): apenas atualiza stats do gráfico via candles.
     if (!config) {
@@ -377,9 +464,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${config.symbol}`, { signal: tickerAbortController.signal });
+      if (!res.ok) throw new Error(`Binance ticker HTTP ${res.status}`);
       const data = await res.json();
-      if (data && data.price) {
-        exchangeRate = parseFloat(data.price);
+      const price = Number(data?.price);
+      if (Number.isFinite(price) && price > 0) {
+        exchangeRate = price;
         if (document.activeElement !== inputLeft && document.activeElement !== inputRight) {
           calculateConversion('left');
         }
@@ -408,9 +497,14 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${config.symbol}&interval=${tf.interval}&limit=${tf.limit}`, { signal: historyAbortController.signal });
       const data = await res.json();
-      if (data && data.length > 0) {
-        const normalizedCandles = data.map(kline => normalizeKline(kline, config.invert));
-        candlesHistory = tf.aggregate === 'year' ? aggregateAnnualCandles(normalizedCandles) : normalizedCandles;
+      if (res.ok && Array.isArray(data) && data.length > 0) {
+        const normalizedCandles = data.map(kline => normalizeKline(kline, config.invert)).filter(Boolean);
+        const nextCandles = tf.aggregate === 'year' ? aggregateAnnualCandles(normalizedCandles) : normalizedCandles;
+        if (!nextCandles.length) {
+          console.warn('Klines response rejected: no valid candles', { symbol: config.symbol, timeframe: activeTimeframe });
+          return;
+        }
+        candlesHistory = nextCandles;
         updateChartFromCandles();
         connectKlineStream();
         if (window.DynamicSR && window.DynamicSR.isActive()) {
@@ -418,6 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
           drawActiveChart();
         }
       }
+      else console.warn('Klines response empty or invalid', { symbol: config.symbol, timeframe: activeTimeframe });
     } catch (err) {
       if (err.name === 'AbortError') return;
       console.error("Klines error", err);
@@ -444,13 +539,24 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const res = await fetch(`https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/candles?asset=${encodeURIComponent(asset)}&period=${period}`, { signal: historyAbortController.signal });
       const data = await res.json();
-      if (!data || !Array.isArray(data.candles) || !data.candles.length) return;
-      let candles = data.candles.map(c => ({ time: Number(c.time), open: Number(c.open), high: Number(c.high), low: Number(c.low), close: Number(c.close) }));
+      if (!res.ok || !data || !Array.isArray(data.candles) || !data.candles.length) {
+        console.warn('Stock candles response empty or invalid', { asset, period });
+        return;
+      }
+      let candles = validCandleArray(data.candles);
+      if (!candles.length) {
+        console.warn('Stock candles rejected: no valid candles', { asset, period });
+        return;
+      }
       if (activeTimeframe === '1Y') {
         candles = aggregateAnnualCandles(candles);
       }
       candlesHistory = candles.slice(-130);
       updateChartFromCandles();
+      const last = candlesHistory[candlesHistory.length - 1];
+      exchangeRate = last.close;
+      if (document.activeElement !== inputLeft && document.activeElement !== inputRight) calculateConversion('left');
+      setLiveStatus(true);
     } catch (err) {
       if (err.name === 'AbortError') return;
       console.warn('Stock candles error', err);
@@ -459,13 +565,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function normalizeKline(kline, invert) {
-    const time = Number(kline[0]);
-    const rawOpen = parseFloat(kline[1]);
-    const rawHigh = parseFloat(kline[2]);
-    const rawLow = parseFloat(kline[3]);
-    const rawClose = parseFloat(kline[4]);
-    if (!invert) return { time, open: rawOpen, high: rawHigh, low: rawLow, close: rawClose };
-    return { time, open: 1 / rawOpen, high: 1 / rawLow, low: 1 / rawHigh, close: 1 / rawClose };
+    const base = normalizeCandle({
+      time: Number(kline[0]),
+      open: parseFloat(kline[1]),
+      high: parseFloat(kline[2]),
+      low: parseFloat(kline[3]),
+      close: parseFloat(kline[4])
+    });
+    if (!base) return null;
+    if (!invert) return base;
+    return normalizeCandle({ time: base.time, open: 1 / base.open, high: 1 / base.low, low: 1 / base.high, close: 1 / base.close });
   }
 
   function aggregateAnnualCandles(monthlyCandles) {
@@ -497,7 +606,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function updateChartFromCandles() {
-    if (!candlesHistory.length) return;
+    const validCandles = validCandleArray(candlesHistory);
+    if (!validCandles.length) {
+      console.warn('Chart update skipped: no valid candles');
+      return;
+    }
+    candlesHistory = validCandles;
     pricesHistory = candlesHistory.map(candle => candle.close);
     openPriceReference = candlesHistory[0].open;
     const highs = candlesHistory.map(candle => candle.high);
@@ -563,6 +677,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentConfig = getChartConfig();
         if (!kline || !currentConfig || payload.s !== currentConfig.symbol) return;
         const candle = normalizeKline([kline.t, kline.o, kline.h, kline.l, kline.c], currentConfig.invert);
+        if (!candle) return;
         // A conversão usa o par do CONVERSOR; o stream reflete o ativo do GRÁFICO.
         if (!isExternal() && document.activeElement !== inputLeft && document.activeElement !== inputRight) {
           exchangeRate = parseFloat(kline.c);
@@ -1080,14 +1195,28 @@ document.addEventListener('DOMContentLoaded', () => {
       calculateConversion('right');
   });
   
-  [selectLeft, selectRight].forEach(s => s.addEventListener('change', () => { 
+  [selectLeft, selectRight].forEach(s => s.addEventListener('change', () => {
+    const requestedLeft = selectLeft.value;
+    const requestedRight = selectRight.value;
     hideTooltip();
     yScaleManual = null;
     yScaleDrag = null;
-    setExternalAsset(null); // voltar ao modo normal BTC/fiat ao mexer nos selects
+    if (externalAsset) {
+      setExternalAsset(null, { restoreBtc: true });
+      if (s === selectLeft && requestedLeft !== EXTERNAL_SELECT_VALUE) selectLeft.value = requestedLeft;
+      if (s === selectRight) selectRight.value = requestedRight;
+    } else {
+      setExternalAsset(null); // manter o modo normal BTC/fiat ao mexer nos selects
+    }
     updateTitle(); // Atualiza o título ao mudar o ativo
     updateAll(); 
   }));
+
+  restoreBtcBtn.addEventListener('click', () => {
+    setExternalAsset(null, { restoreBtc: true });
+    updateTitle();
+    updateAll();
+  });
 
   // --- CARREGAR ATIVO CLICADO NO TICKER ---
   window.addEventListener('estudebitcoin:load-asset', (event) => {
