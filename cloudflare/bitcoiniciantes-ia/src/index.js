@@ -1156,6 +1156,16 @@ const CANDLE_PERIODS = {
 };
 const CANDLE_SYMBOL_ALIAS = { PRATA: "SI=F", COBRE: "HG=F", OURO: "GC=F", URANIO: "URNM" };
 
+function isValidCandle(candle) {
+  if (!candle) return false;
+  const open = Number(candle.open), high = Number(candle.high), low = Number(candle.low), close = Number(candle.close);
+  return [open, high, low, close].every(Number.isFinite)
+    && open > 0 && high > 0 && low > 0 && close > 0
+    && high >= low
+    && high >= Math.max(open, close)
+    && low <= Math.min(open, close);
+}
+
 function buildCandles(raw, groupSize) {
   const result = raw && Array.isArray(raw.chart?.result) ? raw.chart.result[0] : null;
   if (!result) return null;
@@ -1173,8 +1183,8 @@ function buildCandles(raw, groupSize) {
       // allowing zero to stretch the chart scale.
       open = high = low = close;
     }
-    if (open <= 0 || high <= 0 || low <= 0 || close <= 0) continue;
-    if (high < low || high < Math.max(open, close) || low > Math.min(open, close)) continue;
+    const candle = { open, high, low, close };
+    if (!isValidCandle(candle)) continue;
     points.push({
       time: timestamps[i] * 1000,
       open, high, low, close,
@@ -1234,7 +1244,9 @@ async function assetCandles(request, asset, period) {
   const cfg = CANDLE_PERIODS[periodKey];
   const cacheKey = `${symbol}|${periodKey}`;
   const cached = await cachedCandlesBody(cacheKey);
-  if (cached) return json(request, cached);
+  if (cached && Array.isArray(cached.candles) && cached.candles.length && cached.candles.every(isValidCandle)) {
+    return json(request, cached);
+  }
   let candles = null;
   try {
     const response = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${cfg.interval}&range=${cfg.range}`);
