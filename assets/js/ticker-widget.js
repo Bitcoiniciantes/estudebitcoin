@@ -132,6 +132,8 @@
   });
   var RSI_LOW_PULSE_THRESHOLDS = { b3: 25, stocks: 31 };
   var RSI_LOW_PULSE_LIMIT = 20;
+  var RSI_COMPRA_LIMITE = 40;
+  var RSI_VENDA_LIMITE = 70;
   var rsiPulseCounts = {};
   var displayToPair = {};
   CRYPTO.forEach(function (entry) {
@@ -337,17 +339,14 @@
   }
 
   // Faixas do RSI semanal. A classificação usa o INTEIRO EXIBIDO (Math.floor),
-  // não o valor bruto: senão 45,9 apareceria como "45" (amarelo na legenda) e
-  // seria classificado como neutro (>45). Número e cor sempre coincidem.
+  // não o valor bruto. Número e cor sempre coincidem.
   function rsiBand(shown) {
-    if (shown < 40) return "verde";
-    if (shown <= 45) return "amarelo";
-    if (shown <= 70) return "neutro";
-    return "vermelho";
+    if (shown < RSI_COMPRA_LIMITE) return "compra";
+    if (shown <= RSI_VENDA_LIMITE) return "neutro";
+    return "venda";
   }
   function rsiBandLabel(band) {
-    if (band === "verde") return "Compra";
-    if (band === "amarelo") return "Atenção";
+    if (band === "compra") return "Compra";
     if (band === "neutro") return "Neutro";
     return "Venda";
   }

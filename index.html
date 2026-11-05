@@ -775,10 +775,10 @@
     font:800 10px/1 ui-monospace,SFMono-Regular,Consolas,monospace;
     letter-spacing:-.5px; }
   .tq.has-rsi .tqSym { padding-right:16px; }
-  .tq-rsi-verde { border-color:#22c55e; }
-  .tq-rsi-amarelo { border-color:#eab308; }
-  .tq-rsi-neutro { border-color:#9ca3af; }
-  .tq-rsi-vermelho { border-color:#ef4444; }
+  :root { --rsi-compra-color:#FFD400; --rsi-neutro-color:#9ca3af; --rsi-venda-color:#1E6BFF; }
+  .tq-rsi-compra { border-color:var(--rsi-compra-color); }
+  .tq-rsi-neutro { border-color:var(--rsi-neutro-color); }
+  .tq-rsi-venda { border-color:var(--rsi-venda-color); }
   .tq-rsi-legend { display:flex; flex-wrap:wrap; justify-content:center; align-items:center;
     gap:6px 16px; margin-top:10px; color:#8fa396; font-size:.72rem; font-weight:700; }
   .tq-rsi-legend[hidden] { display:none; }
@@ -809,13 +809,12 @@
    }
   .tq-rsi-dot { display:inline-block; width:14px; height:14px; box-sizing:border-box;
     border-radius:50%; border:3px solid #9ca3af; background:#fff; }
-  .tq-rsi-dot.tq-rsi-verde { border-color:#22c55e; }
-  .tq-rsi-dot.tq-rsi-amarelo { border-color:#eab308; }
-  .tq-rsi-dot.tq-rsi-neutro { border-color:#9ca3af; }
-  .tq-rsi-dot.tq-rsi-vermelho { border-color:#ef4444; }
+  .tq-rsi-dot.tq-rsi-compra { border-color:var(--rsi-compra-color); }
+  .tq-rsi-dot.tq-rsi-neutro { border-color:var(--rsi-neutro-color); }
+  .tq-rsi-dot.tq-rsi-venda { border-color:var(--rsi-venda-color); }
   @keyframes tq-rsi-low-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(249,115,22,.0); }
-    50% { box-shadow: 0 0 0 5px rgba(249,115,22,.5); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,0,0,0); }
+    50% { box-shadow: 0 0 0 5px rgba(255,0,0,.5); }
   }
   .tq.rsi-low-pulse { animation: tq-rsi-low-pulse 1.4s ease-in-out 20; }
   @media (prefers-reduced-motion: reduce) { .tq.rsi-low-pulse { animation: none; } }
@@ -1094,10 +1093,9 @@
     <span id="b3-add-status" class="b3-add-status" role="status" aria-live="polite"></span>
   </div>
   <div class="tq-rsi-legend" id="tq-rsi-legend" hidden>
-    <span><i class="tq-rsi-dot tq-rsi-verde"></i>&lt;40 Compra</span>
-    <span><i class="tq-rsi-dot tq-rsi-amarelo"></i>40–45 Atenção</span>
-    <span><i class="tq-rsi-dot tq-rsi-neutro"></i>&gt;45–70 Neutro</span>
-    <span><i class="tq-rsi-dot tq-rsi-vermelho"></i>&gt;70 Venda</span>
+    <span><i class="tq-rsi-dot tq-rsi-compra"></i>&lt;40 Compra</span>
+    <span><i class="tq-rsi-dot tq-rsi-neutro"></i>Neutro</span>
+    <span><i class="tq-rsi-dot tq-rsi-venda"></i>&gt;70 Venda</span>
   </div>
   <p class="ticker-foot">Cotações Binance (cripto) &amp; Yahoo Finance (ações/índices) a cada 5s. RSI semanal.</p>
 </section>

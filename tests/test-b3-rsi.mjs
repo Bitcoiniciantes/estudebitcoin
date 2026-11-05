@@ -227,10 +227,10 @@ function mountTicker(options = {}) {
       ["USIM5.SA", 6.10, 0]
     ];
     globalThis.__RSI = {
-      "^BVSP": 55.2,
+      "^BVSP": 50,
       "VALE3.SA": 39.9,
       "PETR4.SA": 40,
-      "ITUB4.SA": 45.9,
+      "ITUB4.SA": 44,
       "BBDC4.SA": 46,
       "BBAS3.SA": 71,
       "WEGE3.SA": 70,
@@ -454,7 +454,7 @@ describe('aba B3 no ticker', () => {
     clickTab('b3');
     await settle();
     const expected = '<div class="tq up1 has-rsi" data-tq="VALE3.SA"><b class="tqSym">VALE3</b>' +
-      '<span class="tq-rsi tq-rsi-verde" role="img" title="RSI 14 semanal: 39 — Compra"' +
+      '<span class="tq-rsi tq-rsi-compra" role="img" title="RSI 14 semanal: 39 — Compra"' +
       ' aria-label="RSI 39 — Compra">39</span>' +
       '<span class="tqPct">+1,50%</span><strong class="tqPrice">R$ 60,00</strong></div>';
     assert.ok(grid.innerHTML.includes(expected), 'card VALE3 idêntico ao esperado');
@@ -499,18 +499,18 @@ describe('aba B3 no ticker', () => {
     assert.equal(cardSegment(grid.innerHTML, '^GSPC').includes('tq-rsi'), false, 'sem selo quando RSI ausente');
   });
 
-  it('17. selo usa o inteiro exibido para classificar a faixa', async () => {
+  it('17. selo usa o inteiro exibido para classificar as três faixas', async () => {
     const { grid, clickTab } = mountTicker();
     await settle();
     clickTab('b3');
     await settle();
     const cases = [
-      ['VALE3.SA', 'verde', 39],
-      ['PETR4.SA', 'amarelo', 40],
-      ['ITUB4.SA', 'amarelo', 45],
+      ['VALE3.SA', 'compra', 39],
+      ['PETR4.SA', 'neutro', 40],
+      ['^BVSP', 'neutro', 50],
+      ['ITUB4.SA', 'neutro', 44],
       ['BBDC4.SA', 'neutro', 46],
-      ['^BVSP', 'neutro', 55],
-      ['BBAS3.SA', 'vermelho', 71],
+      ['BBAS3.SA', 'venda', 71],
       ['WEGE3.SA', 'neutro', 70],
     ];
     for (const [symbol, band, shown] of cases) {
@@ -581,11 +581,14 @@ describe('aba B3 no ticker', () => {
     assert.ok(opens > 0 && opens === closes, 'todas as divs do grid fecham antes da legenda');
   });
 
-  it('21a. legenda usa os quatro rótulos novos e nenhum termo antigo', () => {
-    assert.ok(HTML_SRC.includes('&lt;40 Compra'));
-    assert.ok(HTML_SRC.includes('40–45 Atenção'));
-    assert.ok(HTML_SRC.includes('&gt;45–70 Neutro'));
-    assert.ok(HTML_SRC.includes('&gt;70 Venda'));
+  it('21a. legenda usa três rótulos e remove a faixa amarela', () => {
+    const legend = HTML_SRC.slice(HTML_SRC.indexOf('<div class="tq-rsi-legend"'), HTML_SRC.indexOf('</div>', HTML_SRC.indexOf('<div class="tq-rsi-legend"')) + 6);
+    assert.ok(legend.includes('&lt;40 Compra'));
+    assert.ok(legend.includes('>Neutro</span>'));
+    assert.ok(legend.includes('&gt;70 Venda'));
+    assert.equal(legend.includes('Atenção'), false);
+    assert.equal(HTML_SRC.includes('tq-rsi-amarelo'), false);
+    assert.equal(TICKER_SRC.includes('return "amarelo"'), false);
     assert.equal(HTML_SRC.includes('sobrevendido'), false);
     assert.equal(HTML_SRC.includes('sobrecomprado'), false);
   });
@@ -600,7 +603,7 @@ describe('aba B3 no ticker', () => {
       await page.goto(new URL('../index.html', import.meta.url).href, { waitUntil: 'domcontentloaded' });
       const style = await page.evaluate(() => {
         const badge = document.createElement('span');
-        badge.className = 'tq-rsi tq-rsi-verde';
+        badge.className = 'tq-rsi tq-rsi-compra';
         badge.textContent = '39';
         document.body.appendChild(badge);
         const card = document.createElement('div');
@@ -610,7 +613,7 @@ describe('aba B3 no ticker', () => {
         card.appendChild(symbol);
         document.body.appendChild(card);
         const dot = document.createElement('i');
-        dot.className = 'tq-rsi-dot tq-rsi-verde';
+        dot.className = 'tq-rsi-dot tq-rsi-compra';
         document.body.appendChild(dot);
         const computed = getComputedStyle(badge);
         const symbolComputed = getComputedStyle(symbol);
@@ -709,14 +712,14 @@ describe('aba B3 no ticker', () => {
     await settle();
     clickTab('b3');
     await settle();
-    assert.ok(grid.innerHTML.includes('tq-rsi-verde'));
+    assert.ok(grid.innerHTML.includes('tq-rsi-compra'));
 
     sandbox.__payloadMode = 'wrongWindow';
     sandbox.__now += 61 * 60 * 1000;
     tick5s();
     await settle();
     assert.ok(rsiRequests(requests).length >= 2, 'tentou rebuscar');
-    assert.ok(grid.innerHTML.includes('tq-rsi-verde'), 'selo anterior preservado');
+    assert.ok(grid.innerHTML.includes('tq-rsi-compra'), 'selo anterior preservado');
   });
 
   it('26. B3 não emite estudebitcoin:ticker-price', async () => {
@@ -753,7 +756,7 @@ describe('aba B3 no ticker', () => {
     assert.ok(grid.innerHTML.includes('tq-rsi'), 'STOCKS com seu próprio RSI');
     assert.ok(grid.innerHTML.includes('data-tq="NVDA"'), 'cards de STOCKS renderizados');
     assert.ok(cardSegment(grid.innerHTML, 'NVDA').includes('tq-rsi-neutro'), 'RSI próprio de STOCKS');
-    assert.equal(cardSegment(grid.innerHTML, 'NVDA').includes('tq-rsi-verde'), false, 'não usa RSI da B3');
+    assert.equal(cardSegment(grid.innerHTML, 'NVDA').includes('tq-rsi-compra'), false, 'não usa RSI da B3');
   });
 
   it('29. janela ativa é preservada ao entrar na B3', async () => {
@@ -991,10 +994,26 @@ describe('aba B3 no ticker', () => {
     assert.ok(TICKER_SRC.includes('RSI_LOW_PULSE_LIMIT = 20'));
     assert.ok(TICKER_SRC.includes('b3: 25, stocks: 31'));
     assert.ok(HTML_SRC.includes('tq-rsi-low-pulse 1.4s ease-in-out 20'));
-    assert.ok(HTML_SRC.includes('rgba(249,115,22,.5)'), 'pulso RSI usa laranja');
-    assert.equal(HTML_SRC.includes('rgba(34,197,94,.5)'), false, 'pulso RSI não usa verde');
+    assert.ok(HTML_SRC.includes('rgba(255,0,0,.5)'), 'pulso RSI usa vermelho FF0000');
+    assert.equal(HTML_SRC.includes('rgba(239,68,68,.5)'), false, 'pulso RSI não usa vermelho antigo');
     assert.ok(TICKER_SRC.includes('animationiteration'));
     assert.ok(TICKER_SRC.includes('animationend'));
+  });
+
+  it('51a. limites do RSI são centralizados em 40 e 70', () => {
+    assert.match(TICKER_SRC, /var RSI_COMPRA_LIMITE = 40;/);
+    assert.match(TICKER_SRC, /var RSI_VENDA_LIMITE = 70;/);
+    assert.equal(TICKER_SRC.includes('<= 45'), false);
+  });
+
+  it('51b. cores do RSI são amarelo, cinza e azul elétrico', () => {
+    assert.ok(HTML_SRC.includes('--rsi-compra-color:#FFD400'));
+    assert.ok(HTML_SRC.includes('--rsi-neutro-color:#9ca3af'));
+    assert.ok(HTML_SRC.includes('--rsi-venda-color:#1E6BFF'));
+    assert.equal(HTML_SRC.includes('.tq-rsi-verde'), false);
+    assert.equal(HTML_SRC.includes('.tq-rsi-vermelho'), false);
+    assert.equal(HTML_SRC.includes('.tq-rsi-dot.tq-rsi-verde'), false);
+    assert.equal(HTML_SRC.includes('.tq-rsi-dot.tq-rsi-vermelho'), false);
   });
 
   it('52. CRIPTO usa o mapeamento explícito dos oito pares Binance', () => {
