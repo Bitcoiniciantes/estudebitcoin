@@ -585,7 +585,7 @@ describe('aba B3 no ticker', () => {
     const legend = HTML_SRC.slice(HTML_SRC.indexOf('<div class="tq-rsi-legend"'), HTML_SRC.indexOf('</div>', HTML_SRC.indexOf('<div class="tq-rsi-legend"')) + 6);
     assert.ok(legend.includes('&lt;40 Compra'));
     assert.ok(legend.includes('>Neutro</span>'));
-    assert.ok(legend.includes('&gt;70 Venda'));
+    assert.ok(legend.includes('&gt;70 Venda (RSI-Sem.)'));
     assert.equal(legend.includes('Atenção'), false);
     assert.equal(HTML_SRC.includes('tq-rsi-amarelo'), false);
     assert.equal(TICKER_SRC.includes('return "amarelo"'), false);
