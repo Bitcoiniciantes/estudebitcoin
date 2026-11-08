@@ -444,7 +444,7 @@
       if (!pctIsNonNumeric) {
         var roundedChange = typeof change === "number" && Number.isFinite(change) ? Math.round(change * 100) / 100 : 0;
         var pctTone = roundedChange > 0 ? "up" : roundedChange < 0 ? "down" : "neutral";
-        var pctArrow = pctTone === "up" ? "\u25B2" : pctTone === "down" ? "\u25BC" : "";
+        var pctArrow = pctTone === "up" ? "\u2191" : pctTone === "down" ? "\u2193" : "";
         pctClass = " tq-b3-pct tq-b3-pct--" + pctTone;
         pctInner = pct + (pctArrow ? '<span class="tq-b3-pct-arrow" aria-hidden="true">' + pctArrow + '</span>' : "");
       }
