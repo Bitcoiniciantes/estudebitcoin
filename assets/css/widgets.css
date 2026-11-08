@@ -136,37 +136,37 @@
    ===================================================================== */
 .fng-outer {
   display: grid; grid-template-columns: 1fr 1fr; gap: 0;
-  border-radius: 20px; border: 1px solid #dde1e7; overflow: hidden;
-  box-shadow: 0 6px 32px rgba(0,0,0,0.09); background: #ffffff;
+  border-radius: 20px; border: 1px solid #4a4d47; overflow: hidden;
+  box-shadow: 0 6px 32px rgba(0,0,0,0.09); background: #3B3E37;
   font-family: var(--font-body); margin-bottom: 1.2rem;
 }
-.fng-left { padding: 1.8rem 1.6rem 1.5rem; border-right: 1px solid #dde1e7; display: flex; flex-direction: column; background: #fff; }
+.fng-left { padding: 1.8rem 1.6rem 1.5rem; border-right: 1px solid #4a4d47; display: flex; flex-direction: column; background: #3B3E37; }
 .fng-left-header { display: flex; align-items: center; gap: 10px; margin-bottom: 0.2rem; }
 .fng-logo-icon { width: 32px; height: 32px; background: #F7931A; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 900; font-size: 1.05rem; flex-shrink: 0; }
-.fng-left-title { font-size: 1.05rem; font-weight: 700; color: #1a1a2e; letter-spacing: -0.01em; line-height: 1.25; }
-.fng-left-sub { font-size: 0.72rem; color: #888; font-weight: 400; margin: 0.35rem 0 0.7rem; line-height: 1.4; }
-.fng-divider { height: 1px; background: #eee; margin-bottom: 0.85rem; }
-.fng-now-label { font-size: 0.82rem; font-weight: 600; color: #333; margin-bottom: 3px; }
+.fng-left-title { font-size: 1.05rem; font-weight: 700; color: #FFFFFF; letter-spacing: -0.01em; line-height: 1.25; }
+.fng-left-sub { font-size: 0.72rem; color: #D1D5DB; font-weight: 400; margin: 0.35rem 0 0.75rem; line-height: 1.4; }
+.fng-divider { height: 1px; background: #4a4d47; margin-bottom: 0.85rem; }
+.fng-now-label { font-size: 0.82rem; font-weight: 600; color: #D1D5DB; margin-bottom: 3px; }
 .fng-now-sentiment { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; }
 .fng-gauge-wrap { position: relative; display: flex; flex-direction: column; align-items: center; flex: 1; margin-top: 0.3rem; }
 .fng-svg { width: 100%; max-width: 260px; }
-.fng-left-footer { font-size: 0.65rem; color: #aaa; margin-top: 0.8rem; display: flex; align-items: center; gap: 5px; line-height: 1.4; }
+.fng-left-footer { font-size: 0.65rem; color: #D1D5DB; margin-top: 0.8rem; display: flex; align-items: center; gap: 5px; line-height: 1.4; }
 .fng-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
 .fng-dot.live { background: #43A047; animation: pulse-dot 2s infinite; }
 @keyframes pulse-dot {
   0%, 100% { box-shadow: 0 0 0 3px rgba(67,160,71,0.25); }
   50% { box-shadow: 0 0 0 7px rgba(67,160,71,0.07); }
 }
-.fng-right { padding: 1.8rem 1.6rem 1.5rem; display: flex; flex-direction: column; background: #fff; }
-.fng-right-title { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 1rem; letter-spacing: -0.01em; }
-.fng-hist-item { display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 0; border-bottom: 1px solid #f0f0f0; }
+.fng-right { padding: 1.8rem 1.6rem 1.5rem; display: flex; flex-direction: column; background: #3B3E37; }
+.fng-right-title { font-size: 1rem; font-weight: 700; color: #FFFFFF; margin-bottom: 1rem; letter-spacing: -0.01em; }
+.fng-hist-item { display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 0; border-bottom: 1px solid #4a4d47; }
 .fng-hist-item:last-child { border-bottom: none; padding-bottom: 0; }
-.fng-hist-period { font-size: 0.85rem; color: #444; font-weight: 500; line-height: 1.3; margin-bottom: 2px; }
+.fng-hist-period { font-size: 0.85rem; color: #D1D5DB; font-weight: 500; line-height: 1.3; margin-bottom: 2px; }
 .fng-hist-sent { font-size: 0.75rem; font-weight: 700; }
 .fng-badge-circle { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 800; color: white; flex-shrink: 0; }
 @media (max-width: 600px) {
   .fng-outer { grid-template-columns: 1fr; }
-  .fng-left { border-right: none; border-bottom: 1px solid #dde1e7; padding: 1.4rem 1.2rem 1.2rem; }
+  .fng-left { border-right: none; border-bottom: 1px solid #4a4d47; padding: 1.4rem 1.2rem 1.2rem; }
   .fng-right { padding: 1.4rem 1.2rem 1.2rem; }
 }
 
