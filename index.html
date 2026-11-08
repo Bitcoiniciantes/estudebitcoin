@@ -768,6 +768,18 @@
   .tqPct { font:800 .88rem ui-monospace,SFMono-Regular,Consolas,monospace; white-space:nowrap; }
   .tqPrice { font-size:.66rem; font-weight:700; white-space:nowrap; }
   .tqPrice.tq-sm { font-size:.56rem; }
+  .tq--b3 > .tqPrice { display:none; }
+  .tq-b3-reference { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; margin-top:4px; padding-top:0; gap:2px; }
+  .tq-b3-reference-col { min-width:0; display:flex; flex-direction:column; align-items:center; gap:1px; }
+  .tq-b3-reference-label { color:inherit; opacity:.72; font-size:.56rem; line-height:1.1; white-space:nowrap; }
+  .tq-b3-reference-price { color:inherit; font-size:.66rem; line-height:1.1; font-weight:700; white-space:nowrap; }
+  @media(min-width:721px){
+    .tq--b3 { padding:10px 8px 7px; gap:2px; min-height:0; }
+    .tq--b3.has-rsi { padding-top:32px; padding-bottom:7px; min-height:0; }
+    .tq--b3 .tq-b3-reference { margin-top:5px; }
+    .tq--b3 .tq-b3-reference-label { color:#fff; }
+    .tq--b3.up1 .tq-b3-reference-label { color:#06251d; }
+  }
   /* --- Selo de RSI semanal (aba B3) --- */
   .tq-rsi { position:absolute; top:3px; right:3px; width:28px; height:28px; border-radius:50%;
     display:flex; align-items:center; justify-content:center; pointer-events:none;
@@ -834,7 +846,7 @@
   .push-btn:hover { background:#1a2e24; border-color:#3a6b4a; }
   .push-btn.push-active { background:#1a3a20; border-color:#4caf50; color:#81c784; }
   .push-btn:disabled { opacity:.5; cursor:default; }
-  @media(max-width:720px){ .ticker-grid { grid-template-columns:repeat(auto-fill,minmax(84px,1fr)) !important; } .tq { padding:10px 4px; } .tqPrice { font-size:.66rem; } .tqPct { font-size:.9rem; } .tqPrice.tq-sm { font-size:.56rem; } }
+  @media(max-width:720px){ .ticker-grid { grid-template-columns:repeat(auto-fill,minmax(84px,1fr)) !important; } .tq { padding:10px 4px; } .tqPrice { font-size:.66rem; } .tqPct { font-size:.9rem; } .tqPrice.tq-sm { font-size:.56rem; } .tq--b3 > .tqPrice { display:block; } .tq--b3 .tq-b3-reference { display:none; } }
   @media(max-width:560px){ .ticker-status { display:none; } }
 
   /* ── S/R Dinâmico — Alertas visuais nos cards ── */
