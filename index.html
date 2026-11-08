@@ -783,18 +783,21 @@
     .tq--b3.up1 .tq-b3-reference-label { color:#06251d; }
     /* Pílula de variação dos cards B3 (inclui IBOV). Margem vertical negativa
        compensa o padding/borda da pílula: a altura do card não muda. */
-    .tqPct.tq-b3-pct { display:inline-flex; align-items:center; justify-content:center; gap:3px;
-      margin:-3px auto; padding:2px 6px 2px 10px; background:#fff; border:1px solid transparent; border-radius:999px;
-      box-shadow:none; white-space:nowrap; }
+    .tqPct.tq-b3-pct { display:inline-flex; align-items:center; justify-content:center; align-self:center;
+      margin:-3px auto; position:relative; padding:2px 20px; background:#fff; border:1px solid transparent;
+      border-radius:999px; box-shadow:none; white-space:nowrap; }
     .tqPct.tq-b3-pct--up { color:#15803d; }
     .tqPct.tq-b3-pct--down { color:#b91c1c; }
     .tqPct.tq-b3-pct--neutral { color:#374151; }
-    .tqPct.tq-b3-pct .tq-b3-pct-arrow { display:inline-block; font-size:.75em; line-height:1; pointer-events:none; }
+    .tqPct.tq-b3-pct .tq-b3-pct-arrow { display:inline-block; position:absolute; right:6px; top:50%;
+      transform:translateY(-50%); font-size:.75em; line-height:1; pointer-events:none;
+      font-weight:900; -webkit-text-stroke:0.8px currentColor; }
   }
   /* Cards B3 mais estreitos (ainda desktop): aperta só o espaçamento interno
      da pílula para o percentual mais longo caber sem quebra e sem vazar. */
   @media(min-width:721px) and (max-width:1023px){
-    .tqPct.tq-b3-pct { padding:2px 3px 2px 5px; gap:2px; margin:-3px 0; }
+    .tqPct.tq-b3-pct { padding:2px 14px; margin:-3px 0; }
+    .tqPct.tq-b3-pct .tq-b3-pct-arrow { right:4px; }
   }
   /* --- Selo de RSI semanal (aba B3) --- */
   .tq-rsi { position:absolute; top:3px; right:3px; width:28px; height:28px; border-radius:50%;
@@ -1106,7 +1109,7 @@
     <div class="ticker-tabs" role="tablist" aria-label="Mercado">
       <button type="button" class="active" data-tab="crypto">CRIPTO</button>
       <button type="button" data-tab="stocks">STOCKS</button>
-      <button type="button" data-tab="b3">B3</button>
+      <button type="button" data-tab="b3">B3-R$</button>
     </div>
     <span class="ticker-status" id="ticker-status"></span>
     <button type="button" id="push-activate-btn" class="push-btn" style="display:none">Ativar alertas</button>
