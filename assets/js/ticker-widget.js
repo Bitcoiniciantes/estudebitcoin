@@ -433,12 +433,28 @@
           '<div class="tq-b3-reference-col"><span class="tq-b3-reference-label">' + esc(referenceLabel) + '</span><strong class="tq-b3-reference-price">' + esc(referenceBlockPrice) + '</strong></div>' +
         '</div>'
       : '';
+    // Pílula de variação: só na aba B3 (ativos B3 + IBOV), só no desktop (CSS).
+    // O sinal vem do valor numérico de changePct, nunca do texto exibido.
+    var pctClass = "";
+    var pctInner = pct;
+    if (activeTab === "b3") {
+      var rawChangePct = quote.changePct;
+      var pctIsNonNumeric = rawChangePct !== null && rawChangePct !== undefined && rawChangePct !== "" &&
+        !(typeof rawChangePct === "number" && Number.isFinite(rawChangePct));
+      if (!pctIsNonNumeric) {
+        var roundedChange = typeof change === "number" && Number.isFinite(change) ? Math.round(change * 100) / 100 : 0;
+        var pctTone = roundedChange > 0 ? "up" : roundedChange < 0 ? "down" : "neutral";
+        var pctArrow = pctTone === "up" ? "\u25B2" : pctTone === "down" ? "\u25BC" : "";
+        pctClass = " tq-b3-pct tq-b3-pct--" + pctTone;
+        pctInner = pct + (pctArrow ? '<span class="tq-b3-pct-arrow" aria-hidden="true">' + pctArrow + '</span>' : "");
+      }
+    }
     return '<div class="tq ' + changeClass(change) + (badge ? ' has-rsi' : '') + (lowRsiPulse ? ' rsi-low-pulse' : '') + (isB3Asset ? ' tq--b3' : '') + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
       '<b class="tqSym' + smallLabel + '">' + esc(label) + "</b>" +
       bell +
       grahamBtn +
       badge +
-      '<span class="tqPct"' + pctTitle + '>' + pct + "</span>" +
+      '<span class="tqPct' + pctClass + '"' + pctTitle + '>' + pctInner + "</span>" +
       '<strong class="tqPrice' + small + '">' + priceText + "</strong>" +
       referenceBlock +
       "</div>";
