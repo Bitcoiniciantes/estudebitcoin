@@ -775,7 +775,7 @@
   .tq-b3-reference-price { color:inherit; font-size:.66rem; line-height:1.1; font-weight:700; white-space:nowrap; }
   /* Seta da pílula de variação (aba B3): decorativa e só no desktop. */
   .tq-b3-pct-arrow { display:none; }
-  @media(min-width:721px){
+  @media(min-width:1024px){
     .tq--b3 { padding:10px 8px 7px; gap:2px; min-height:0; }
     .tq--b3.has-rsi { padding-top:32px; padding-bottom:7px; min-height:0; }
     .tq--b3 .tq-b3-reference { margin-top:5px; }
@@ -796,8 +796,15 @@
   /* Cards B3 mais estreitos (ainda desktop): aperta só o espaçamento interno
      da pílula para o percentual mais longo caber sem quebra e sem vazar. */
   @media(min-width:721px) and (max-width:1023px){
-    .tqPct.tq-b3-pct { padding:2px 14px; margin:-3px 0; }
-    .tqPct.tq-b3-pct .tq-b3-pct-arrow { right:4px; }
+    .tqPct.tq-b3-pct { display:inline-flex; align-items:center; justify-content:center; align-self:center;
+      margin:-3px auto; position:relative; padding:1px 10px; background:#fff; border:1px solid transparent;
+      border-radius:999px; box-shadow:none; white-space:nowrap; font-size:.70rem; }
+    .tqPct.tq-b3-pct--up { color:#15803d; }
+    .tqPct.tq-b3-pct--down { color:#b91c1c; }
+    .tqPct.tq-b3-pct--neutral { color:#374151; }
+    .tqPct.tq-b3-pct .tq-b3-pct-arrow { display:inline-block; position:absolute; right:4px; top:50%;
+      transform:translateY(-50%); font-size:.65em; line-height:1; pointer-events:none;
+      font-weight:900; -webkit-text-stroke:0.8px currentColor; }
   }
   /* --- Selo de RSI semanal (aba B3) --- */
   .tq-rsi { position:absolute; top:3px; right:3px; width:28px; height:28px; border-radius:50%;
