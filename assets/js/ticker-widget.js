@@ -350,6 +350,31 @@
     if (band === "neutro") return "Neutro";
     return "Venda";
   }
+  var WINDOW_LABELS = {
+    "1h": "1H",
+    "24h": "24H",
+    "7d": "7D",
+    "30d": "30D",
+    "90d": "90D",
+    "1y": "1Y",
+    "3y": "3Y",
+  };
+  function activeWindowLabel() {
+    var button = document.querySelector('.ticker-window button[data-window="' + activeWindow + '"]');
+    var text = button && typeof button.textContent === "string" ? button.textContent.trim() : "";
+    return text || WINDOW_LABELS[activeWindow] || activeWindow;
+  }
+  function b3ReferencePrice(quote) {
+    if (!quote || quote.windowKey !== activeWindow) return null;
+    var current = quote.price;
+    var base = quote.baseClose;
+    var change = quote.changePct;
+    if (typeof current !== "number" || !Number.isFinite(current) || current <= 0) return null;
+    if (typeof base !== "number" || !Number.isFinite(base) || base <= 0) return null;
+    if (typeof change !== "number" || !Number.isFinite(change)) return null;
+    var derivedChange = (current / base - 1) * 100;
+    return Math.abs(derivedChange - change) <= 1 ? base : null;
+  }
   function rsiBadge(rsi, context) {
     if (typeof rsi !== "number" || !Number.isFinite(rsi)) return "";
     var shown = Math.floor(rsi);
@@ -373,6 +398,7 @@
     var small = quote.symbol === "BTC" || quote.symbol === "ETH" || quote.symbol === "PAXG" ? " tq-sm" : "";
     var smallLabel = quote.symbol === "^NDX" ? " tq-label-sm" : "";
     var isIbov = quote.symbol === "^BVSP";
+    var isB3Asset = activeTab === "b3" && !isIbov;
     var priceText = isIbov
       ? (typeof price === "number" && Number.isFinite(price) ? price.toLocaleString("pt-BR", { maximumFractionDigits: 0 }) : "--")
       : fmtPrice(price, currency, !isCrypto(quote.symbol) && currency !== "BRL");
@@ -397,13 +423,24 @@
     var lowRsiPulse = (activeTab === "b3" || activeTab === "stocks") && typeof activeRsi === "number" &&
       Number.isFinite(activeRsi) && activeRsi < pulseThreshold &&
       (rsiPulseCounts[pulseKey] || 0) < RSI_LOW_PULSE_LIMIT;
-    return '<div class="tq ' + changeClass(change) + (badge ? ' has-rsi' : '') + (lowRsiPulse ? ' rsi-low-pulse' : '') + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
+    var referencePrice = isB3Asset ? b3ReferencePrice(quote) : null;
+    var referenceLabel = activeWindowLabel();
+    var nowBlockPrice = isB3Asset ? fmtPrice(price, currency, true) : "";
+    var referenceBlockPrice = isB3Asset ? fmtPrice(referencePrice, currency, true) : "";
+    var referenceBlock = isB3Asset
+      ? '<div class="tq-b3-reference" aria-label="Agora ' + esc(nowBlockPrice) + '. ' + esc(referenceLabel) + ' ' + esc(referenceBlockPrice) + '">' +
+          '<div class="tq-b3-reference-col"><span class="tq-b3-reference-label">Agora</span><strong class="tq-b3-reference-price">' + esc(nowBlockPrice) + '</strong></div>' +
+          '<div class="tq-b3-reference-col"><span class="tq-b3-reference-label">' + esc(referenceLabel) + '</span><strong class="tq-b3-reference-price">' + esc(referenceBlockPrice) + '</strong></div>' +
+        '</div>'
+      : '';
+    return '<div class="tq ' + changeClass(change) + (badge ? ' has-rsi' : '') + (lowRsiPulse ? ' rsi-low-pulse' : '') + (isB3Asset ? ' tq--b3' : '') + '" data-tq="' + esc(symbolKey(quote.symbol)) + '">' +
       '<b class="tqSym' + smallLabel + '">' + esc(label) + "</b>" +
       bell +
       grahamBtn +
       badge +
       '<span class="tqPct"' + pctTitle + '>' + pct + "</span>" +
       '<strong class="tqPrice' + small + '">' + priceText + "</strong>" +
+      referenceBlock +
       "</div>";
   }
 
@@ -654,6 +691,9 @@
             name: name,
             volume: quote.volume,
             closes: quote.closes,
+            baseClose: quote.baseClose,
+            baseTime: quote.baseTime,
+            windowKey: activeWindow,
             shortHistory: quote.shortHistory === true,
           };
           if (quote.shortHistory !== true) delete cardQuote.shortHistory;

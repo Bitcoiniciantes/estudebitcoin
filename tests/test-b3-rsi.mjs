@@ -245,8 +245,12 @@ function mountTicker(options = {}) {
           changePct: item[2],
           volume: 1000,
           closes: [1, 2, 3],
+          baseClose: item[1] / (1 + item[2] / 100),
+          baseTime: 1700000000,
           currency: "BRL"
         };
+        if (__payloadMode === "missingBase") delete q.baseClose;
+        if (__payloadMode === "badBase") q.baseClose = 1;
         if (withRsi && __RSI[item[0]] !== null) q.rsi = __RSI[item[0]];
         return q;
       });
@@ -369,6 +373,12 @@ describe('RSI semanal no Worker', () => {
 
     const withoutRsi = computeQuote(raw, 'VALE3.SA', QUOTE_WINDOWS['24h'], NOW);
     assert.equal('rsi' in withoutRsi, false, 'janelas de preço não carregam rsi');
+    assert.equal(withoutRsi.baseClose, 230, 'envia o fechamento-base usado no changePct');
+    assert.ok(weeklyPoints(262).some((point) => point.time === withoutRsi.baseTime), 'envia o timestamp-base');
+  });
+
+  it('6a. resposta sem série não inventa preço-base', () => {
+    assert.equal(computeQuote({}, 'VALE3.SA', QUOTE_WINDOWS['24h'], NOW), null);
   });
 
   it('7. RSI sai da série crua (262 velas), não do downsample de 40', () => {
@@ -453,10 +463,11 @@ describe('aba B3 no ticker', () => {
     await settle();
     clickTab('b3');
     await settle();
-    const expected = '<div class="tq up1 has-rsi" data-tq="VALE3.SA"><b class="tqSym">VALE3</b>' +
+    const expected = '<div class="tq up1 has-rsi tq--b3" data-tq="VALE3.SA"><b class="tqSym">VALE3</b>' +
       '<span class="tq-rsi tq-rsi-compra" role="img" title="RSI 14 semanal: 39 — Compra"' +
       ' aria-label="RSI 39 — Compra">39</span>' +
-      '<span class="tqPct">+1,50%</span><strong class="tqPrice">R$ 60,00</strong></div>';
+      '<span class="tqPct">+1,50%</span><strong class="tqPrice">R$ 60,00</strong>' +
+      '<div class="tq-b3-reference" aria-label="Agora 60,00. 24H 59,11"><div class="tq-b3-reference-col"><span class="tq-b3-reference-label">Agora</span><strong class="tq-b3-reference-price">60,00</strong></div><div class="tq-b3-reference-col"><span class="tq-b3-reference-label">24H</span><strong class="tq-b3-reference-price">59,11</strong></div></div></div>';
     assert.ok(grid.innerHTML.includes(expected), 'card VALE3 idêntico ao esperado');
     assert.equal(grid.innerHTML.includes('VALE3.SA</b>'), false, 'rótulo sem o sufixo .SA');
     assert.equal(grid.innerHTML.includes('NOME SUJO DA FONTE'), false, 'nome fixo do front, não o da fonte');
@@ -477,6 +488,18 @@ describe('aba B3 no ticker', () => {
       assert.equal(segment.includes('tq-graham'), false, symbol + ' sem Graham');
     }
     assert.ok(cardSegment(grid.innerHTML, 'VALE3.SA').includes('role="img"'), 'selo com role=img');
+  });
+
+  it('15a. preço-base ausente ou incoerente vira travessão', async () => {
+    for (const mode of ['missingBase', 'badBase']) {
+      const { grid, sandbox, clickTab } = mountTicker();
+      sandbox.__payloadMode = mode;
+      await settle();
+      clickTab('b3');
+      await settle();
+      const segment = cardSegment(grid.innerHTML, 'VALE3.SA');
+      assert.ok(segment.includes('<strong class="tq-b3-reference-price">—</strong>'), mode + ' não exibe referência inválida');
+    }
   });
 
   it('16. CRIPTO mantém o markup e STOCKS exibe RSI quando disponível', async () => {

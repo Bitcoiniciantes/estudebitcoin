@@ -699,6 +699,8 @@ function computeQuote(raw, symbol, cfg, nowMs = Date.now()) {
     volume: Number.isFinite(last.volume) ? last.volume : null,
     currency: meta.currency || "USD",
     closes: downsample(points.map((point) => point.close), 40),
+    baseClose: Number.isFinite(base?.close) && base.close > 0 ? base.close : null,
+    baseTime: Number.isFinite(base?.time) ? base.time : null,
   };
   if (rsiCloses) quote.rsi = rsiWilder(rsiCloses, cfg.rsi);
   if (shortHistory) quote.shortHistory = true;
