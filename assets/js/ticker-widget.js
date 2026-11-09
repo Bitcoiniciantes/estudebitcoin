@@ -96,6 +96,9 @@
   if (!grid) return;
 
   var activeTab = "crypto";
+  var stockPollTimer = null;
+  var stocksBroadcastTimer = null;
+  var tickerPageWasHidden = document.hidden;
   var activeWindow = "24h";
   var uiStateGen = 0;
   var cache = {};
@@ -1095,6 +1098,7 @@
         if (btn.hidden || !isWindowAllowedForTab(win, activeTab)) return;
         setActiveWindow(win);
         refresh(true);
+        startStockPolling();
       });
     });
     document.querySelectorAll(".ticker-tabs button").forEach(function (btn) {
@@ -1105,6 +1109,7 @@
         setActiveWindow(activeWindow);
         applyWindowVisibility();
         refresh(true);
+        startStockPolling();
       });
     });
   }
@@ -1168,11 +1173,46 @@
     renderB3Controls();
   }
 
+  function startStockPolling() {
+    if (stockPollTimer) window.clearInterval(stockPollTimer);
+    stockPollTimer = null;
+    if (!document.hidden && activeTab !== "crypto") {
+      stockPollTimer = window.setInterval(function () {
+        if (!document.hidden && activeTab !== "crypto") refresh(true);
+      }, 15000);
+    }
+  }
+
+  function startStocksBroadcastPolling() {
+    if (stocksBroadcastTimer) window.clearInterval(stocksBroadcastTimer);
+    stocksBroadcastTimer = null;
+    if (!document.hidden) stocksBroadcastTimer = window.setInterval(refreshStocksBroadcast, 60000);
+  }
+
+  function onTickerVisibility() {
+    if (document.hidden) {
+      tickerPageWasHidden = true;
+      if (stockPollTimer) window.clearInterval(stockPollTimer);
+      if (stocksBroadcastTimer) window.clearInterval(stocksBroadcastTimer);
+      stockPollTimer = null;
+      stocksBroadcastTimer = null;
+      return;
+    }
+    if (!tickerPageWasHidden) return;
+    tickerPageWasHidden = false;
+    if (activeTab !== "crypto") refresh(true);
+    if (activeTab === "stocks") refreshMonitoredBroadcast();
+    else refreshStocksBroadcast();
+    startStockPolling();
+    startStocksBroadcastPolling();
+  }
+
   bindButtons();
   bindB3Controls();
   setActiveWindow(activeWindow);
   applyWindowVisibility();
-  window.setInterval(function () { refresh(true); }, 5000);
+  window.setInterval(function () { if (activeTab === "crypto") refresh(true); }, 5000);
+  startStockPolling();
   connectWs();
 
   // Broadcast de stocks independente da aba ativa: fetchStocks() só roda com
@@ -1180,12 +1220,14 @@
   // carteira nunca receberia cotação deles. 60s basta (stocks andam devagar);
   // só emite o evento, sem mexer nos cards. 1 chamada ao Worker por minuto.
   function refreshStocksBroadcast() {
+    if (document.hidden) return;
     try {
       fetchStocks().then(function (quotes) { broadcastQuotes(quotes); }).catch(function () {});
       refreshMonitoredBroadcast();
     } catch (e) {}
   }
-  window.setInterval(refreshStocksBroadcast, 60000);
+  document.addEventListener("visibilitychange", onTickerVisibility);
+  startStocksBroadcastPolling();
   refreshStocksBroadcast();
 
   // Réplica do mecanismo do Painel Pessoal (portfolioLive) SÓ p/ os

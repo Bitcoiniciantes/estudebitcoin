@@ -43,6 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let resizeTimeout = null;
   let lastTouchMarkerAt = 0;
   let lastPublicMarkerUpdate = 0;
+  let publicMarkerPollTimer = null;
+  let publicMarkerWasHidden = document.hidden;
+  let pendingPublicMarkerPull = null;
+  let queuedPublicMarkerPull = false;
   const EXTERNAL_SELECT_VALUE = '__EXTERNAL_ASSET__';
 
   // --- Escala Y manual (drag no eixo de preços) ---
@@ -180,12 +184,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (err) { /* localStorage indisponível */ }
     renderBaseChart();
-    void pullPublicMarkers();
+    void pullPublicMarkers(true);
   }
 
-  async function publicMarkersRequest(method, markers) {
+  async function publicMarkersRequest(method, markers, assetKey = markerStorageKey()) {
     const url = new URL(PUBLIC_MARKERS_URL);
-    url.searchParams.set('asset', markerStorageKey());
+    url.searchParams.set('asset', assetKey);
     const response = await fetch(url, {
       method,
       cache: 'no-store',
@@ -205,18 +209,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function pullPublicMarkers() {
-    try {
-      const data = await publicMarkersRequest('GET');
-      const updatedAt = Number(data?.updatedAt) || 0;
-      if (!updatedAt || updatedAt <= lastPublicMarkerUpdate) return;
-      markerLines = Array.isArray(data.markers) ? data.markers.filter(isValidMarker) : [];
-      lastPublicMarkerUpdate = updatedAt;
-      saveMarkers();
-      renderBaseChart();
-    } catch (err) {
-      console.warn('Public marker sync error', err);
+  function pullPublicMarkers(queueIfBusy = false) {
+    if (pendingPublicMarkerPull) {
+      if (queueIfBusy) queuedPublicMarkerPull = true;
+      return pendingPublicMarkerPull;
     }
+    const assetKey = markerStorageKey();
+    const request = (async () => {
+      try {
+        const data = await publicMarkersRequest('GET', undefined, assetKey);
+        if (assetKey !== markerStorageKey()) return;
+        const updatedAt = Number(data?.updatedAt) || 0;
+        if (!updatedAt || updatedAt <= lastPublicMarkerUpdate) return;
+        markerLines = Array.isArray(data.markers) ? data.markers.filter(isValidMarker) : [];
+        lastPublicMarkerUpdate = updatedAt;
+        saveMarkers();
+        renderBaseChart();
+      } catch (err) {
+        console.warn('Public marker sync error', err);
+      }
+    })();
+    pendingPublicMarkerPull = request;
+    void request.finally(() => {
+      pendingPublicMarkerPull = null;
+      if (queuedPublicMarkerPull) {
+        queuedPublicMarkerPull = false;
+        void pullPublicMarkers();
+      }
+    });
+    return request;
+  }
+
+  function startPublicMarkerPolling() {
+    if (publicMarkerPollTimer) clearInterval(publicMarkerPollTimer);
+    publicMarkerPollTimer = null;
+    if (!document.hidden) publicMarkerPollTimer = setInterval(() => void pullPublicMarkers(), 30000);
   }
 
   function isExternalStock() {
@@ -1181,10 +1208,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('pointerdown', event => {
     if (chartWrap && !chartWrap.contains(event.target)) hideTooltip();
   });
-  window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') void pullPublicMarkers();
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      publicMarkerWasHidden = true;
+      if (publicMarkerPollTimer) clearInterval(publicMarkerPollTimer);
+      publicMarkerPollTimer = null;
+      return;
+    }
+    if (!publicMarkerWasHidden) return;
+    publicMarkerWasHidden = false;
+    void pullPublicMarkers(true);
+    startPublicMarkerPolling();
   });
-  setInterval(() => void pullPublicMarkers(), 5000);
+  startPublicMarkerPolling();
   // --- EVENTOS FINAIS ---
   inputLeft.addEventListener('input', () => {
       limitarCasas(inputLeft, selectLeft.value);

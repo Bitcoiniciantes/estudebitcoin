@@ -108,7 +108,7 @@ function asText(value, maxLength = 1800) {
 function num(value, fractionDigits = 2) {
   return Number.isFinite(value)
     ? value.toLocaleString("pt-BR", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
-    : "n�o informado";
+    : "não informado";
 }
 
 // ---------- Notícias (RSS Cointelegraph) ----------
@@ -527,7 +527,13 @@ async function assetQuote(request, asset) {
 
 // ---------- Widget de cotações em lote (CRIPTO via Binance no browser; STOCKS via Yahoo aqui) ----------
 
-const QUOTE_CACHE_TTL_MS = 10 * 1000;
+const QUOTE_CACHE_TTL_MS = 20 * 1000;
+const QUOTE_CACHE_MAX_ENTRIES = 64;
+// Bound isolate-local coalescing metadata; overflow uses the uncached request path.
+const QUOTE_PENDING_MAX_ENTRIES = 64;
+// Isolate-local only: entries and in-flight requests are not shared across isolates.
+const quotesCache = new Map();
+const quotesPending = new Map();
 // 3y é uma série longa (busca por period1/period2); 60s basta para não repetir o download.
 const QUOTE_CACHE_TTL_3Y_MS = 60 * 1000;
 // 1wk existe só para o RSI semanal (indicador de 14 semanas): a série é longa
@@ -707,26 +713,29 @@ function computeQuote(raw, symbol, cfg, nowMs = Date.now()) {
   return quote;
 }
 
-async function cachedQuotesBody(key, ttlMs = QUOTE_CACHE_TTL_MS) {
-  try {
-    const cached = await caches.default.match(`https://bitcoiniciantes-ia.workers.dev/_cache/quotes/${key}`);
-    if (!cached) return null;
-    const stale = Date.now() - (Number(cached.headers.get("X-Cached-At")) || 0) > ttlMs;
-    if (stale) return null;
-    return cached.json();
-  } catch {
-    return null;
+function pruneQuotesCache(nowMs) {
+  for (const [key, entry] of quotesCache) {
+    if (entry.expiresAt <= nowMs) quotesCache.delete(key);
   }
 }
 
-async function storeQuotesBody(key, body) {
-  try {
-    const response = new Response(JSON.stringify(body), {
-      headers: { "Content-Type": "application/json", "X-Cached-At": String(Date.now()) },
-    });
-    await caches.default.put(`https://bitcoiniciantes-ia.workers.dev/_cache/quotes/${key}`, response);
-  } catch {
-    // cache opcional
+function cachedQuotesBody(key) {
+  pruneQuotesCache(Date.now());
+  const entry = quotesCache.get(key);
+  if (!entry) return null;
+  // Map insertion order supplies a small LRU bound.
+  quotesCache.delete(key);
+  quotesCache.set(key, entry);
+  return entry.body;
+}
+
+function storeQuotesBody(key, body, ttlMs) {
+  const nowMs = Date.now();
+  pruneQuotesCache(nowMs);
+  quotesCache.delete(key);
+  quotesCache.set(key, { body, expiresAt: nowMs + ttlMs });
+  while (quotesCache.size > QUOTE_CACHE_MAX_ENTRIES) {
+    quotesCache.delete(quotesCache.keys().next().value);
   }
 }
 
@@ -754,6 +763,15 @@ function mapLimit(items, limit, worker) {
   });
 }
 
+function quotesInRequestedOrder(rawAssets, cached) {
+  const bySymbol = cached.entries;
+  return {
+    window: cached.window,
+    updatedAt: cached.updatedAt,
+    quotes: rawAssets.map((symbol) => bySymbol[symbol]).filter(Boolean),
+  };
+}
+
 async function assetQuotes(request) {
   const url = new URL(request.url);
   const rawAssets = (url.searchParams.get("assets") || "")
@@ -764,38 +782,63 @@ async function assetQuotes(request) {
   const windowKey = QUOTE_WINDOWS[url.searchParams.get("window")] ? url.searchParams.get("window") : "24h";
   if (!rawAssets.length) return json(request, { error: "Informe assets.", window: windowKey }, 400);
   const cfg = QUOTE_WINDOWS[windowKey];
-  const cacheKey = `${rawAssets.join(",")}|${windowKey}`;
+  const cacheKey = `${[...new Set(rawAssets)].sort().join(",")}|${windowKey}`;
+  // Repeated symbols are separate Yahoo requests; a per-symbol cache cannot preserve their individual results.
+  const hasRepeatedAssets = new Set(rawAssets).size !== rawAssets.length;
   const cacheTtlMs =
     windowKey === "1wk"
       ? QUOTE_CACHE_TTL_1WK_MS
       : windowKey === "3y"
         ? QUOTE_CACHE_TTL_3Y_MS
         : QUOTE_CACHE_TTL_MS;
-  const cached = await cachedQuotesBody(cacheKey, cacheTtlMs);
-  if (cached) return json(request, cached);
-  const configs = [cfg].concat(cfg.fallbacks || []);
-  const nowMs = Date.now();
-  const results = await mapLimit(rawAssets, 4, async (symbol) => {
-    for (const item of configs) {
-      try {
-        // 3y: sem range equivalente no Yahoo — period1/period2 explícitos.
-        const query = item.lookbackDays
-          ? `interval=${item.interval}&period1=${Math.floor((nowMs - item.lookbackDays * 24 * 60 * 60 * 1000) / 1000)}&period2=${Math.floor(nowMs / 1000)}`
-          : `interval=${item.interval}&range=${item.range}`;
-        const response = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?${query}`);
-        const raw = await response.json();
-        const quote = computeQuote(raw, symbol, item, nowMs);
-        if (quote) return quote;
-      } catch (error) {
-        // tenta a próxima configuração
-      }
+  if (!hasRepeatedAssets) {
+    const cached = cachedQuotesBody(cacheKey);
+    if (cached) return json(request, quotesInRequestedOrder(rawAssets, cached));
+    const pending = quotesPending.get(cacheKey);
+    if (pending) {
+      const shared = await pending;
+      return json(request, quotesInRequestedOrder(rawAssets, shared.cacheBody));
     }
-    return null;
-  });
-  const quotes = results.filter(Boolean);
-  const body = { window: windowKey, updatedAt: new Date(nowMs).toISOString(), quotes };
-  if (quotes.length) await storeQuotesBody(cacheKey, body);
-  return json(request, body);
+  }
+  const trackPending = !hasRepeatedAssets && quotesPending.size < QUOTE_PENDING_MAX_ENTRIES;
+  const load = (async () => {
+    const configs = [cfg].concat(cfg.fallbacks || []);
+    const nowMs = Date.now();
+    const results = await mapLimit(rawAssets, 4, async (symbol) => {
+      for (const item of configs) {
+        try {
+          // 3y: sem range equivalente no Yahoo — period1/period2 explícitos.
+          const query = item.lookbackDays
+            ? `interval=${item.interval}&period1=${Math.floor((nowMs - item.lookbackDays * 24 * 60 * 60 * 1000) / 1000)}&period2=${Math.floor(nowMs / 1000)}`
+            : `interval=${item.interval}&range=${item.range}`;
+          const response = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?${query}`);
+          const raw = await response.json();
+          const quote = computeQuote(raw, symbol, item, nowMs);
+          if (quote) return quote;
+        } catch (error) {
+          // tenta a próxima configuração
+        }
+      }
+      return null;
+    });
+    const quotes = results.filter(Boolean);
+    const body = { window: windowKey, updatedAt: new Date(nowMs).toISOString(), quotes };
+    const entries = Object.create(null);
+    rawAssets.forEach((symbol, index) => {
+      if (results[index] && !entries[symbol]) entries[symbol] = results[index];
+    });
+    const cacheBody = { window: windowKey, updatedAt: body.updatedAt, entries };
+    if (trackPending && quotes.length && results.every(Boolean)) storeQuotesBody(cacheKey, cacheBody, cacheTtlMs);
+    return { body, cacheBody };
+  })();
+  if (!trackPending) return json(request, (await load).body);
+  quotesPending.set(cacheKey, load);
+  try {
+    const loaded = await load;
+    return json(request, loaded.body);
+  } finally {
+    quotesPending.delete(cacheKey);
+  }
 }
 
 // ---------- Busca de ticker por nome de empresa (brapi, catálogo B3) ----------
@@ -1360,7 +1403,7 @@ function buildTermometroPrompt(data, news) {
     requiredScenario,
     messages: [
       { role: "system", content: TERMOMETRO_SYSTEM_PROMPT },
-      { role: "user", content: `Cenario oficial calculado pelo Termometro: ${requiredScenario || "nao informado"}. O campo scenario, o headline, o summary, a estrategia, os riscos e a invalidacao DEVEM ser coerentes com esse cenario oficial. Nao escolha outro cenario. Para pre�os, n�veis e propor��es, use formato brasileiro com no m�ximo 2 casas decimais, como 66.123,23.` },
+      { role: "user", content: `Cenario oficial calculado pelo Termometro: ${requiredScenario || "nao informado"}. O campo scenario, o headline, o summary, a estrategia, os riscos e a invalidacao DEVEM ser coerentes com esse cenario oficial. Nao escolha outro cenario. Para preços, níveis e propor��es, use formato brasileiro com no m�ximo 2 casas decimais, como 66.123,23.` },
       { role: "user", content: `Dados do Termômetro:\n${formatTermometroContext(data, news)}\n\nResponda SOMENTE com o JSON pedido.` },
     ],
   };

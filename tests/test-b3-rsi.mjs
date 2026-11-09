@@ -88,6 +88,7 @@ function mountTicker(options = {}) {
   const requests = [];
   const events = [];
   const intervals = [];
+  const documentListeners = {};
   const binanceRequests = [];
   const pendingRsi = { resolve: null };
   const pendingCryptoTime = { resolve: null };
@@ -177,6 +178,7 @@ function mountTicker(options = {}) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(sandbox.__payload(assets, win)) });
     },
     document: {
+      hidden: false,
       readyState: 'complete',
       body: { appendChild() {}, removeChild() {} },
       getElementById: (id) => els[id] || (els[id] = generic()),
@@ -189,14 +191,15 @@ function mountTicker(options = {}) {
         if (sel === '.ticker-tabs button') return tabButtons;
         return [];
       },
-      addEventListener() {},
+      addEventListener(type, fn) { (documentListeners[type] ||= []).push(fn); },
       createElement: () => generic(),
     },
     window: {
       innerHeight: 800,
       addEventListener() {},
       dispatchEvent(event) { events.push({ type: event.type, detail: event.detail }); },
-      setInterval: (fn, ms) => { intervals.push({ fn, ms }); return intervals.length; },
+      setInterval: (fn, ms) => { intervals.push({ fn, ms, active: true }); return intervals.length; },
+      clearInterval: (id) => { if (intervals[id - 1]) intervals[id - 1].active = false; },
       setTimeout: () => 0,
       clearTimeout: () => {},
     },
@@ -303,6 +306,9 @@ function mountTicker(options = {}) {
     clickTab: (name) => tabs[name].click(),
     clickWindow: (name) => buttons[name].click(),
     tick5s: () => intervals[0].fn(),
+    tick15s: () => intervals.find((interval) => interval.active && interval.ms === 15000)?.fn(),
+    visibility(hidden) { sandbox.document.hidden = hidden; for (const fn of documentListeners.visibilitychange || []) fn(); },
+    activeIntervals: (ms) => intervals.filter((interval) => interval.active && interval.ms === ms),
     pendingRsi,
     pendingCryptoTime,
   };
@@ -698,19 +704,19 @@ describe('aba B3 no ticker', () => {
     assert.equal(buttons['3y'].classList.contains('active'), true);
   });
 
-  it('23. RSI é buscado uma vez e sobrevive ao refresh de 5s', async () => {
-    const { requests, clickTab, clickWindow, tick5s } = mountTicker();
+  it('23. RSI é buscado uma vez e sobrevive ao refresh de 15s', async () => {
+    const { requests, clickTab, clickWindow, tick15s } = mountTicker();
     await settle();
     clickTab('b3');
     await settle();
     assert.equal(rsiRequests(requests).length, 1, 'um request de 1wk');
 
     const before = b3Requests(requests).length;
-    tick5s();
+    tick15s();
     await settle();
-    tick5s();
+    tick15s();
     await settle();
-    assert.equal(rsiRequests(requests).length, 1, 'refresh de 5s não rebate no 1wk');
+    assert.equal(rsiRequests(requests).length, 1, 'refresh de 15s não rebate no 1wk');
     assert.ok(b3Requests(requests).length > before, 'mas as cotações foram atualizadas');
 
     clickWindow('7d');
@@ -719,20 +725,20 @@ describe('aba B3 no ticker', () => {
   });
 
   it('24. RSI é rebuscado depois de 1h', async () => {
-    const { requests, sandbox, clickTab, tick5s } = mountTicker();
+    const { requests, sandbox, clickTab, tick15s } = mountTicker();
     await settle();
     clickTab('b3');
     await settle();
     assert.equal(rsiRequests(requests).length, 1);
 
     sandbox.__now += 61 * 60 * 1000;
-    tick5s();
+    tick15s();
     await settle();
     assert.equal(rsiRequests(requests).length, 2, 'memo vencido rebusca');
   });
 
   it('25. payload de janela errada não apaga o RSI anterior', async () => {
-    const { grid, requests, sandbox, clickTab, tick5s } = mountTicker();
+    const { grid, requests, sandbox, clickTab, tick15s } = mountTicker();
     await settle();
     clickTab('b3');
     await settle();
@@ -740,7 +746,7 @@ describe('aba B3 no ticker', () => {
 
     sandbox.__payloadMode = 'wrongWindow';
     sandbox.__now += 61 * 60 * 1000;
-    tick5s();
+    tick15s();
     await settle();
     assert.ok(rsiRequests(requests).length >= 2, 'tentou rebuscar');
     assert.ok(grid.innerHTML.includes('tq-rsi-compra'), 'selo anterior preservado');
@@ -894,7 +900,7 @@ describe('aba B3 no ticker', () => {
   });
 
   it('39. memo de B3 e STOCKS é independente', async () => {
-    const { requests, clickTab, tick5s } = mountTicker();
+    const { requests, clickTab, tick15s } = mountTicker();
     await settle();
     clickTab('b3');
     await settle();
@@ -902,29 +908,29 @@ describe('aba B3 no ticker', () => {
     clickTab('stocks');
     await settle();
     assert.equal(rsiRequests(requests).length, 2);
-    tick5s();
+    tick15s();
     await settle();
     assert.equal(rsiRequests(requests).length, 2);
   });
 
-  it('40. refresh de 5s não repete chamada semanal válida de STOCKS', async () => {
-    const { requests, clickTab, tick5s } = mountTicker();
+  it('40. refresh de 15s não repete chamada semanal válida de STOCKS', async () => {
+    const { requests, clickTab, tick15s } = mountTicker();
     await settle();
     clickTab('stocks');
     await settle();
-    tick5s();
-    tick5s();
+    tick15s();
+    tick15s();
     await settle();
     assert.equal(rsiRequests(requests).length, 1);
   });
 
   it('41. após expirar TTL, nova chamada semanal de STOCKS é permitida', async () => {
-    const { requests, sandbox, clickTab, tick5s } = mountTicker();
+    const { requests, sandbox, clickTab, tick15s } = mountTicker();
     await settle();
     clickTab('stocks');
     await settle();
     sandbox.__now += 61 * 60 * 1000;
-    tick5s();
+    tick15s();
     await settle();
     assert.equal(rsiRequests(requests).length, 2);
   });
@@ -972,12 +978,12 @@ describe('aba B3 no ticker', () => {
   });
 
   it('47. chamadas semanais simultâneas de STOCKS são deduplicadas enquanto pendentes', async () => {
-    const { requests, sandbox, clickTab, tick5s, pendingRsi } = mountTicker();
+    const { requests, sandbox, clickTab, tick15s, pendingRsi } = mountTicker();
     sandbox.__pendingRsi = true;
     await settle();
     clickTab('stocks');
-    tick5s();
-    tick5s();
+    tick15s();
+    tick15s();
     await settle();
     assert.equal(rsiRequests(requests).length, 1);
     assert.equal(typeof pendingRsi.resolve, 'function');
@@ -1149,5 +1155,56 @@ describe('aba B3 no ticker', () => {
     assert.ok(HTML_SRC.includes('animation: alertFlash 0.8s infinite'));
     assert.ok(TICKER_SRC.includes('(activeTab === "b3" || activeTab === "stocks") && typeof activeRsi'));
     assert.equal(TICKER_SRC.includes('activeTab === "crypto" && typeof activeRsi'), false);
+  });
+
+  it('62. B3 e STOCKS usam 15 s visíveis, param ocultos e retomam uma vez', async () => {
+    const h = mountTicker();
+    await settle();
+    assert.equal(h.activeIntervals(5000).length, 1, 'CRIPTO mantém o ciclo de 5 s');
+    assert.equal(h.activeIntervals(15000).length, 0);
+    assert.equal(h.activeIntervals(60000).length, 1, 'broadcast mantém 60 s');
+
+    h.clickTab('b3');
+    await settle();
+    assert.equal(h.activeIntervals(15000).length, 1);
+    const beforeFive = h.requests.length;
+    h.tick5s();
+    await settle();
+    assert.equal(h.requests.length, beforeFive, 'o ciclo CRIPTO não consulta a B3');
+    h.activeIntervals(15000)[0].fn();
+    await settle();
+    assert.equal(h.requests.length, beforeFive + 1, 'um lote B3 após 15 s');
+
+    h.visibility(true);
+    assert.equal(h.activeIntervals(15000).length, 0);
+    assert.equal(h.activeIntervals(60000).length, 0);
+    const beforeHidden = h.requests.length;
+    h.tick5s();
+    await settle();
+    assert.equal(h.requests.length, beforeHidden, 'sem cotação B3 enquanto oculta');
+    h.visibility(false);
+    await settle();
+    assert.equal(h.requests.length, beforeHidden + 2, 'uma B3 e um broadcast ao retornar');
+    h.visibility(false);
+    assert.equal(h.requests.length, beforeHidden + 2, 'evento visível repetido não duplica');
+    assert.equal(h.activeIntervals(15000).length, 1);
+    assert.equal(h.activeIntervals(60000).length, 1);
+
+    h.clickTab('stocks');
+    await settle();
+    assert.equal(h.activeIntervals(15000).length, 1, 'somente um timer de ações');
+    h.visibility(true);
+    const beforeStocksReturn = h.requests.length;
+    h.visibility(false);
+    await settle();
+    assert.equal(h.requests.length, beforeStocksReturn + 1, 'STOCKS retoma sem duplicar seu lote');
+
+    h.clickTab('crypto');
+    await settle();
+    assert.equal(h.activeIntervals(15000).length, 0);
+    const beforeCrypto = h.binanceRequests.length;
+    h.tick5s();
+    await settle();
+    assert.ok(h.binanceRequests.length > beforeCrypto, 'Binance continua no ciclo de 5 s');
   });
 });
