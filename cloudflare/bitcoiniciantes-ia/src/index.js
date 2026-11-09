@@ -529,6 +529,8 @@ async function assetQuote(request, asset) {
 
 const QUOTE_CACHE_TTL_MS = 20 * 1000;
 const QUOTE_CACHE_MAX_ENTRIES = 64;
+// Bound isolate-local coalescing metadata; overflow uses the uncached request path.
+const QUOTE_PENDING_MAX_ENTRIES = 64;
 // Isolate-local only: entries and in-flight requests are not shared across isolates.
 const quotesCache = new Map();
 const quotesPending = new Map();
@@ -798,6 +800,7 @@ async function assetQuotes(request) {
       return json(request, quotesInRequestedOrder(rawAssets, shared.cacheBody));
     }
   }
+  const trackPending = !hasRepeatedAssets && quotesPending.size < QUOTE_PENDING_MAX_ENTRIES;
   const load = (async () => {
     const configs = [cfg].concat(cfg.fallbacks || []);
     const nowMs = Date.now();
@@ -825,10 +828,10 @@ async function assetQuotes(request) {
       if (results[index] && !entries[symbol]) entries[symbol] = results[index];
     });
     const cacheBody = { window: windowKey, updatedAt: body.updatedAt, entries };
-    if (!hasRepeatedAssets && quotes.length && results.every(Boolean)) storeQuotesBody(cacheKey, cacheBody, cacheTtlMs);
+    if (trackPending && quotes.length && results.every(Boolean)) storeQuotesBody(cacheKey, cacheBody, cacheTtlMs);
     return { body, cacheBody };
   })();
-  if (hasRepeatedAssets) return json(request, (await load).body);
+  if (!trackPending) return json(request, (await load).body);
   quotesPending.set(cacheKey, load);
   try {
     const loaded = await load;

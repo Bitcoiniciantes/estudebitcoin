@@ -205,3 +205,64 @@ test('isolate cache evicts old entries after its size limit', async () => {
   await quotes('CAP00');
   assert.equal(upstream.length - beforeCalls, 66);
 });
+
+test('pending limit keeps equivalent tracked requests coalesced and serves overflow directly', async () => {
+  const beforeCalls = upstream.length;
+  let release;
+  stalled = new Promise((resolve) => { release = resolve; });
+  const tracked = Array.from({ length: 64 }, (_, i) => quotes(`PEND${String(i).padStart(2, '0')}`));
+  try {
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(upstream.length - beforeCalls, 64);
+    const overflowA = quotes('OVERFLOW1');
+    const overflowB = quotes('OVERFLOW1');
+    const trackedAgain = quotes('PEND00');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(upstream.length - beforeCalls, 66, 'existing key coalesces; both overflow requests run directly');
+    release();
+    const bodies = await Promise.all([...tracked, overflowA, overflowB, trackedAgain]);
+    assert.ok(bodies.every((body) => body.quotes.length === 1));
+  } finally {
+    release();
+    stalled = null;
+    await Promise.allSettled(tracked);
+  }
+  await quotes('OVERFLOW1');
+  assert.equal(upstream.length - beforeCalls, 67, 'overflow response was not cached');
+  await quotes('OVERFLOW1');
+  assert.equal(upstream.length - beforeCalls, 67, 'subsequent tracked response is cached');
+});
+
+test('pending slots are released after failed work and allow a later coalesced retry', async () => {
+  const symbols = Array.from({ length: 64 }, (_, i) => `PFAIL${String(i).padStart(2, '0')}`);
+  for (const symbol of symbols) failing.add(symbol);
+  let release;
+  stalled = new Promise((resolve) => { release = resolve; });
+  const pending = symbols.map((symbol) => quotes(symbol));
+  try {
+    release();
+    const bodies = await Promise.all(pending);
+    assert.ok(bodies.every((body) => body.quotes.length === 0));
+  } finally {
+    release();
+    stalled = null;
+    for (const symbol of symbols) failing.delete(symbol);
+    await Promise.allSettled(pending);
+  }
+  const beforeRetry = upstream.length;
+  let releaseRetry;
+  stalled = new Promise((resolve) => { releaseRetry = resolve; });
+  try {
+    const first = quotes('PFAIL00');
+    const second = quotes('PFAIL00');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(upstream.length - beforeRetry, 1, 'freed slot coalesces the retry');
+    releaseRetry();
+    const [a, b] = await Promise.all([first, second]);
+    assert.deepEqual(a.quotes, b.quotes);
+    assert.equal(a.quotes.length, 1);
+  } finally {
+    releaseRetry();
+    stalled = null;
+  }
+});
