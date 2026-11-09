@@ -7,6 +7,7 @@ const originalCaches = globalThis.caches;
 const cache = new Map();
 const upstream = [];
 const failing = new Set();
+const scripted = new Map();
 let stalled = null;
 
 before(() => {
@@ -20,14 +21,15 @@ before(() => {
     const symbol = decodeURIComponent(String(url).match(/\/chart\/([^?]+)/)?.[1] || '');
     upstream.push(symbol);
     if (stalled) await stalled;
-    if (failing.has(symbol)) return { ok: false, status: 503 };
+    const outcome = scripted.get(symbol)?.shift();
+    if (failing.has(symbol) || outcome?.fail) return { ok: false, status: 503 };
     const time = Math.floor(Date.now() / 1000);
     return {
       ok: true,
       json: async () => ({ chart: { result: [{
         meta: { symbol, shortName: `${symbol} name`, currency: 'USD' },
         timestamp: [time - 86400, time],
-        indicators: { quote: [{ close: [10, 11], volume: [100, 110] }] },
+        indicators: { quote: [{ close: [10, outcome?.price ?? 11], volume: [100, 110] }] },
       }] } }),
     };
   };
@@ -68,39 +70,81 @@ test('canonical key reuses equivalent sets while each response keeps requested o
 
   const duplicate = await quotes('NVDA,TSLA,NVDA');
   assert.deepEqual(duplicate.quotes.map((quote) => quote.symbol), ['NVDA', 'TSLA', 'NVDA']);
-  assert.deepEqual(duplicate.quotes[0], duplicate.quotes[2]);
-  assert.equal(upstream.length, 2);
+  assert.equal(upstream.length, 5, 'duplicate occurrences fetch independently');
 
   const otherWindow = await quotes('TSLA,NVDA', '7d');
   assert.equal(otherWindow.window, '7d');
-  assert.equal(upstream.length, 4);
+  assert.equal(upstream.length, 7);
 
   const freshDuplicate = await quotes('AAPL,AAPL');
   assert.deepEqual(freshDuplicate.quotes.map((quote) => quote.symbol), ['AAPL', 'AAPL']);
-  assert.equal(upstream.length, 6);
+  assert.equal(upstream.length, 9);
   const sameSet = await quotes('AAPL');
   assert.deepEqual(sameSet.quotes, [freshDuplicate.quotes[0]]);
-  assert.equal(upstream.length, 6);
+  assert.equal(upstream.length, 10, 'duplicate request did not populate unique-symbol cache');
 });
 
-test('equivalent concurrent requests share Yahoo work and keep individual response order', async () => {
+test('equivalent concurrent requests without duplicates share Yahoo work and keep individual order', async () => {
   const beforeCalls = upstream.length;
   let release;
   stalled = new Promise((resolve) => { release = resolve; });
   try {
     const first = quotes('COALA1,COALA2');
-    const second = quotes('COALA2,COALA1,COALA2');
+    const second = quotes('COALA2,COALA1');
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(upstream.length - beforeCalls, 2);
     release();
     const [a, b] = await Promise.all([first, second]);
     assert.deepEqual(a.quotes.map((quote) => quote.symbol), ['COALA1', 'COALA2']);
-    assert.deepEqual(b.quotes.map((quote) => quote.symbol), ['COALA2', 'COALA1', 'COALA2']);
+    assert.deepEqual(b.quotes.map((quote) => quote.symbol), ['COALA2', 'COALA1']);
     assert.equal(upstream.length - beforeCalls, 2);
   } finally {
     release();
     stalled = null;
   }
+});
+
+test('repeated symbol preserves separate Yahoo values and the legacy JSON shape', async () => {
+  scripted.set('DUPVALUE', [{ price: 11 }, { price: 12 }]);
+  const beforeCalls = upstream.length;
+  const first = await quotes('DUPVALUE,DUPVALUE');
+  assert.deepEqual(first.quotes.map((quote) => quote.price), [11, 12]);
+  assert.equal(upstream.length - beforeCalls, 2);
+  assert.deepEqual(Object.keys(first), ['window', 'updatedAt', 'quotes']);
+  assert.equal(first.window, '24h');
+  assert.equal(typeof first.updatedAt, 'string');
+  assert.deepEqual(Object.keys(first.quotes[0]), [
+    'symbol', 'name', 'price', 'changePct', 'volume', 'currency', 'closes', 'baseClose', 'baseTime',
+  ]);
+  assert.deepEqual(Object.keys(first.quotes[1]), Object.keys(first.quotes[0]));
+  assert.equal(typeof first.quotes[0].changePct, 'number');
+  assert.equal(typeof first.quotes[0].volume, 'number');
+  assert.equal(typeof first.quotes[0].currency, 'string');
+  assert.ok(Array.isArray(first.quotes[0].closes));
+});
+
+test('repeated symbol preserves a successful occurrence after another fails', async () => {
+  scripted.set('DUPFAIL', [{ fail: true }, { price: 12 }]);
+  const beforeCalls = upstream.length;
+  const body = await quotes('LEFT1,DUPFAIL,DUPFAIL,RIGHT1');
+  assert.deepEqual(body.quotes.map((quote) => quote.symbol), ['LEFT1', 'DUPFAIL', 'RIGHT1']);
+  assert.deepEqual(body.quotes.map((quote) => quote.price), [11, 12, 11]);
+  assert.equal(upstream.length - beforeCalls, 4);
+  scripted.set('DUPFAIL', [{ price: 13 }, { price: 14 }]);
+  const retry = await quotes('LEFT1,DUPFAIL,DUPFAIL,RIGHT1');
+  assert.deepEqual(retry.quotes.map((quote) => quote.price), [11, 13, 14, 11]);
+});
+
+test('simultaneous equivalent duplicate requests keep their own Yahoo occurrences', async () => {
+  const beforeCalls = upstream.length;
+  scripted.set('DUPSIM', [{ price: 11 }, { price: 12 }, { price: 13 }, { price: 14 }]);
+  const [a, b] = await Promise.all([
+    quotes('DUPSIM,DUPSIM'),
+    quotes('DUPSIM,DUPSIM'),
+  ]);
+  assert.deepEqual(a.quotes.map((quote) => quote.price), [11, 12]);
+  assert.deepEqual(b.quotes.map((quote) => quote.price), [13, 14]);
+  assert.equal(upstream.length - beforeCalls, 4);
 });
 
 test('failed quotes are not cached and a later request retries', async () => {

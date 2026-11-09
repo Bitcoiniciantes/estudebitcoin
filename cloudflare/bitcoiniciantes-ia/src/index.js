@@ -781,18 +781,22 @@ async function assetQuotes(request) {
   if (!rawAssets.length) return json(request, { error: "Informe assets.", window: windowKey }, 400);
   const cfg = QUOTE_WINDOWS[windowKey];
   const cacheKey = `${[...new Set(rawAssets)].sort().join(",")}|${windowKey}`;
+  // Repeated symbols are separate Yahoo requests; a per-symbol cache cannot preserve their individual results.
+  const hasRepeatedAssets = new Set(rawAssets).size !== rawAssets.length;
   const cacheTtlMs =
     windowKey === "1wk"
       ? QUOTE_CACHE_TTL_1WK_MS
       : windowKey === "3y"
         ? QUOTE_CACHE_TTL_3Y_MS
         : QUOTE_CACHE_TTL_MS;
-  const cached = cachedQuotesBody(cacheKey);
-  if (cached) return json(request, quotesInRequestedOrder(rawAssets, cached));
-  const pending = quotesPending.get(cacheKey);
-  if (pending) {
-    const shared = await pending;
-    return json(request, quotesInRequestedOrder(rawAssets, shared.cacheBody));
+  if (!hasRepeatedAssets) {
+    const cached = cachedQuotesBody(cacheKey);
+    if (cached) return json(request, quotesInRequestedOrder(rawAssets, cached));
+    const pending = quotesPending.get(cacheKey);
+    if (pending) {
+      const shared = await pending;
+      return json(request, quotesInRequestedOrder(rawAssets, shared.cacheBody));
+    }
   }
   const load = (async () => {
     const configs = [cfg].concat(cfg.fallbacks || []);
@@ -821,9 +825,10 @@ async function assetQuotes(request) {
       if (results[index] && !entries[symbol]) entries[symbol] = results[index];
     });
     const cacheBody = { window: windowKey, updatedAt: body.updatedAt, entries };
-    if (quotes.length && results.every(Boolean)) storeQuotesBody(cacheKey, cacheBody, cacheTtlMs);
+    if (!hasRepeatedAssets && quotes.length && results.every(Boolean)) storeQuotesBody(cacheKey, cacheBody, cacheTtlMs);
     return { body, cacheBody };
   })();
+  if (hasRepeatedAssets) return json(request, (await load).body);
   quotesPending.set(cacheKey, load);
   try {
     const loaded = await load;
