@@ -9,7 +9,7 @@ const TICKER_SRC = fs.readFileSync(new URL('../assets/js/ticker-widget.js', impo
 const WORKER_SRC = fs.readFileSync(new URL('../cloudflare/bitcoiniciantes-ia/src/index.js', import.meta.url), 'utf8');
 const HTML_SRC = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
-const B3_SYMBOLS = ['^BVSP', 'VALE3.SA', 'PETR4.SA', 'ITUB4.SA', 'BBDC4.SA', 'BBAS3.SA', 'WEGE3.SA', 'USIM5.SA'];
+const B3_SYMBOLS = ['^BVSP', 'VALE3.SA', 'PETR4.SA', 'ITUB4.SA', 'BBDC4.SA', 'BBAS3.SA', 'QBTC11.SA', 'USIM5.SA'];
 const TZ_B3 = 'America/Sao_Paulo';
 const NOW = Date.parse('2026-11-02T20:00:00Z');
 const CRYPTO_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -223,7 +223,7 @@ function mountTicker(options = {}) {
       ["ITUB4.SA", 35.10, 3.2],
       ["BBDC4.SA", 15.20, -1.4],
       ["BBAS3.SA", 27.30, -2.2],
-      ["WEGE3.SA", 52.00, 5.0],
+      ["QBTC11.SA", 52.00, 5.0],
       ["USIM5.SA", 6.10, 0]
     ];
     globalThis.__RSI = {
@@ -233,7 +233,7 @@ function mountTicker(options = {}) {
       "ITUB4.SA": 44,
       "BBDC4.SA": 46,
       "BBAS3.SA": 71,
-      "WEGE3.SA": 70,
+      "QBTC11.SA": 70,
       "USIM5.SA": null
     };
     globalThis.__b3Quotes = function (withRsi) {
@@ -466,7 +466,7 @@ describe('aba B3 no ticker', () => {
     const expected = '<div class="tq up1 has-rsi tq--b3" data-tq="VALE3.SA"><b class="tqSym">VALE3</b>' +
       '<span class="tq-rsi tq-rsi-compra" role="img" title="RSI 14 semanal: 39 — Compra"' +
       ' aria-label="RSI 39 — Compra">39</span>' +
-      '<span class="tqPct">+1,50%</span><strong class="tqPrice">R$ 60,00</strong>' +
+      '<span class="tqPct tq-b3-pct tq-b3-pct--up">+1,50%<span class="tq-b3-pct-arrow" aria-hidden="true">↑</span></span><strong class="tqPrice">R$ 60,00</strong>' +
       '<div class="tq-b3-reference" aria-label="Agora 60,00. 24H 59,11"><div class="tq-b3-reference-col"><span class="tq-b3-reference-label">Agora</span><strong class="tq-b3-reference-price">60,00</strong></div><div class="tq-b3-reference-col"><span class="tq-b3-reference-label">24H</span><strong class="tq-b3-reference-price">59,11</strong></div></div></div>';
     assert.ok(grid.innerHTML.includes(expected), 'card VALE3 idêntico ao esperado');
     assert.equal(grid.innerHTML.includes('VALE3.SA</b>'), false, 'rótulo sem o sufixo .SA');
@@ -474,7 +474,8 @@ describe('aba B3 no ticker', () => {
     assert.ok(grid.innerHTML.includes('R$ 38,42'), 'preço em reais');
     assert.ok(grid.innerHTML.indexOf('data-tq="^BVSP"') < grid.innerHTML.indexOf('data-tq="VALE3.SA"'), 'Ibov é o primeiro card');
     assert.ok(grid.innerHTML.includes('<b class="tqSym">IBOV</b>'), 'rótulo IBOV');
-    assert.ok(grid.innerHTML.includes('+1,23%</span><strong class="tqPrice">167.563</strong>'), 'Ibov sem R$ nem pts');
+    assert.ok(cardSegment(grid.innerHTML, '^BVSP').includes('<strong class="tqPrice">167.563</strong>'), 'Ibov sem R$ nem pts');
+    assert.ok(cardSegment(grid.innerHTML, '^BVSP').includes('class="tq-b3-reference" aria-label="Agora 167.563. 24H 165.527"'), 'Ibov usa o mesmo bloco Agora / 24H sem R$');
   });
 
   it('15. cards da B3 não têm sino nem botão Graham e mantêm selo acessível', async () => {
@@ -534,7 +535,7 @@ describe('aba B3 no ticker', () => {
       ['ITUB4.SA', 'neutro', 44],
       ['BBDC4.SA', 'neutro', 46],
       ['BBAS3.SA', 'venda', 71],
-      ['WEGE3.SA', 'neutro', 70],
+      ['QBTC11.SA', 'neutro', 70],
     ];
     for (const [symbol, band, shown] of cases) {
       const segment = cardSegment(grid.innerHTML, symbol);

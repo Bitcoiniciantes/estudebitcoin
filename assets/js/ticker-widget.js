@@ -66,7 +66,7 @@
     { sym: "ITUB4.SA", label: "ITUB4", name: "Itaú Unibanco PN" },
     { sym: "BBDC4.SA", label: "BBDC4", name: "Bradesco PN" },
     { sym: "BBAS3.SA", label: "BBAS3", name: "Banco do Brasil ON" },
-    { sym: "WEGE3.SA", label: "WEGE3", name: "WEG ON" },
+    { sym: "QBTC11.SA", label: "QBTC11", name: "QBTC11" },
     { sym: "USIM5.SA", label: "USIM5", name: "Usiminas PNA" },
   ];
   var B3_META = {};
@@ -398,7 +398,7 @@
     var small = quote.symbol === "BTC" || quote.symbol === "ETH" || quote.symbol === "PAXG" ? " tq-sm" : "";
     var smallLabel = quote.symbol === "^NDX" ? " tq-label-sm" : "";
     var isIbov = quote.symbol === "^BVSP";
-    var isB3Asset = activeTab === "b3" && !isIbov;
+    var isB3Asset = activeTab === "b3";
     var priceText = isIbov
       ? (typeof price === "number" && Number.isFinite(price) ? price.toLocaleString("pt-BR", { maximumFractionDigits: 0 }) : "--")
       : fmtPrice(price, currency, !isCrypto(quote.symbol) && currency !== "BRL");
@@ -425,8 +425,11 @@
       (rsiPulseCounts[pulseKey] || 0) < RSI_LOW_PULSE_LIMIT;
     var referencePrice = isB3Asset ? b3ReferencePrice(quote) : null;
     var referenceLabel = activeWindowLabel();
-    var nowBlockPrice = isB3Asset ? fmtPrice(price, currency, true) : "";
-    var referenceBlockPrice = isB3Asset ? fmtPrice(referencePrice, currency, true) : "";
+    var nowBlockPrice = isIbov && isB3Asset ? priceText : (isB3Asset ? fmtPrice(price, currency, true) : "");
+    var referenceBlockPrice = isIbov && isB3Asset
+      ? (typeof referencePrice === "number" && Number.isFinite(referencePrice)
+        ? referencePrice.toLocaleString("pt-BR", { maximumFractionDigits: 0 }) : "--")
+      : (isB3Asset ? fmtPrice(referencePrice, currency, true) : "");
     var referenceBlock = isB3Asset
       ? '<div class="tq-b3-reference" aria-label="Agora ' + esc(nowBlockPrice) + '. ' + esc(referenceLabel) + ' ' + esc(referenceBlockPrice) + '">' +
           '<div class="tq-b3-reference-col"><span class="tq-b3-reference-label">Agora</span><strong class="tq-b3-reference-price">' + esc(nowBlockPrice) + '</strong></div>' +
