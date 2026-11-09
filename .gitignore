@@ -3,6 +3,7 @@
 node_modules/
 .env*
 !.env.example
+.dev.vars*
 *.v6-bak
 alerta-worker-v7-backup/
 _archive_local/
