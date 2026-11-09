@@ -164,6 +164,12 @@
 .fng-hist-period { font-size: 0.85rem; color: #D1D5DB; font-weight: 500; line-height: 1.3; margin-bottom: 2px; }
 .fng-hist-sent { font-size: 0.75rem; font-weight: 700; }
 .fng-badge-circle { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 800; color: white; flex-shrink: 0; }
+.fng-guidance-list { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; margin: 0; padding: 0 0 0 1rem; color: #D1D5DB; font-size: 0.82rem; line-height: 1.4; }
+.fng-guidance-list li { padding-left: 0.15rem; }
+.fng-guidance-list li + li { margin-top: 16px; }
+.fng-guidance-description { display: block; margin-top: 3px; color: #D1D5DB; font-weight: 400; white-space: nowrap; }
+.fng-guidance-fear { color: #E8590C; }
+.fng-guidance-greed { color: #4CAF50; }
 @media (max-width: 600px) {
   .fng-outer { grid-template-columns: 1fr; }
   .fng-left { border-right: none; border-bottom: 1px solid #4a4d47; padding: 1.4rem 1.2rem 1.2rem; }
