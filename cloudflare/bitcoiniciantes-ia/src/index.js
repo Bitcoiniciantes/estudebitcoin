@@ -754,6 +754,15 @@ function mapLimit(items, limit, worker) {
   });
 }
 
+function quotesInRequestedOrder(rawAssets, cached) {
+  const bySymbol = cached.entries;
+  return {
+    window: cached.window,
+    updatedAt: cached.updatedAt,
+    quotes: rawAssets.map((symbol) => bySymbol[symbol]).filter(Boolean),
+  };
+}
+
 async function assetQuotes(request) {
   const url = new URL(request.url);
   const rawAssets = (url.searchParams.get("assets") || "")
@@ -764,7 +773,7 @@ async function assetQuotes(request) {
   const windowKey = QUOTE_WINDOWS[url.searchParams.get("window")] ? url.searchParams.get("window") : "24h";
   if (!rawAssets.length) return json(request, { error: "Informe assets.", window: windowKey }, 400);
   const cfg = QUOTE_WINDOWS[windowKey];
-  const cacheKey = `${rawAssets.join(",")}|${windowKey}`;
+  const cacheKey = `${[...new Set(rawAssets)].sort().join(",")}|${windowKey}`;
   const cacheTtlMs =
     windowKey === "1wk"
       ? QUOTE_CACHE_TTL_1WK_MS
@@ -772,7 +781,7 @@ async function assetQuotes(request) {
         ? QUOTE_CACHE_TTL_3Y_MS
         : QUOTE_CACHE_TTL_MS;
   const cached = await cachedQuotesBody(cacheKey, cacheTtlMs);
-  if (cached) return json(request, cached);
+  if (cached?.entries) return json(request, quotesInRequestedOrder(rawAssets, cached));
   const configs = [cfg].concat(cfg.fallbacks || []);
   const nowMs = Date.now();
   const results = await mapLimit(rawAssets, 4, async (symbol) => {
@@ -794,7 +803,13 @@ async function assetQuotes(request) {
   });
   const quotes = results.filter(Boolean);
   const body = { window: windowKey, updatedAt: new Date(nowMs).toISOString(), quotes };
-  if (quotes.length) await storeQuotesBody(cacheKey, body);
+  if (quotes.length) {
+    const entries = Object.create(null);
+    rawAssets.forEach((symbol, index) => {
+      if (results[index] && !entries[symbol]) entries[symbol] = results[index];
+    });
+    await storeQuotesBody(cacheKey, { window: windowKey, updatedAt: body.updatedAt, entries });
+  }
   return json(request, body);
 }
 
