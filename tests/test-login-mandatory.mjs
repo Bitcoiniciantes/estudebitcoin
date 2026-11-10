@@ -1,4 +1,4 @@
-/* Login obrigatório — painel bloqueado sem sessão autenticada.
+/* Login obrigatório — amostra visual sem sessão autenticada.
  * Roda com: node --test test-login-mandatory.mjs
  * Verifica boot em vm real com mocks de EstudeAuth/FirebasePortfolio.
  */
@@ -11,24 +11,28 @@ const dir = new URL('../assets/js/portfolio/', import.meta.url);
 const SOURCES = ['portfolioCalculator.js', 'portfolioStorage.js', 'portfolioService.js', 'painel-ativos-ui.js']
   .map((f) => fs.readFileSync(new URL('./' + f, dir), 'utf8'));
 
-function mountAuth({ user, whenReadyUser = user }) {
+function mountAuth({ user, whenReadyUser = user, remoteAssets = [], loadResult = null }) {
   const store = { eb_portfolio_v2: JSON.stringify({ version: 1, portfolio: { name: 't', currency: 'USD', updatedAt: null }, assets: [{ id: 'a1', ticker: 'BTC', name: 'Bitcoin', type: 'CRYPTO', quantity: 0.5, averagePrice: 60000, currentPrice: 67000, dailyVariation: 1.5 }] }) };
   const localStorage = {
     getItem: (k) => (k in store ? store[k] : null),
-    setItem: (k, v) => { store[k] = String(v); },
+    setItem: (k, v) => { store[k] = String(v); localStorage.writes++; },
     removeItem: (k) => { delete store[k]; },
     _store: store,
+    writes: 0,
   };
   const winTarget = new EventTarget();
   let tickerListeners = 0;
   const els = {};
   const mkEl = (overrides = {}) => ({
-    addEventListener: () => {}, querySelectorAll: () => [], style: {}, textContent: '', innerHTML: '', value: '', disabled: false, setAttribute: () => {}, classList: { add: () => {}, remove: () => {} }, ...overrides
+    addEventListener(type, fn) { (this._events ||= {})[type] = fn; }, querySelectorAll: () => [], style: {}, textContent: '', innerHTML: '', value: '', disabled: false, setAttribute: () => {}, classList: { add: () => {}, remove: () => {}, toggle: () => {} }, ...overrides
   });
   // Pre-create critical els with full mock
   els['painel-ativos'] = mkEl({ querySelectorAll: () => [] });
   els['pa-mode-badge'] = mkEl({ textContent: '', title: '' });
   els['pa-locked'] = mkEl({ style: {} });
+  els['pa-demo-notice'] = mkEl({ style: {} });
+  els['pa-auth-hint'] = mkEl({ textContent: '' });
+  els['pa-count-sub'] = mkEl({ textContent: '' });
   els['pa-add-toggle'] = mkEl({ style: {} });
   els['pa-login-cta'] = mkEl({});
   els['pa-form-wrap'] = mkEl({ style: {} });
@@ -96,7 +100,7 @@ function mountAuth({ user, whenReadyUser = user }) {
     warmup: () => true,
     coolDown: () => true,
     friendlyError: (e) => String(e && e.message || e),
-    load: () => { loadCalled++; lastLoadUid = authUser && authUser.id; return Promise.resolve({ assets: [], portfolio: { currency: 'USD' } }); },
+    load: () => { loadCalled++; lastLoadUid = authUser && authUser.id; return loadResult ? loadResult() : Promise.resolve({ assets: remoteAssets, portfolio: { currency: 'USD' } }); },
     migrateLocal: () => Promise.resolve({ status: 'empty' }),
     add: () => Promise.resolve({ status: 'ok' }),
     update: () => Promise.resolve({ status: 'ok' }),
@@ -150,7 +154,7 @@ function mountAuth({ user, whenReadyUser = user }) {
     const PA = sandbox.PainelAtivos;
     resolve({
       PA, els, sandbox, store, localStorage,
-      getCalls: () => ({ ensureAnonymousCalled, signInAnonymouslyCalled, loadCalled, lastLoadUid }),
+      getCalls: () => ({ ensureAnonymousCalled, signInAnonymouslyCalled, loadCalled, lastLoadUid, tickerListeners }),
       triggerAuth: (u) => fakeAuth._trigger(u),
       fakeAuth, fakeFirebase
     });
@@ -167,12 +171,27 @@ describe('login obrigatório', () => {
     assert.ok(store.eb_portfolio_v2, 'localStorage preservado');
   });
 
-  it('sem sessão painel fica bloqueado (badge Entrar, locked)', async () => {
-    const { PA, els } = await mountAuth({ user: null, whenReadyUser: null });
-    assert.equal(PA.getUI().mode, 'locked', 'mode locked');
-    // badge deve ser Login necessário / Entrar, nunca Nuvem
-    assert.ok(els['pa-mode-badge'].textContent.includes('Login') || els['pa-mode-badge'].textContent.includes('Entrar'), 'badge login');
-    assert.equal(els['pa-locked'].style.display, '', 'locked visível');
+  it('sem sessão mostra somente BTC e NVDA ilustrativos, sem gravar', async () => {
+    const { PA, els, localStorage, getCalls } = await mountAuth({ user: null, whenReadyUser: null });
+    assert.equal(PA.getUI().mode, 'demo');
+    assert.equal(els['pa-mode-badge'].textContent, 'EXEMPLO');
+    assert.equal(els['pa-auth-hint'].textContent, 'Carteira ilustrativa. Entre para criar e acompanhar a sua.');
+    assert.equal(els['pa-demo-notice'].style.display, '');
+    assert.equal(els['pa-add-toggle'].style.display, '');
+    assert.equal(els['pa-count'].textContent, '2');
+    assert.equal(els['pa-count-sub'].textContent, '2 ativos ilustrativos');
+    assert.equal(els['pa-sum-invested'].textContent, '$ 7.300,00');
+    assert.equal(els['pa-sum-current'].textContent, '$ 7.640,00');
+    assert.match(els['pa-sum-pl'].textContent, /\+\$ 340,00.*4,66%/);
+    assert.match(els['pa-sum-day'].textContent, /-\$ 66,20/);
+    assert.equal((els['pa-tbody'].innerHTML.match(/<tr>/g) || []).length, 2);
+    assert.match(els['pa-tbody'].innerHTML, /BTC/);
+    assert.match(els['pa-tbody'].innerHTML, /NVDA/);
+    assert.doesNotMatch(els['pa-tbody'].innerHTML, /data-act=/);
+    assert.equal(els['pa-updated'].textContent, '');
+    assert.equal(PA.getService(), null);
+    assert.equal(localStorage.writes, 0);
+    assert.equal(getCalls().loadCalled, 0);
   });
 
   it('sessão autenticada entra em Nuvem e carrega users/{uid}/carteira', async () => {
@@ -195,26 +214,92 @@ describe('login obrigatório', () => {
     assert.equal(c.ensureAnonymousCalled, false);
   });
 
-  it('usuário anônimo antigo não é apagado automaticamente (permanece bloqueado, sem Nuvem)', async () => {
+  it('usuário anônimo antigo vê apenas a amostra, sem Nuvem', async () => {
     const anon = { id: 'anon-old', anonymous: true };
     const { PA, els, store, getCalls } = await mountAuth({ user: anon, whenReadyUser: anon });
-    assert.equal(PA.getUI().mode, 'locked', 'anonimo fica locked, não remote');
+    assert.equal(PA.getUI().mode, 'demo', 'anônimo vê exemplo, não carteira remota');
     assert.notEqual(els['pa-mode-badge'].textContent, 'Nuvem', 'nunca Nuvem para anonimo');
     assert.ok(store.eb_portfolio_v2, 'storage anonimo preservado');
     assert.equal(getCalls().loadCalled, 0, 'não carrega carteira de anonimo como se fosse do usuário');
   });
 
-  it('bloqueado não permite gravar carteira local silenciosamente', async () => {
-    const { PA, store } = await mountAuth({ user: null, whenReadyUser: null });
+  it('adicionar ativo abre login e não grava a demonstração', async () => {
+    const { PA, store, els, fakeAuth } = await mountAuth({ user: null, whenReadyUser: null });
     const before = store.eb_portfolio_v2;
-    // Simula tentativa de submit via onSubmit path local: deve bloquear
-    // Como UI está locked, onSubmit deve setar erro e não alterar storage
-    // Chamamos via PainelAtivos exposto: não há API direta, mas verificamos que service não foi usado para gravar
-    // O teste verifica que persistLiveLocal não grava quando locked
+    els['pa-add-toggle']._events.click();
+    assert.equal(fakeAuth._openModal, 1);
+    assert.equal(els['pa-form-wrap'].style.display, 'none');
     PA.persistLiveLocal();
-    assert.equal(store.eb_portfolio_v2, before, 'persist bloqueado em locked');
-    // Simulate add via service would be blocked by UI layer (onSubmit), not service itself
-    // Ensure mode remains locked
+    assert.equal(store.eb_portfolio_v2, before);
+    assert.equal(PA.getUI().mode, 'demo');
+  });
+
+  it('login com carteira vazia remove o exemplo; logout restaura só o exemplo', async () => {
+    const { PA, els, triggerAuth } = await mountAuth({ user: null, whenReadyUser: null });
+    triggerAuth({ id: 'uid123', anonymous: false });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(PA.getUI().mode, 'remote');
+    assert.equal(els['pa-mode-badge'].textContent, 'Nuvem');
+    assert.equal(els['pa-count'].textContent, '0');
+    assert.doesNotMatch(els['pa-tbody'].innerHTML, /NVDA/);
+    assert.equal(els['pa-demo-notice'].style.display, 'none');
+    triggerAuth(null);
+    assert.equal(PA.getUI().mode, 'demo');
+    assert.equal(els['pa-count'].textContent, '2');
+    assert.match(els['pa-tbody'].innerHTML, /NVDA/);
+  });
+
+  it('conta com uma posição mostra somente a posição real', async () => {
+    const real = { id: 'eth-real', ticker: 'ETH', name: 'Ethereum', type: 'CRYPTO', quantity: 1, averagePrice: 2000, currentPrice: 2200, dailyVariation: 1 };
+    const { PA, els } = await mountAuth({ user: { id: 'uid123', anonymous: false }, remoteAssets: [real] });
+    assert.equal(PA.getUI().mode, 'remote');
+    assert.equal(els['pa-count'].textContent, '1');
+    assert.match(els['pa-tbody'].innerHTML, /ETH/);
+    assert.doesNotMatch(els['pa-tbody'].innerHTML, /NVDA|BTC/);
+    assert.match(els['pa-tbody'].innerHTML, /data-act="edit"/);
+  });
+
+  it('resposta antiga da nuvem não substitui a amostra após logout', async () => {
+    let resolveLoad;
+    const pending = new Promise((resolve) => { resolveLoad = resolve; });
+    const { PA, els, store, triggerAuth } = await mountAuth({ user: null, loadResult: () => pending });
+    delete store.eb_portfolio_v2;
+    triggerAuth({ id: 'uid123', anonymous: false });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(PA.getUI().loading, true);
+    assert.equal(els['pa-table-wrap'].style.display, 'none');
+    triggerAuth(null);
+    const snapshot = JSON.stringify(store);
+    resolveLoad({ assets: [{ id: 'eth-real', ticker: 'ETH', name: 'Ethereum', type: 'CRYPTO', quantity: 1, averagePrice: 2000, currentPrice: 2200, dailyVariation: 1 }] });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(PA.getUI().mode, 'demo');
+    assert.match(els['pa-tbody'].innerHTML, /BTC.*NVDA/s);
+    assert.doesNotMatch(els['pa-tbody'].innerHTML, /ETH/);
+    assert.equal(JSON.stringify(store), snapshot);
+  });
+
+  it('falha no carregamento não usa exemplos como fallback', async () => {
+    const user = { id: 'uid123', anonymous: false };
+    const { PA, els } = await mountAuth({ user, loadResult: () => Promise.reject(new Error('Falha')) });
     assert.equal(PA.getUI().mode, 'locked');
+    assert.equal(els['pa-mode-badge'].textContent, 'Login necessário');
+    assert.equal(els['pa-table-wrap'].style.display, 'none');
+    assert.equal(els['pa-demo-notice'].style.display, 'none');
+  });
+
+  it('exemplo não entra no universo de cotações; alternâncias não duplicam listener', async () => {
+    const { PA, sandbox, triggerAuth, getCalls } = await mountAuth({ user: null });
+    const liveSource = fs.readFileSync(new URL('./portfolioLive.js', dir), 'utf8');
+    vm.runInContext(liveSource, sandbox, { filename: 'portfolioLive.js' });
+    assert.equal(PA.getService(), null);
+    assert.equal(sandbox.PortfolioLive._test.getUniverse().length, 0);
+    triggerAuth({ id: 'uid123', anonymous: false });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    triggerAuth(null);
+    triggerAuth({ id: 'uid123', anonymous: false });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    triggerAuth(null);
+    assert.equal(sandbox.PortfolioLive._test.getUniverse().length, 0);
+    assert.equal(getCalls().tickerListeners, 1);
   });
 });

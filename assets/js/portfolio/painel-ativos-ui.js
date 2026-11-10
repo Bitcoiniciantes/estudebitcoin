@@ -21,8 +21,28 @@
 
   // Identidade da posição em edição: TICKER normalizado (estável entre
   // local e nuvem; ids internos mudam na transição e quebravam edit/del).
-  var ui = { filter: 'ALL', sort: 'value_desc', donutMode: 'asset', editingTicker: null, formType: 'CRYPTO', formOpen: false, mode: 'local', sellMode: false, busy: false, needsSync: false, migrationBlocked: false };
+  var ui = { filter: 'ALL', sort: 'value_desc', donutMode: 'asset', editingTicker: null, formType: 'CRYPTO', formOpen: false, mode: 'local', loading: false, sellMode: false, busy: false, needsSync: false, migrationBlocked: false };
   var service = null;
+
+  // Amostra exclusiva da apresentação: nunca passa pelo serviço ou storage.
+  var DEMO_POSITIONS = [
+    { ticker: 'BTC', name: 'Bitcoin', type: 'CRYPTO', quantity: 0.1, averagePrice: 70000, currentPrice: 73000, dailyVariation: -1 },
+    { ticker: 'NVDA', name: 'NVIDIA', type: 'STOCK', quantity: 2, averagePrice: 150, currentPrice: 170, dailyVariation: 2 }
+  ];
+
+  function demoView() {
+    var host = getRoot();
+    var calc = host && host.PortfolioCalculator;
+    if (!calc) return null;
+    var assets = DEMO_POSITIONS.map(function (position) {
+      var asset = Object.assign({}, position);
+      asset.calc = calc.enrichPosition(asset);
+      return asset;
+    });
+    var totals = calc.calcTotals(assets.map(function (asset) { return asset.calc; }));
+    calc.applyAllocations(assets.map(function (asset) { return asset.calc; }), totals.current);
+    return { assets: assets, totals: totals };
+  }
 
   function fb() {
     var host = getRoot();
@@ -33,6 +53,7 @@
   // modo já em "remote" NÃO recarregava: a tabela mostrava dados do UID
   // velho e as escritas iam para a nuvem vazia do UID novo ("não existe").
   var remoteUid = null;
+  var authEpoch = 0;
 
   // Dono do espelho local: carimba todo save() do adapter com o UID da
   // sessão vigente. Sem isso, o snapshot é órfão e a migração não tem
@@ -225,11 +246,11 @@
   /* ---------- Render ---------- */
   function render() {
     if (!service) return;
-    // Modo bloqueado: não exibe carteira (exige login), esconde dados sensíveis
-    if (ui.mode === 'locked') {
+    // Durante autenticação e erros, não exibe dados da sessão anterior.
+    if (ui.mode === 'locked' || ui.loading) {
       try {
         var locked = $('pa-locked');
-        if (locked) locked.style.display = '';
+        if (locked) locked.style.display = ui.loading ? 'none' : '';
         var empty = $('pa-empty');
         if (empty) empty.style.display = 'none';
         var wrap = $('pa-table-wrap');
@@ -243,13 +264,13 @@
           setText('pa-count', '0');
           paintCountSub(0);
           var plEl = $('pa-pl'); if (plEl) { plEl.textContent = '$ —'; plEl.className = ''; }
-          var sub = $('pa-pl-sub'); if (sub) { sub.textContent = 'Entre para acessar'; sub.className = 'pa-sub'; }
+          var sub = $('pa-pl-sub'); if (sub) { sub.textContent = ui.loading ? 'Carregando carteira…' : 'Entre para acessar'; sub.className = 'pa-sub'; }
           var dayEl = $('pa-day'); if (dayEl) { dayEl.textContent = '$ —'; dayEl.className = ''; }
           setText('pa-sum-invested', '$ —');
           setText('pa-sum-current', '$ —');
           var rsPl = $('pa-sum-pl'); if (rsPl) { rsPl.textContent = '$ —'; rsPl.className = ''; }
           var rsDay = $('pa-sum-day'); if (rsDay) { rsDay.textContent = '$ —'; rsDay.className = ''; }
-          var upd = $('pa-updated'); if (upd) upd.textContent = 'Entre para acessar sua carteira sincronizada.';
+          var upd = $('pa-updated'); if (upd) upd.textContent = ui.loading ? 'Carregando carteira…' : 'Entre para acessar sua carteira sincronizada.';
         }
         var demoBadge = $('pa-demo-badge');
         if (demoBadge) demoBadge.style.display = 'none';
@@ -259,22 +280,26 @@
       return;
     }
     var host = getRoot();
-    var view = service.query({ filter: ui.filter === 'ALL' ? null : ui.filter, sort: ui.sort });
+    var isDemo = ui.mode === 'demo';
+    var view = isDemo ? demoView() : service.query({ filter: ui.filter === 'ALL' ? null : ui.filter, sort: ui.sort });
+    if (!view) return;
     // Overlay ao vivo: patrimônio, donut e tabela acompanham os tickers.
-    try {
-      var calcApi = host && host.PortfolioCalculator;
-      if (calcApi) {
-        var over = view.assets.map(function (a) { return liveView(a); });
-        var touched = over.some(function (o) { return o.live; });
-        if (touched) {
-          var list = over.map(function (o) { return o.asset; });
-          var calcs = list.map(function (x) { return x.calc; });
-          var totals = calcApi.calcTotals(calcs);
-          calcApi.applyAllocations(calcs, totals.current);
-          view = { assets: list, totals: totals };
+    if (!isDemo) {
+      try {
+        var calcApi = host && host.PortfolioCalculator;
+        if (calcApi) {
+          var over = view.assets.map(function (a) { return liveView(a); });
+          var touched = over.some(function (o) { return o.live; });
+          if (touched) {
+            var list = over.map(function (o) { return o.asset; });
+            var calcs = list.map(function (x) { return x.calc; });
+            var totals = calcApi.calcTotals(calcs);
+            calcApi.applyAllocations(calcs, totals.current);
+            view = { assets: list, totals: totals };
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
     var totals = view.totals;
     var assets = view.assets;
 
@@ -284,12 +309,13 @@
     // sem cotação ainda → 'R$ —', sem fetch extra).
     var brlEl = $('pa-total-brl');
     if (brlEl) {
-      brlEl.textContent = (USD_BRL_RATE && typeof totals.current === 'number' && Number.isFinite(totals.current))
+      brlEl.textContent = !isDemo && USD_BRL_RATE && typeof totals.current === 'number' && Number.isFinite(totals.current)
         ? fmtBRL(totals.current * USD_BRL_RATE)
         : 'R$ —';
     }
     setText('pa-count', String(totals.count));
-    paintCountSub(totals.count);
+    if (isDemo) setText('pa-count-sub', '2 ativos ilustrativos');
+    else paintCountSub(totals.count);
     var plEl = $('pa-pl');
     if (plEl) {
       plEl.textContent = fmtMoneySigned(totals.profit);
@@ -323,7 +349,7 @@
     var centerTop = $('pa-donut-top');
     var centerSub = $('pa-donut-sub');
     if (centerTop) centerTop.textContent = ui.filter === 'ALL' ? String(totals.count) : String(assets.length);
-    if (centerSub) centerSub.textContent = ui.filter === 'ALL' ? 'ATIVOS' : (ui.filter === 'CRYPTO' ? 'CRIPTO' : 'STOCKS');
+    if (centerSub) centerSub.textContent = isDemo || ui.filter === 'ALL' ? 'ATIVOS' : (ui.filter === 'CRYPTO' ? 'CRIPTO' : 'STOCKS');
 
     var legend = $('pa-legend');
     if (legend) {
@@ -351,15 +377,15 @@
     if (icoDay) icoDay.className = 'pa-ico ' + cls(totals.dailyDelta);
 
     // Badge demo + updated
-    var hasDemo = service.getState().assets.some(function (a) { return a.demo; });
+    var hasDemo = !isDemo && service.getState().assets.some(function (a) { return a.demo; });
     var demoBadge = $('pa-demo-badge');
     if (demoBadge) demoBadge.style.display = hasDemo ? '' : 'none';
     var clearBtn = $('pa-clear-demo');
     if (clearBtn) clearBtn.style.display = hasDemo ? '' : 'none';
     var upd = $('pa-updated');
     if (upd) {
-      var ts = service.getState().portfolio.updatedAt;
-      upd.textContent = ts ? 'Atualizado em ' + new Date(ts).toLocaleString('pt-BR') : 'Ainda sem movimentação salva';
+      var ts = isDemo ? null : service.getState().portfolio.updatedAt;
+      upd.textContent = isDemo ? '' : (ts ? 'Atualizado em ' + new Date(ts).toLocaleString('pt-BR') : 'Ainda sem movimentação salva');
     }
 
     // Tabela
@@ -406,11 +432,11 @@
         '<td class="' + cls(a.calc.profitability) + '">' + esc(fmtPct(a.calc.profitability)) + '</td>' +
         '<td class="' + cls(a.dailyVariation) + '">' + esc(fmtPct(a.dailyVariation)) + '</td>' +
         '<td>' + a.calc.allocation.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '%</td>' +
-        '<td><span class="pa-row-actions">' +
+        '<td>' + (ui.mode === 'demo' ? '' : '<span class="pa-row-actions">' +
         '<button class="pa-icon-btn" data-act="detail" data-ticker="' + esc(a.ticker) + '" title="Preço justo (Graham) de ' + esc(a.ticker) + '" aria-label="Preço justo de ' + esc(a.ticker) + '">&#9878;</button>' +
         '<button class="pa-icon-btn" data-act="edit" data-ticker="' + esc(a.ticker) + '" title="Editar ' + esc(a.ticker) + '" aria-label="Editar ' + esc(a.ticker) + '">' + ICON_EDIT + '</button>' +
         '<button class="pa-icon-btn danger" data-act="del" data-ticker="' + esc(a.ticker) + '" title="Excluir ' + esc(a.ticker) + '" aria-label="Excluir ' + esc(a.ticker) + '">' + ICON_DEL + '</button>' +
-        '</span></td>' +
+        '</span>') + '</td>' +
         '</tr>';
     }).join('');
     setText('pa-foot-current', fmtMoney(totals.current));
@@ -424,7 +450,7 @@
   // pipeline do render() — query com filtro/ordem atuais + overlay ao vivo.
   // Retorna null quando não há carteira visível (modo bloqueado).
   function getExportView() {
-    if (!service || ui.mode === 'locked') return null;
+    if (!service || ui.mode === 'locked' || ui.mode === 'demo' || ui.loading) return null;
     var view = service.query({ filter: ui.filter === 'ALL' ? null : ui.filter, sort: ui.sort });
     try {
       var host = getRoot();
@@ -741,7 +767,7 @@
   }
 
   function onTickerPrice(ev) {
-    if (ui.mode === 'locked') return;
+    if (ui.mode === 'locked' || ui.mode === 'demo' || ui.loading) return;
     var d = ev && ev.detail;
     var price = d && Number(d.price);
     if (!d || !Number.isFinite(price) || price <= 0) return;
@@ -863,7 +889,10 @@
   // Recarrega o estado a partir do Firestore e re-renderiza pelo
   // mesmo pipeline de cálculo local (donut/tabela/sort/filter).
   function refreshFromRemote() {
+    var requestedUid = remoteUid;
+    var requestedEpoch = authEpoch;
     return fb().load().then(function (state) {
+      if (ui.mode !== 'remote' || authEpoch !== requestedEpoch || remoteUid !== requestedUid || sessionUid() !== requestedUid) return state;
       var cloudAssets = (state && state.assets) || [];
       if (!cloudAssets.length) {        // Nuvem vazia + local com dados = migração pendente ou falha.
         // NUNCA substituir a visão local por vazio (evita apagar tudo).
@@ -882,12 +911,16 @@
           // E bloquear escritas: o badge diria Nuvem sobre dados locais.
           ui.needsSync = true;
           setErr('Sincronizando carteira, aguarde e tente de novo.');
+          ui.loading = false;
+          updateLockedUI();
           render();
           maybeMigrate();
           return state;
         }
       }
       ui.needsSync = false;
+      ui.loading = false;
+      updateLockedUI();
       service.replaceAll(cloudAssets);
       render();
       setBadgeUid();
@@ -897,9 +930,11 @@
 
   function enterRemoteMode(uid) {
     if (ui.mode === 'remote' && remoteUid && uid && remoteUid === uid) return;
+    authEpoch++;
     // Transição (local→remoto) ou UID diferente: descarta live da origem.
     clearLiveState();
     ui.mode = 'remote';
+    ui.loading = true;
     remoteUid = uid || remoteUid;
     ui.migrationBlocked = false;
     setStorageOwner(remoteUid);
@@ -909,13 +944,38 @@
       badge.textContent = 'Nuvem';
       badge.classList.remove('pa-local');
       badge.classList.remove('pa-locked');
+      badge.classList.remove('pa-demo');
     }
     setBadgeUid();
     setSide(false);
     updateLockedUI();
+    render();
+  }
+
+  function enterDemoMode() {
+    authEpoch++;
+    clearLiveState();
+    ui.mode = 'demo';
+    ui.loading = false;
+    ui.needsSync = false;
+    remoteUid = null;
+    setStorageOwner(null);
+    try { if (fb() && fb().coolDown) fb().coolDown(); } catch (e) {}
+    var badge = $('pa-mode-badge');
+    if (badge) {
+      badge.textContent = 'EXEMPLO';
+      badge.classList.add('pa-demo');
+      badge.classList.remove('pa-local');
+      badge.classList.remove('pa-locked');
+      badge.title = '';
+    }
+    clearForm();
+    setFormOpen(false, { noScroll: true });
+    updateLockedUI();
   }
 
   function enterLocalMode() {
+    authEpoch++;
     // Transição (remoto→local): descarta live da nuvem anterior.
     clearLiveState();
     ui.mode = 'local';
@@ -930,14 +990,16 @@
   }
 
   function enterLockedMode() {
+    authEpoch++;
     clearLiveState();
     ui.mode = 'locked';
+    ui.loading = false;
     ui.needsSync = false;
     remoteUid = null;
     setStorageOwner(null);
     try { if (fb() && fb().coolDown) fb().coolDown(); } catch (e) {}
     var badge = $('pa-mode-badge');
-    if (badge) { badge.textContent = 'Login necessário'; badge.classList.remove('pa-local'); badge.classList.add('pa-locked'); badge.title = ''; }
+    if (badge) { badge.textContent = 'Login necessário'; badge.classList.remove('pa-local'); badge.classList.remove('pa-demo'); badge.classList.add('pa-locked'); badge.title = ''; }
     setSide(false);
     updateLockedUI();
   }
@@ -947,18 +1009,23 @@
       var locked = $('pa-locked');
       var isLocked = ui.mode === 'locked';
       if (locked) locked.style.display = isLocked ? '' : 'none';
+      var demo = ui.mode === 'demo';
+      var root = $(ROOT_ID);
+      if (root) root.classList.toggle('pa-demo-mode', demo);
+      var notice = $('pa-demo-notice');
+      if (notice) notice.style.display = demo ? '' : 'none';
       var hint = $('pa-auth-hint');
-      if (hint) hint.textContent = isLocked
-        ? 'Entre para acessar sua carteira sincronizada.'
-        : 'Carteira sincronizada na nuvem.';
+      if (hint) hint.textContent = demo ? 'Carteira ilustrativa. Entre para criar e acompanhar a sua.'
+        : (isLocked ? 'Entre para acessar sua carteira sincronizada.'
+        : (ui.loading ? 'Carregando carteira…' : 'Carteira sincronizada na nuvem.'));
       var addBtn = $('pa-add-toggle');
-      if (addBtn) addBtn.style.display = isLocked ? 'none' : '';
+      if (addBtn) addBtn.style.display = isLocked || ui.loading ? 'none' : '';
       var formWrap = $('pa-form-wrap');
-      if (formWrap && isLocked) formWrap.style.display = 'none';
+      if (formWrap && (isLocked || demo || ui.loading)) formWrap.style.display = 'none';
       var toolbar = document.querySelector('#painel-ativos .pa-toolbar');
-      if (toolbar) toolbar.style.display = isLocked ? 'none' : '';
+      if (toolbar) toolbar.style.display = isLocked || ui.loading ? 'none' : '';
       var grid = document.querySelector('#painel-ativos .pa-grid');
-      if (grid) grid.style.display = isLocked ? 'none' : '';
+      if (grid) grid.style.display = isLocked || ui.loading ? 'none' : '';
     } catch (e) {}
   }
 
@@ -1034,7 +1101,7 @@
   }
 
   function onSubmit() {
-    if (ui.mode === 'locked') {
+    if (ui.mode === 'locked' || ui.mode === 'demo' || ui.loading) {
       setErr('Entre para acessar sua carteira sincronizada.');
       try { var h = getRoot(); if (h && h.EstudeAuth && h.EstudeAuth.openModal) h.EstudeAuth.openModal('login'); } catch (e) {}
       return;
@@ -1251,7 +1318,7 @@
     // Toggle do formulário (colapsado por padrão)
     var toggle = $('pa-add-toggle');
     if (toggle) toggle.addEventListener('click', function () {
-      if (ui.mode === 'locked') {
+      if (ui.mode === 'locked' || ui.mode === 'demo' || ui.loading) {
         setErr('Entre para acessar sua carteira sincronizada.');
         try { var h2 = getRoot(); if (h2 && h2.EstudeAuth && h2.EstudeAuth.openModal) h2.EstudeAuth.openModal('login'); } catch (e) {}
         return;
@@ -1273,7 +1340,7 @@
     // estável entre local e nuvem (ids internos mudam na transição).
     var tbody = $('pa-tbody');
     if (tbody) tbody.addEventListener('click', function (e) {
-      if (ui.mode === 'locked') {
+      if (ui.mode === 'locked' || ui.mode === 'demo' || ui.loading) {
         setErr('Entre para acessar sua carteira sincronizada.');
         try { var hh = getRoot(); if (hh && hh.EstudeAuth && hh.EstudeAuth.openModal) hh.EstudeAuth.openModal('login'); } catch (ee) {}
         return;
@@ -1359,7 +1426,7 @@
     // Vazio: CTA
     var emptyBtn = $('pa-empty-add');
     if (emptyBtn) emptyBtn.addEventListener('click', function () {
-      if (ui.mode === 'locked') {
+      if (ui.mode === 'locked' || ui.mode === 'demo' || ui.loading) {
         setErr('Entre para acessar sua carteira sincronizada.');
         try { var h3 = getRoot(); if (h3 && h3.EstudeAuth && h3.EstudeAuth.openModal) h3.EstudeAuth.openModal('login'); } catch (e) {}
         return;
@@ -1381,13 +1448,17 @@
           host2.EstudeAuth && host2.EstudeAuth.whenReady && host2.EstudeAuth.onAuthChange) {
         var goRemoteAuthed = function (uid) {
           enterRemoteMode(uid);
+          var requestedEpoch = authEpoch;
           setStatus('Carregando carteira…');
           // Migrar ANTES do primeiro load quando houver dados locais pendentes.
           maybeMigrate().then(function () {
+            if (ui.mode !== 'remote' || authEpoch !== requestedEpoch || remoteUid !== uid || sessionUid() !== uid) return null;
             return refreshFromRemote();
           }).then(function () {
+            if (ui.mode !== 'remote' || authEpoch !== requestedEpoch || remoteUid !== uid) return;
             setStatus('');
           }).catch(function (err) {
+            if (ui.mode !== 'remote' || authEpoch !== requestedEpoch || remoteUid !== uid) return;
             if (err && err.code === 'offline') {
               setErr('Sem conexão.');
               enterLockedMode();
@@ -1405,26 +1476,20 @@
           if (isAuthedUser(cur)) {
             goRemoteAuthed(cur.id);
           } else {
-            // Sem sessão ou anônimo: permanece bloqueado, não cria anônimo, não migra, não apaga.
-            enterLockedMode();
+            // Sem sessão ou anônimo confirmado: mostra só dados ilustrativos.
+            enterDemoMode();
             render();
           }
         };
         host2.EstudeAuth.whenReady().then(function () { checkAuthAndGo(); })
-          .catch(function () { checkAuthAndGo(); });
+          .catch(function () { enterLockedMode(); render(); });
         host2.EstudeAuth.onAuthChange(function (user) {
           if (isAuthedUser(user)) {
             if (ui.mode !== 'remote' || remoteUid !== user.id) goRemoteAuthed(user.id);
           } else {
-            // Logout ou anônimo: bloqueia (nunca Nuvem para anônimo)
-            if (ui.mode === 'remote' || ui.mode === 'locked') {
-              enterLockedMode();
-              render();
-            } else {
-              // já bloqueado: apenas garante estado
-              enterLockedMode();
-              render();
-            }
+            // Logout ou anônimo: troca a visão da conta pela amostra isolada.
+            enterDemoMode();
+            render();
           }
         });
       } else {
@@ -1444,7 +1509,7 @@
   if (_host) _host.PainelAtivos = {
     render: render,
     getUI: function () { return ui; },
-    getService: function () { return service; },
+    getService: function () { return ui.mode === 'demo' || ui.mode === 'locked' || ui.loading ? null : service; },
     getExportView: getExportView,
     maybeMigrate: maybeMigrate,
     onTickerPrice: onTickerPrice,
