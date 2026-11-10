@@ -171,22 +171,23 @@ describe('login obrigatório', () => {
     assert.ok(store.eb_portfolio_v2, 'localStorage preservado');
   });
 
-  it('sem sessão mostra somente BTC e NVDA ilustrativos, sem gravar', async () => {
+  it('sem sessão mostra BTC, NVDA e USDC ilustrativos, sem gravar', async () => {
     const { PA, els, localStorage, getCalls } = await mountAuth({ user: null, whenReadyUser: null });
     assert.equal(PA.getUI().mode, 'demo');
     assert.equal(els['pa-mode-badge'].textContent, 'EXEMPLO');
     assert.equal(els['pa-auth-hint'].textContent, 'Carteira ilustrativa. Entre para criar e acompanhar a sua.');
     assert.equal(els['pa-demo-notice'].style.display, '');
     assert.equal(els['pa-add-toggle'].style.display, '');
-    assert.equal(els['pa-count'].textContent, '2');
-    assert.equal(els['pa-count-sub'].textContent, '2 ativos ilustrativos');
-    assert.equal(els['pa-sum-invested'].textContent, '$ 7.300,00');
-    assert.equal(els['pa-sum-current'].textContent, '$ 7.640,00');
-    assert.match(els['pa-sum-pl'].textContent, /\+\$ 340,00.*4,66%/);
+    assert.equal(els['pa-count'].textContent, '3');
+    assert.equal(els['pa-count-sub'].textContent, '3 ativos ilustrativos');
+    assert.equal(els['pa-sum-invested'].textContent, '$ 8.300,00');
+    assert.equal(els['pa-sum-current'].textContent, '$ 8.640,00');
+    assert.match(els['pa-sum-pl'].textContent, /\+\$ 340,00.*4,10%/);
     assert.match(els['pa-sum-day'].textContent, /-\$ 66,20/);
-    assert.equal((els['pa-tbody'].innerHTML.match(/<tr>/g) || []).length, 2);
+    assert.equal((els['pa-tbody'].innerHTML.match(/<tr>/g) || []).length, 3);
     assert.match(els['pa-tbody'].innerHTML, /BTC/);
     assert.match(els['pa-tbody'].innerHTML, /NVDA/);
+    assert.match(els['pa-tbody'].innerHTML, /USDC/);
     assert.doesNotMatch(els['pa-tbody'].innerHTML, /data-act=/);
     assert.equal(els['pa-updated'].textContent, '');
     assert.equal(PA.getService(), null);
@@ -245,8 +246,9 @@ describe('login obrigatório', () => {
     assert.equal(els['pa-demo-notice'].style.display, 'none');
     triggerAuth(null);
     assert.equal(PA.getUI().mode, 'demo');
-    assert.equal(els['pa-count'].textContent, '2');
+    assert.equal(els['pa-count'].textContent, '3');
     assert.match(els['pa-tbody'].innerHTML, /NVDA/);
+    assert.match(els['pa-tbody'].innerHTML, /USDC/);
   });
 
   it('conta com uma posição mostra somente a posição real', async () => {
@@ -273,7 +275,7 @@ describe('login obrigatório', () => {
     resolveLoad({ assets: [{ id: 'eth-real', ticker: 'ETH', name: 'Ethereum', type: 'CRYPTO', quantity: 1, averagePrice: 2000, currentPrice: 2200, dailyVariation: 1 }] });
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(PA.getUI().mode, 'demo');
-    assert.match(els['pa-tbody'].innerHTML, /BTC.*NVDA/s);
+    assert.match(els['pa-tbody'].innerHTML, /BTC.*NVDA.*USDC/s);
     assert.doesNotMatch(els['pa-tbody'].innerHTML, /ETH/);
     assert.equal(JSON.stringify(store), snapshot);
   });
@@ -301,5 +303,16 @@ describe('login obrigatório', () => {
     triggerAuth(null);
     assert.equal(sandbox.PortfolioLive._test.getUniverse().length, 0);
     assert.equal(getCalls().tickerListeners, 1);
+  });
+
+  it('ticker digitado ou colado aparece em maiúsculas', async () => {
+    const { els } = await mountAuth({ user: null });
+    const field = els['pa-f-ticker'];
+    field.value = 'usdc';
+    field._events.input({ isComposing: false });
+    assert.equal(field.value, 'USDC');
+    field.value = 'btcusdt';
+    field._events.input({ isComposing: false });
+    assert.equal(field.value, 'BTCUSDT');
   });
 });

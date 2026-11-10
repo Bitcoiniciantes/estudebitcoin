@@ -27,7 +27,8 @@
   // Amostra exclusiva da apresentação: nunca passa pelo serviço ou storage.
   var DEMO_POSITIONS = [
     { ticker: 'BTC', name: 'Bitcoin', type: 'CRYPTO', quantity: 0.1, averagePrice: 70000, currentPrice: 73000, dailyVariation: -1 },
-    { ticker: 'NVDA', name: 'NVIDIA', type: 'STOCK', quantity: 2, averagePrice: 150, currentPrice: 170, dailyVariation: 2 }
+    { ticker: 'NVDA', name: 'NVIDIA', type: 'STOCK', quantity: 2, averagePrice: 150, currentPrice: 170, dailyVariation: 2 },
+    { ticker: 'USDC', name: 'USD Coin', type: 'CRYPTO', quantity: 1000, averagePrice: 1, currentPrice: 1, dailyVariation: 0 }
   ];
 
   function demoView() {
@@ -314,7 +315,7 @@
         : 'R$ —';
     }
     setText('pa-count', String(totals.count));
-    if (isDemo) setText('pa-count-sub', '2 ativos ilustrativos');
+    if (isDemo) setText('pa-count-sub', totals.count + ' ativos ilustrativos');
     else paintCountSub(totals.count);
     var plEl = $('pa-pl');
     if (plEl) {
@@ -1270,7 +1271,15 @@
     // (só se vazios ou vindos de cotação anterior; edição manual prevalece).
     var quoteTimer = null;
     var tickEl = $('pa-f-ticker');
-    if (tickEl) tickEl.addEventListener('input', function () {
+    if (tickEl) tickEl.addEventListener('input', function (event) {
+      if (!event || !event.isComposing) {
+        var upper = tickEl.value.toUpperCase();
+        if (upper !== tickEl.value) {
+          var start = tickEl.selectionStart, end = tickEl.selectionEnd;
+          tickEl.value = upper;
+          if (start != null && end != null) tickEl.setSelectionRange(start, end);
+        }
+      }
       if (quoteTimer) clearTimeout(quoteTimer);
       quoteTimer = setTimeout(function () {
         if (ui.editingTicker) return;
