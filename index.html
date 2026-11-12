@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="assets/css/painel-ativos.css?v=3" />
   <link rel="stylesheet" href="assets/css/graham.css?v=2" />
   <link rel="stylesheet" href="assets/css/orderbook.css?v=10" />
+  <link rel="stylesheet" href="assets/css/risk-engine-panel.css?v=1" />
 
   <style>
     body { background: #ffffff; color: #1a1a1a; scroll-behavior: smooth; padding-top: 52px; }
@@ -1631,63 +1632,78 @@
 </script>
 
 <!-- POSIÇÃO AO VIVO — RISK ENGINE (camada nova; bundle legado intocado) -->
-<style id="risk-engine-panel-style">
-  .re-section { padding-top: 0; padding-bottom: 16px; }
-  .re-card { background: #111; border: 1px solid #222; border-radius: 20px; padding: 20px; color: #eee; }
-  .re-card h2 { margin: 0 0 4px; font-size: clamp(20px, 3vw, 28px); }
-  .re-kicker { margin: 0; color: #F7931A; font-size: 12px; letter-spacing: .12em; font-weight: 700; }
-  .re-sub { margin: 0 0 14px; color: #a8a8a8; font-size: 13px; }
-  .re-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
-  .re-field label { display: block; font-size: 11px; color: #a8a8a8; margin-bottom: 4px; }
-  .re-field input, .re-field select { width: 100%; background: #1b1b1b; border: 1px solid #333; border-radius: 10px; color: #fff; padding: 8px 10px; font-size: 14px; }
-  .re-out { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-  .re-cell { background: #181818; border: 1px solid #262626; border-radius: 12px; padding: 10px 12px; }
-  .re-cell small { display: block; font-size: 11px; color: #a8a8a8; margin-bottom: 2px; }
-  .re-cell strong { font-size: 15px; }
-  .re-cell.re-danger { border-color: #9a424b; background: linear-gradient(135deg, #731d264d, #0c1118 72%); }
-  .re-cell.re-danger small, .re-cell.re-danger strong { color: #ff9ca3; }
-  #re-estado[data-estado="SEGURO"] { color: #54b85a; }
-  #re-estado[data-estado="ATENCAO"] { color: #f5a623; }
-  #re-estado[data-estado="CRITICO"] { color: #e5484d; }
-  #re-estado[data-estado="LIQUIDACAO"] { color: #fff; background: #e5484d; border-radius: 8px; padding: 2px 10px; }
-  #re-estado[data-estado="LIQUIDACAO_INATINGIVEL"] { color: #7dd3fc; }
-  #re-erro { display: none; background: #2a1414; border: 1px solid #e5484d; border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
-  .re-status-container { text-align: right; font-size: 11px; color: #888; margin-top: 8px; height: 14px; }
-  .re-foot { margin: 12px 0 0; color: #8a8a8a; font-size: 11px; line-height: 1.5; }
-</style>
 <section class="container re-section" aria-labelledby="re-title">
   <div class="re-card" id="re-painel">
-    <p class="re-kicker">RISCO EM TEMPO REAL</p>
-    <h2 id="re-title">Posição ao Vivo — Risk Engine</h2>
-    <p class="re-sub">Atualizado em tempo real. Simulação modelo Quantifury.</p>
-    <div class="re-grid">
-      <div class="re-field"><label>Ativo (ticker)</label><select id="re-simbolo"><option>BTC</option><option>ETH</option><option>SOL</option><option>LINK</option><option>AVAX</option><option>RENDER</option><option>PAXG</option></select></div>
-      <div class="re-field"><label>Lado</label><select id="re-lado"><option>LONG</option><option>SHORT</option></select></div>
-      <div class="re-field"><label>Saldo (USD)</label><input id="re-saldo" type="text" inputmode="decimal" value="3.000,00"></div>
-      <div class="re-field"><label>Alavancagem</label><input id="re-alavancagem" type="number" value="5" min="1" step="any"></div>
-      <div class="re-field"><label>Preço de entrada (USD)</label><input id="re-preco-entrada" type="text" inputmode="decimal" value="52.000,00"></div>
-      <div class="re-field"><label>Valor da posição (USD)</label><input id="re-valor" type="text" inputmode="decimal" value="15.000,00"></div>
-      <div class="re-field"><label>MMR (decimal, ex. 0.005)</label><input id="re-mmr" type="number" value="0" min="0" step="any"></div>
-      <div class="re-field"><label>Funding acumulado (USD)</label><input id="re-funding" type="text" inputmode="decimal" value="0,00"></div>
-    </div>
-    <div id="re-erro" role="alert"></div>
-    <div class="re-out">
-      <div class="re-cell"><small>Preço atual (ticker)</small><strong id="re-preco-atual">—</strong></div>
-      <div class="re-cell re-danger"><small>Preço de liquidação</small><strong id="re-plq">—</strong></div>
-      <div class="re-cell"><small>Quantidade do ativo</small><strong id="re-qtd">—</strong></div>
-      <div class="re-cell"><small>Preço médio</small><strong id="re-pmedio">—</strong></div>
-      <div class="re-cell"><small>Margem retida</small><strong id="re-margem">—</strong></div>
-      <div class="re-cell"><small>Margem livre</small><strong id="re-livre">—</strong></div>
-      <div class="re-cell"><small>PnL não realizado</small><strong id="re-pnl">—</strong></div>
-      <div class="re-cell"><small>Patrimônio</small><strong id="re-equity">—</strong></div>
-      <div class="re-cell"><small>Distância até liquidação</small><strong id="re-dist">—</strong></div>
-      <div class="re-cell"><small>Resultado atual</small><strong id="re-res">—</strong></div>
-      <div class="re-cell"><small>Estado de risco</small><strong id="re-estado">—</strong></div>
-    </div>
-    <p class="re-foot">Atenção: Toda a margem foi utilizada para chegar no preço de liquidação (Margem Cruzada). Não utilize a margem livre para novas posições.</p>
-    <div class="re-status-container">
-      <span id="re-save-status"></span>
-    </div>
+    <svg class="re-icons" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+      <symbol id="re-icon-chart" viewBox="0 0 24 24"><path d="m3 17 6-8 6 6 6-10"/><path d="M17 5h4v4"/></symbol>
+      <symbol id="re-icon-coin" viewBox="0 0 24 24"><path d="m12 2 7 10-7 4-7-4 7-10Z"/><path d="m5 15 7 7 7-7M5 12l7-4 7 4"/></symbol>
+      <symbol id="re-icon-arrows" viewBox="0 0 24 24"><path d="M3 8h18m-4-4 4 4-4 4M21 16H3m4-4-4 4 4 4"/></symbol>
+      <symbol id="re-icon-coins" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 10c0 4 16 4 16 0M4 15c0 4 16 4 16 0"/></symbol>
+      <symbol id="re-icon-layers" viewBox="0 0 24 24"><path d="m12 3 10 5-10 5L2 8l10-5ZM2 12l10 5 10-5M2 16l10 5 10-5"/></symbol>
+      <symbol id="re-icon-tag" viewBox="0 0 24 24"><path d="M21 3H11L2 12l10 10 9-9V3Z"/><circle cx="16" cy="8" r="1"/></symbol>
+      <symbol id="re-icon-bars" viewBox="0 0 24 24"><path d="M4 20v-6h3v6H4Zm7 0V4h3v16h-3Zm7 0V10h3v10h-3Z"/></symbol>
+      <symbol id="re-icon-shield" viewBox="0 0 24 24"><path d="m12 2 9 4v6c0 5-5 8-9 10-4-2-9-5-9-10V6l9-4Z"/><path d="m8 12 3 3 5-6"/></symbol>
+      <symbol id="re-icon-percent" viewBox="0 0 24 24"><path d="m4 20 16-16"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/></symbol>
+      <symbol id="re-icon-alert" viewBox="0 0 24 24"><path d="M10 3 1 19q-1 2 2 2h18q3 0 2-2L14 3q-2-3-4 0Z"/><path d="M12 8v5m0 4v.1"/></symbol>
+      <symbol id="re-icon-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v5m0 12v5M1 12h5m12 0h5"/></symbol>
+      <symbol id="re-icon-lock" viewBox="0 0 24 24"><rect x="3" y="10" width="18" height="12" rx="2"/><path d="M7 10V6a5 5 0 0 1 10 0v4m-5 5v3"/></symbol>
+      <symbol id="re-icon-wallet" viewBox="0 0 24 24"><path d="M20 8V4H5a3 3 0 0 0 0 6h17v8H5a3 3 0 0 1-3-3V7m20 6h-5v4h5"/></symbol>
+      <symbol id="re-icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 11v6m0-10v.1"/></symbol>
+    </defs></svg>
+    <header class="re-header">
+      <span class="re-brand"><svg class="re-icon" aria-hidden="true"><use href="#re-icon-chart"/></svg></span>
+      <div class="re-heading">
+        <p class="re-kicker">RISCO EM TEMPO REAL</p>
+        <h2 id="re-title">Posição ao Vivo — Risk Engine</h2>
+        <p class="re-sub">Atualizado em tempo real. Simulação modelo Quantifury.</p>
+      </div>
+    </header>
+    <section class="re-group re-essentials" aria-labelledby="re-essential-title">
+      <div class="re-group-header">
+        <h3 id="re-essential-title"><span class="re-step" aria-hidden="true">1</span>Dados essenciais</h3>
+        <p>Preencha primeiro os dados da sua operação.</p><span class="re-badge">Essencial</span>
+      </div>
+      <div class="re-grid re-essential-grid">
+        <div class="re-field"><label for="re-simbolo"><svg class="re-icon" aria-hidden="true"><use href="#re-icon-coin"/></svg><span>Ativo (ticker)</span></label><select id="re-simbolo"><option>BTC</option><option>ETH</option><option>SOL</option><option>LINK</option><option>AVAX</option><option>RENDER</option><option>PAXG</option></select></div>
+        <div class="re-field"><label for="re-lado"><svg class="re-icon" aria-hidden="true"><use href="#re-icon-arrows"/></svg><span>Lado</span></label><select id="re-lado"><option>LONG</option><option>SHORT</option></select></div>
+        <div class="re-field"><label for="re-saldo"><svg class="re-icon" aria-hidden="true"><use href="#re-icon-coins"/></svg><span>Saldo (USD)</span></label><input id="re-saldo" type="text" inputmode="decimal" value="3.000,00" aria-describedby="re-erro" autocomplete="off" spellcheck="false" ></div>
+      </div>
+    </section>
+    <section class="re-group re-parameters" aria-labelledby="re-parameters-title">
+      <div class="re-group-header">
+        <h3 id="re-parameters-title"><span class="re-step" aria-hidden="true">2</span>Parâmetros da posição</h3>
+        <p>Ajuste os parâmetros que definem o tamanho, risco e liquidação da posição.</p>
+      </div>
+      <div class="re-grid re-parameter-grid">
+        <div class="re-field"><label for="re-alavancagem"><svg class="re-icon" aria-hidden="true"><use href="#re-icon-layers"/></svg><span>Alavancagem</span></label><input id="re-alavancagem" type="number" value="5" min="1" step="any" aria-describedby="re-erro"></div>
+        <div class="re-field"><label for="re-preco-entrada"><svg class="re-icon" aria-hidden="true"><use href="#re-icon-tag"/></svg><span>Preço de entrada (USD)</span></label><input id="re-preco-entrada" type="text" inputmode="decimal" value="52.000,00" aria-describedby="re-erro" autocomplete="off" spellcheck="false" ></div>
+        <div class="re-field"><label for="re-valor"><svg class="re-icon" aria-hidden="true"><use href="#re-icon-bars"/></svg><span>Valor da posição (USD)</span></label><input id="re-valor" type="text" inputmode="decimal" value="15.000,00" aria-describedby="re-erro" autocomplete="off" spellcheck="false" title="Valor nocional da posição em USD"></div>
+        <div class="re-field"><label for="re-mmr"><svg class="re-icon" aria-hidden="true"><use href="#re-icon-shield"/></svg><span>MMR (decimal, ex. 0.005)</span></label><button class="re-help" type="button" aria-label="Sobre a taxa MMR" aria-describedby="re-mmr-help">?</button><input id="re-mmr" type="text" inputmode="decimal" value="0" aria-describedby="re-mmr-help re-erro" autocomplete="off" spellcheck="false" ><span class="re-tooltip" id="re-mmr-help" role="tooltip">Taxa de margem de manutenção utilizada no cálculo de liquidação. Informe o valor conforme as regras da plataforma.</span></div>
+        <div class="re-field"><label for="re-funding"><svg class="re-icon" aria-hidden="true"><use href="#re-icon-percent"/></svg><span>Funding acumulado (USD)</span></label><input id="re-funding" type="text" inputmode="decimal" value="0,00" aria-describedby="re-erro" autocomplete="off" spellcheck="false" ></div>
+      </div>
+    </section>
+    <section class="re-group re-results" aria-labelledby="re-results-title">
+      <div class="re-group-header">
+        <h3 id="re-results-title"><span class="re-step"><svg class="re-icon" aria-hidden="true"><use href="#re-icon-bars"/></svg></span>Resumo / Resultado</h3>
+        <p>Principais informações da posição, risco e desempenho em tempo real.</p>
+      </div>
+      <div class="re-out">
+        <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-chart"/></svg>Preço atual (ticker)</small><strong id="re-preco-atual">—</strong></div>
+        <div class="re-cell re-danger"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-alert"/></svg>Preço de liquidação</small><strong id="re-plq">—</strong></div>
+        <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-layers"/></svg>Quantidade do ativo</small><strong id="re-qtd">—</strong></div>
+        <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-target"/></svg>Preço médio</small><strong id="re-pmedio">—</strong></div>
+        <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-lock"/></svg>Margem retida</small><strong id="re-margem">—</strong></div>
+        <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-coins"/></svg>Margem livre</small><strong id="re-livre">—</strong></div>
+        <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-chart"/></svg>PnL não realizado</small><strong id="re-pnl">—</strong></div>
+        <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-wallet"/></svg>Patrimônio</small><strong id="re-equity">—</strong></div>
+        <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-percent"/></svg>Distância até liquidação</small><strong id="re-dist">—</strong></div>
+        <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-bars"/></svg>Resultado atual</small><strong id="re-res">—</strong></div>
+        <div class="re-cell re-risk"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-shield"/></svg>Estado de risco</small><strong id="re-estado">—</strong></div>
+      </div>
+      <div class="re-feedback"><div id="re-erro" role="status" aria-live="polite"></div></div>
+      <p class="re-foot"><svg class="re-icon" aria-hidden="true"><use href="#re-icon-info"/></svg><span><b>Atenção:</b> Toda a margem foi utilizada para chegar no preço de liquidação (Margem Cruzada). Não utilize a margem livre para novas posições.</span></p>
+    </section>
+    <div class="re-status-container"><span id="re-save-status" role="status"></span></div>
   </div>
 </section>
 

@@ -56,6 +56,11 @@ function makeField(value) {
 }
 
 function makeDocument(initial) {
+  // O DOM real já contém valores iniciais; campos vazios agora representam
+  // uma edição incompleta, e não devem depender de defaults silenciosos.
+  const defaults = { "re-saldo": "3.000,00", "re-alavancagem": "5",
+    "re-preco-entrada": "52.000,00", "re-valor": "15.000,00",
+    "re-funding": "0,00", "re-mmr": "0" };
   const fields = {};
   const get = (id) => {
     if (!fields[id]) {
@@ -68,6 +73,8 @@ function makeDocument(initial) {
         fields[id].options = ["LONG", "SHORT"].map((v) => ({ value: v, text: v }));
       } else if (initial && Object.prototype.hasOwnProperty.call(initial, id)) {
         fields[id].value = initial[id];
+      } else if (Object.prototype.hasOwnProperty.call(defaults, id)) {
+        fields[id].value = defaults[id];
       }
     }
     return fields[id];
