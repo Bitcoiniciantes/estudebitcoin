@@ -1,5 +1,5 @@
 /**
- * Painel ao vivo do Risk Engine (nova camada visual mínima, §10).
+ * Painel ao vivo do Risk Engine (apresentação e entrada localizada).
  *
  * Consome exclusivamente o Adapter → RiskEngine. NÃO recalcula nenhum campo
  * (§9): apenas apresenta `resultado.*`. Formatação (toFixed/toLocaleString)
@@ -68,16 +68,33 @@
   }
 
   function parseMoeda(texto) {
-    // Aceita "3.000,00" (pontos de milhar + vírgula) ou "3000.12" (ponto decimal):
-    // com vírgula, pontos são milhar; sem vírgula, parse direto.
+    // Valida a string inteira: nunca transforma "100abc" em 100.
+    // Com vírgula, usa pt-BR; grupos completos ("1.000") são milhares.
+    // Um ponto fora desse padrão ("3000.12") é decimal.
     var s = String(texto == null ? "" : texto).trim();
-    if (s.indexOf(",") !== -1) s = s.replace(/\./g, "").replace(",", ".");
-    var n = parseFloat(s);
+    if (s.indexOf(",") !== -1) {
+      if (!/^[+-]?(?:\d+|\d{1,3}(?:\.\d{3})+),\d+$/.test(s)) return null;
+      s = s.replace(/\./g, "").replace(",", ".");
+    } else if (/^[+-]?[1-9]\d{0,2}(?:\.\d{3})+$/.test(s)) {
+      s = s.replace(/\./g, "");
+    } else if (!/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(s)) return null;
+    var n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function parseDecimal(texto) {
+    var s = String(texto == null ? "" : texto).trim();
+    if (!/^[+-]?(?:\d+(?:[.,]\d+)?|[.,]\d+)$/.test(s)) return null;
+    var n = Number(s.replace(",", "."));
     return Number.isFinite(n) ? n : null;
   }
 
   function fmtMoedaInput(n) {
-    return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // Preserva a precisão do Number, inclusive em preços muito pequenos.
+    // Duas casas são apenas padding visual, nunca arredondamento do input.
+    var text = n.toLocaleString("pt-BR", { maximumSignificantDigits: 21 });
+    var parts = text.split(",");
+    return parts.length === 1 ? text + ",00" : parts[1].length < 2 ? text + "0" : text;
   }
 
   function num(value, digits) {
@@ -209,8 +226,14 @@
   function persistRiskParams(assetOverride) {
     try {
       var hasSync = !!(host.PanelSync && host.PanelSync.saveLocal);
-      if (hasSync) updateSaveStatus("Salvando...");
       var params = readParams();
+      // Uma edição incompleta não substitui a última configuração salva.
+      if (![params.saldoCorretora, params.alavancagem, params.ordens[0].preco,
+        params.ordens[0].valor, params.fundingCustoAcumulado, params.mmr].every(Number.isFinite)) {
+        if (hasSync) updateSaveStatus("Edição incompleta — preencha os campos para salvar.");
+        return;
+      }
+      if (hasSync) updateSaveStatus("Salvando...");
       var current = assetOverride
         || (host.PanelSync && host.PanelSync.getCurrentAsset && host.PanelSync.getCurrentAsset())
         || params.simbolo || 'BTC';
@@ -296,12 +319,12 @@
     function val(id, fallback) {
       var el = document.getElementById(id);
       if (!el) return fallback;
-      // Campos monetários (type=text) usam parseMoeda ("3.000,00");
-      // numéricos (alavancagem/MMR) usam parse direto.
+      // Defaults só para controles ausentes; edição vazia/inválida vai ao
+      // motor como NaN, sem calcular com um valor diferente do exibido.
       var n = /^(re-saldo|re-preco-entrada|re-valor|re-funding)$/.test(id)
         ? parseMoeda(el.value)
-        : parseFloat(String(el.value).replace(",", "."));
-      return n !== null && Number.isFinite(n) ? n : fallback;
+        : parseDecimal(el.value);
+      return n !== null ? n : NaN;
     }
     function str(id, fallback) {
       var el = document.getElementById(id);
@@ -322,17 +345,31 @@
   }
 
   function render(vm, precoAtual) {
-    setText("re-preco-atual", typeof precoAtual === "number" ? fmtUsd(precoAtual) : "aguardando ticker…");
+    setText("re-preco-atual", typeof precoAtual === "number" ? fmtUsd(precoAtual) : "Aguardando ticker…");
     var errBox = document.getElementById("re-erro");
+    var errorFields = { FATAL_01: ["re-preco-entrada", "re-valor"], FATAL_04: ["re-saldo"],
+      FATAL_05: ["re-alavancagem"], FATAL_07: ["re-funding"], FATAL_08: ["re-mmr"],
+      FATAL_09: ["re-saldo", "re-alavancagem", "re-valor"] };
+    var invalidFields = vm && !vm.ok ? errorFields[vm.codigo] || [] : [];
+    ["re-saldo", "re-alavancagem", "re-preco-entrada", "re-valor", "re-funding", "re-mmr"].forEach(function (id) {
+      var field = document.getElementById(id);
+      if (field) field.setAttribute("aria-invalid", invalidFields.indexOf(id) !== -1 ? "true" : "false");
+    });
     if (!vm || vm.ok !== true) {
       if (errBox) {
         errBox.style.display = "";
-        errBox.textContent =
-          (vm ? vm.codigo : "SEM_RESULTADO") + ": " + (vm ? vm.mensagem : "Sem resultado.");
+        errBox.textContent = vm ? vm.mensagem : "Aguardando cotação do ativo selecionado.";
       }
       ["re-qtd", "re-pmedio", "re-margem", "re-livre", "re-pnl", "re-equity",
        "re-plq", "re-dist", "re-res"].forEach(function (id) { setText(id, "—"); });
       setText("re-estado", "—");
+      ["re-pnl", "re-res", "re-estado"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) {
+          el.setAttribute("data-sign", "");
+          el.setAttribute("data-estado", "");
+        }
+      });
       return;
     }
     if (errBox) {
@@ -346,7 +383,7 @@
     var pnlEl = document.getElementById("re-pnl");
     if (pnlEl) {
       pnlEl.textContent = (vm.pnlNaoRealizado >= 0 ? "+" : "") + fmtUsd(vm.pnlNaoRealizado).replace("$ ", "$ ");
-      pnlEl.style.color = vm.pnlNaoRealizado >= 0 ? "#54b85a" : "#e5484d";
+      pnlEl.setAttribute("data-sign", vm.pnlNaoRealizado >= 0 ? "positive" : "negative");
     }
     setText("re-equity", fmtUsd(vm.equityAtual));
     setText("re-plq", vm.precoLiquidacao === null ? "Sem preço positivo" : fmtUsd(vm.precoLiquidacao));
@@ -356,11 +393,13 @@
     if (resEl) {
       var v = vm.resultadoEquityPercentual;
       resEl.textContent = (v > 0 ? "+" : "") + num(v, 2) + "%";
-      resEl.style.color = v > 0 ? "#54b85a" : v < 0 ? "#e5484d" : "#a8a8a8";
+      resEl.setAttribute("data-sign", v > 0 ? "positive" : v < 0 ? "negative" : "neutral");
     }
     var estEl = document.getElementById("re-estado");
     if (estEl) {
-      estEl.textContent = vm.estadoRisco;
+      var riskLabels = { ATENCAO: "ATENÇÃO", CRITICO: "CRÍTICO", LIQUIDACAO: "LIQUIDAÇÃO",
+        LIQUIDACAO_INATINGIVEL: "LIQUIDAÇÃO INATINGÍVEL" };
+      estEl.textContent = riskLabels[vm.estadoRisco] || vm.estadoRisco;
       estEl.setAttribute("data-estado", vm.estadoRisco);
     }
   }
@@ -369,13 +408,25 @@
     if (!host.document || !host.RiskEngineAdapter) return false;
     if (!document.getElementById("re-painel")) return false;
     var adapter = host.RiskEngineAdapter;
+    var waitingForPrice = true;
+    var recalculating = false;
+    var quoteTimeout = null;
+
+    function clearQuoteTimeout() {
+      if (quoteTimeout !== null && host.clearTimeout) host.clearTimeout(quoteTimeout);
+      quoteTimeout = null;
+    }
 
     /* Configuração visual do adapter (SEM persistência). Usada pela troca
      * de ativo: trocar ≠ alterar — nenhum saveLocal/push pode sair daqui. */
     function configureAdapter() {
       adapter.configure(readParams());
       var last = adapter.getLastPrice();
-      if (typeof last === "number") render(buildViewModel(adapter.updateRiskPrice(last)), last);
+      if (!waitingForPrice && typeof last === "number") {
+        recalculating = true;
+        try { render(buildViewModel(adapter.updateRiskPrice(last)), last); }
+        finally { recalculating = false; }
+      }
     }
 
     function reconfigurar() {
@@ -414,7 +465,10 @@
         } else {
           applyRiskParams(defaultRiskParams(newAsset));
         }
+        waitingForPrice = true;
+        clearQuoteTimeout();
         configureAdapter();
+        render(null, null);
       });
     }
 
@@ -432,7 +486,19 @@
     });
 
     adapter.onResult(function (resultado) {
+      waitingForPrice = false;
       render(buildViewModel(resultado), adapter.getLastPrice());
+      // Apenas apresentação: o ticker atualiza a cada 5s. Após 30s sem
+      // evento, não apresentar a última cotação como atual. Digitação não
+      // renova esse prazo e não dispara requisições ou altera o motor.
+      if (!recalculating && host.setTimeout) {
+        clearQuoteTimeout();
+        quoteTimeout = host.setTimeout(function () {
+          waitingForPrice = true;
+          render(null, null);
+          setText("re-erro", "Cotação sem atualização há 30 s. Aguardando o ticker.");
+        }, 30000);
+      }
     });
 
     // Pull da nuvem (login): aplica params sincronizados sem recarregar a página.

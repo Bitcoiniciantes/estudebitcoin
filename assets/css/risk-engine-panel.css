@@ -1,0 +1,103 @@
+/* Risk Engine: presentation only; all selectors are scoped to the panel. */
+.re-section { padding-top: 0; padding-bottom: 16px; }
+#re-painel {
+  --re-cyan: #00cfff;
+  --re-green: #32e66c;
+  --re-red: #ff646b;
+  color: #f3f6fa;
+  color-scheme: dark;
+  background: radial-gradient(ellipse at 88% 0, #003b4966, transparent 42%), #06111d;
+  border-radius: 20px;
+  padding: 20px 16px 12px;
+  font-family: var(--font-body, system-ui, sans-serif);
+}
+#re-painel * { box-sizing: border-box; }
+#re-painel .re-icons { position: absolute; width: 0; height: 0; overflow: hidden; }
+#re-painel .re-icon { width: 21px; height: 21px; flex: 0 0 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#re-painel .re-header { display: flex; align-items: center; gap: 20px; padding: 0 12px 23px; }
+#re-painel .re-brand { display: grid; place-items: center; width: 58px; height: 58px; flex: 0 0 58px; border: 1px solid #00647b; border-radius: 16px; background: linear-gradient(135deg, #00354b, #00232e); color: var(--re-cyan); }
+#re-painel .re-brand .re-icon { width: 34px; height: 34px; }
+#re-painel .re-heading { border-left: 1px solid #39899d; padding-left: 20px; min-width: 0; }
+#re-painel .re-kicker { margin: 0 0 2px; color: #00e3fa; font-size: 12px; letter-spacing: .055em; font-weight: 800; }
+#re-painel h2 { margin: 0; font-size: clamp(22px, 2.3vw, 32px); line-height: 1.15; letter-spacing: -.035em; font-weight: 800; color: #f3f6fa; }
+#re-painel .re-sub { margin: 7px 0 0; color: #a7becf; font-size: 15px; line-height: 1.45; }
+#re-painel .re-group { --re-accent: var(--re-cyan); border: 1px solid var(--re-accent); border-radius: 17px; padding: 14px 16px 17px; background: linear-gradient(115deg, #003d5866, #00223533); }
+#re-painel .re-group + .re-group { margin-top: 12px; }
+#re-painel .re-parameters { --re-accent: #f59e0b; background: linear-gradient(115deg, #54340f66, #30271d55); }
+#re-painel .re-results { --re-accent: #00d77b; background: linear-gradient(115deg, #003b2d66, #00291f44); }
+#re-painel .re-group-header { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin-bottom: 15px; }
+#re-painel .re-group h3 { display: flex; align-items: center; gap: 14px; margin: 0; color: #f3f6fa; font-size: clamp(19px, 1.7vw, 24px); font-weight: 800; letter-spacing: -.025em; line-height: 1.2; }
+#re-painel .re-step { display: grid; place-items: center; min-width: 38px; height: 28px; border-radius: 8px; background: linear-gradient(180deg, #00cef5, #007eab); font-size: 22px; color: white; }
+#re-painel .re-parameters .re-step { background: linear-gradient(180deg, #ffac36, #94530e); }
+#re-painel .re-results .re-step { background: linear-gradient(180deg, #08bd72, #007a49); }
+#re-painel .re-group-header p { margin: 0; border-left: 1px solid var(--re-accent); padding-left: 17px; color: #dfebee; font-size: 13px; line-height: 1.4; }
+#re-painel .re-badge { border: 1px solid var(--re-cyan); border-radius: 20px; padding: 3px 14px; color: #00e6f5; font-size: 12px; font-weight: 700; }
+#re-painel .re-grid { display: grid; gap: 16px 24px; }
+#re-painel .re-essential-grid { grid-template-columns: 1fr 1fr 1.6fr; }
+#re-painel .re-parameter-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+#re-painel .re-field { min-width: 0; position: relative; }
+#re-painel .re-field label { display: flex; align-items: center; gap: 9px; min-height: 30px; margin-bottom: 5px; color: #f3f6fa; font-size: 13px; font-weight: 600; line-height: 1.3; }
+#re-painel .re-field label .re-icon { color: var(--re-accent); }
+#re-painel .re-parameter-grid label { min-height: 36px; }
+#re-painel .re-field:has(.re-help) label { padding-right: 24px; }
+#re-painel input, #re-painel select { width: 100%; min-width: 0; min-height: 48px; padding: 9px 16px; border: 1px solid #8a8c88; border-radius: 11px; background: #0d192699; color: #f3f6fa; font: 600 19px/1.25 var(--font-body, system-ui, sans-serif); font-variant-numeric: tabular-nums; transition: border-color .18s, box-shadow .18s, background .18s; }
+#re-painel .re-essentials input, #re-painel .re-essentials select { min-height: 52px; }
+#re-painel select { appearance: none; border-color: #31c8ed; padding-right: 42px; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%23f3f6fa' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='m5 9 7 7 7-7'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; }
+#re-painel option { background: #0d1926; color: #f3f6fa; }
+#re-painel input:hover, #re-painel select:hover { border-color: var(--re-accent); background-color: #18314188; }
+#re-painel input:focus-visible, #re-painel select:focus-visible, #re-painel .re-help:focus-visible { outline: 2px solid var(--re-accent); outline-offset: 3px; border-color: var(--re-accent); }
+#re-painel input[aria-invalid="true"] { border-color: var(--re-red); box-shadow: inset 3px 0 var(--re-red); }
+#re-painel .re-help { position: absolute; top: 8px; right: 0; display: inline-grid; place-items: center; border: 1px solid #a7becf; border-radius: 50%; background: transparent; color: #dfebee; font: 700 11px/1 sans-serif; width: 18px; height: 18px; padding: 0; cursor: help; }
+#re-painel .re-tooltip { display: none; position: absolute; bottom: calc(100% + 8px); left: 0; width: min(290px, 100%); padding: 12px; border: 1px solid #f59e0b; border-radius: 10px; background: #182533; color: #f3f6fa; font-size: 13px; line-height: 1.45; z-index: 2; box-shadow: 0 4px 15px #0006; }
+#re-painel .re-field:has(.re-help:hover) .re-tooltip, #re-painel .re-field:has(.re-help:focus) .re-tooltip { display: block; }
+#re-painel .re-out { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+#re-painel .re-cell { min-width: 0; border: 1px solid #375754; border-radius: 14px; padding: 10px 12px; background: linear-gradient(125deg, #779d9b1c, #6c979419); transition: border-color .18s, background .18s; }
+#re-painel .re-cell:hover { border-color: #6b9490; background-color: #73989012; }
+#re-painel .re-cell small { display: flex; align-items: center; gap: 8px; color: #ecf4f5; font-size: 12px; line-height: 1.35; min-height: 32px; margin-bottom: 4px; }
+#re-painel .re-cell .re-icon { width: 19px; height: 19px; flex-basis: 19px; }
+#re-painel .re-cell strong { display: block; font-size: clamp(18px, 1.65vw, 24px); font-weight: 800; letter-spacing: -.035em; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#re-painel .re-cell.re-danger { border-color: var(--re-red); background: linear-gradient(125deg, #742e3277, #361b2566); }
+#re-painel .re-danger small, #re-painel .re-danger strong { color: #ff777c; }
+#re-painel [data-sign="positive"], #re-painel [data-estado="SEGURO"] { color: var(--re-green); }
+#re-painel [data-sign="negative"], #re-painel [data-estado="CRITICO"], #re-painel [data-estado="LIQUIDACAO"] { color: var(--re-red); }
+#re-painel [data-estado="ATENCAO"] { color: #ffb84d; }
+#re-painel [data-estado="LIQUIDACAO_INATINGIVEL"] { color: #7dd3fc; }
+#re-painel .re-risk:has([data-estado="SEGURO"]) { border-color: #38b970; background: #207b4433; }
+#re-painel .re-risk:has([data-estado="ATENCAO"]) { border-color: #ffb84d; background: #86510d33; }
+#re-painel .re-risk:has([data-estado="CRITICO"]), #re-painel .re-risk:has([data-estado="LIQUIDACAO"]) { border-color: var(--re-red); background: #742e3244; }
+#re-painel .re-risk strong[data-estado="LIQUIDACAO_INATINGIVEL"] { font-size: 16px; letter-spacing: 0; }
+#re-painel .re-feedback { min-height: 24px; padding: 4px 2px; }
+#re-painel #re-erro { color: #ff9da2; font-size: 12px; line-height: 1.5; }
+#re-painel .re-foot { display: flex; align-items: center; gap: 14px; margin: 0; border: 1px solid #617778; border-radius: 12px; padding: 11px 16px; color: #e1ebf0; background: #59737d20; font-size: 13px; line-height: 1.5; }
+#re-painel .re-status-container { min-height: 17px; margin-top: 6px; text-align: right; font-size: 11px; color: #a7becf; }
+@media (max-width: 1199px) {
+  #re-painel .re-parameter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #re-painel .re-out { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  #re-painel .re-group-header p { flex-basis: 100%; border: 0; padding: 0; }
+}
+@media (max-width: 767px) {
+  #re-painel { padding: 18px 12px 10px; }
+  #re-painel .re-header { gap: 12px; padding: 0 0 20px; }
+  #re-painel .re-brand { width: 44px; height: 48px; flex-basis: 44px; border-radius: 12px; }
+  #re-painel .re-heading { padding-left: 12px; }
+  #re-painel .re-sub { font-size: 13px; }
+  #re-painel .re-kicker { font-size: 10px; }
+  #re-painel .re-group { padding: 13px 12px; }
+  #re-painel .re-essential-grid { grid-template-columns: minmax(0, 1fr); }
+  #re-painel .re-parameter-grid, #re-painel .re-out { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  #re-painel .re-parameter-grid label { min-height: 40px; }
+  #re-painel .re-group-header { gap: 9px; }
+  #re-painel .re-group h3 { gap: 10px; font-size: 20px; }
+  #re-painel .re-badge { margin-left: 48px; }
+  #re-painel .re-cell { padding: 10px; }
+  #re-painel .re-cell small { align-items: flex-start; min-height: 34px; gap: 6px; }
+  #re-painel .re-cell strong { font-size: 19px; }
+  #re-painel .re-foot { align-items: flex-start; padding: 12px; }
+}
+@media (max-width: 479px) {
+  #re-painel .re-parameter-grid { grid-template-columns: minmax(0, 1fr); }
+  #re-painel .re-parameter-grid label { min-height: 30px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #re-painel input, #re-painel select, #re-painel .re-cell { transition: none !important; }
+}

@@ -147,7 +147,9 @@ describe("cadeia ticker → adapter → engine → painel (arquivos reais)", () 
     const src = fs.readFileSync(new URL("../ticker-widget.js", DIR), "utf8");
     assert.ok(src.includes("estudebitcoin:ticker-price"));
     assert.ok(src.includes("new CustomEvent"));
-    assert.ok(src.includes("detail: { symbol: symbol, price: price }"));
+    // O ticker também publica source/changePct; o contrato exige symbol e
+    // price, mas permite metadados adicionais.
+    assert.match(src, /detail:\s*\{\s*symbol:\s*symbol,\s*price:\s*price\s*[,}]/);
     // sem segundo WebSocket/polling/fetch adicionado:
     assert.equal((src.match(/new WebSocket/g) || []).length, 1);
   });
