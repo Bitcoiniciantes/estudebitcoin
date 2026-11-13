@@ -1002,7 +1002,7 @@ describe('aba B3 no ticker', () => {
     assert.equal(grid.innerHTML.includes('tq-graham'), false);
   });
 
-  it('49. B3 pulsa cards com RSI semanal abaixo de 25', async () => {
+  it('49. B3 pulsa cards com RSI semanal abaixo de 29', async () => {
     const { grid, sandbox, clickTab } = mountTicker();
     sandbox.__payloadMode = 'lowStocks';
     await settle();
@@ -1022,9 +1022,10 @@ describe('aba B3 no ticker', () => {
 
   it('51. pulso RSI é limitado a 20 ciclos e não reinicia indefinidamente', () => {
     assert.ok(TICKER_SRC.includes('RSI_LOW_PULSE_LIMIT = 20'));
-    assert.ok(TICKER_SRC.includes('b3: 25, stocks: 31'));
+    assert.ok(TICKER_SRC.includes('b3: 29, stocks: 31'));
     assert.ok(HTML_SRC.includes('tq-rsi-low-pulse 1.4s ease-in-out 20'));
-    assert.ok(HTML_SRC.includes('rgba(255,0,0,.5)'), 'pulso RSI usa vermelho FF0000');
+    assert.ok(HTML_SRC.includes('box-shadow: 0 0 0 5px #000'), 'pulso de B3 e STOCKS usa preto puro');
+    assert.equal(HTML_SRC.includes('rgba(255,0,0,.5)'), false, 'pulso RSI não usa vermelho');
     assert.equal(HTML_SRC.includes('rgba(239,68,68,.5)'), false, 'pulso RSI não usa vermelho antigo');
     assert.ok(TICKER_SRC.includes('animationiteration'));
     assert.ok(TICKER_SRC.includes('animationend'));

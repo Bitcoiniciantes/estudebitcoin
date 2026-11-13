@@ -133,7 +133,7 @@
   CRYPTO.forEach(function (entry) {
     cryptoRsiMemo[entry[0]] = { value: null, fetchedAt: 0, pending: null, failedAt: 0, failureCount: 0 };
   });
-  var RSI_LOW_PULSE_THRESHOLDS = { b3: 25, stocks: 31 };
+  var RSI_LOW_PULSE_THRESHOLDS = { b3: 29, stocks: 31 };
   var RSI_LOW_PULSE_LIMIT = 20;
   var RSI_COMPRA_LIMITE = 40;
   var RSI_VENDA_LIMITE = 70;

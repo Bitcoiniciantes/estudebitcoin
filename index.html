@@ -858,8 +858,8 @@
   .tq-rsi-dot.tq-rsi-neutro { border-color:var(--rsi-neutro-color); }
   .tq-rsi-dot.tq-rsi-venda { border-color:var(--rsi-venda-color); }
   @keyframes tq-rsi-low-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(255,0,0,0); }
-    50% { box-shadow: 0 0 0 5px rgba(255,0,0,.5); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+    50% { box-shadow: 0 0 0 5px #000; }
   }
   .tq.rsi-low-pulse { animation: tq-rsi-low-pulse 1.4s ease-in-out 20; }
   @media (prefers-reduced-motion: reduce) { .tq.rsi-low-pulse { animation: none; } }
