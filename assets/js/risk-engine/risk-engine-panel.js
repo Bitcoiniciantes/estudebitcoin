@@ -376,7 +376,9 @@
       errBox.style.display = "none";
       errBox.textContent = "";
     }
-    setText("re-qtd", num(vm.quantidadeAtivo, 8));
+    var symbolEl = document.getElementById("re-simbolo");
+    var quantityDigits = symbolEl && String(symbolEl.value).trim().toUpperCase().replace(/USDT$/, "") === "BTC" ? 8 : 2;
+    setText("re-qtd", num(vm.quantidadeAtivo, quantityDigits));
     setText("re-pmedio", fmtUsd(vm.precoMedio));
     setText("re-margem", fmtUsd(vm.margemRetida));
     setText("re-livre", fmtUsd(vm.margemLivre));

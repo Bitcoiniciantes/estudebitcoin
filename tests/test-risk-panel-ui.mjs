@@ -51,6 +51,7 @@ test('Risk Engine: controls, original calculations, errors and responsive layout
     const baseline = await result();
     assert.equal(baseline.precoLiquidacao, 909);
     assert.equal(await field('re-plq').textContent(), '$ 909,00');
+    assert.equal(await field('re-qtd').textContent(), '1,65');
     assert.equal(await field('re-estado').textContent(), 'SEGURO');
     assert.equal(await field('re-pnl').getAttribute('data-sign'), 'positive');
 
@@ -133,6 +134,15 @@ test('Risk Engine: controls, original calculations, errors and responsive layout
     await field('re-simbolo').selectOption('ETH');
     await fillBase();
     await field('re-saldo').blur();
+    await field('re-simbolo').selectOption('BTC');
+    await field('re-saldo').fill('5.000,00');
+    await field('re-alavancagem').fill('6');
+    await field('re-preco-entrada').fill('72.000,00');
+    await field('re-valor').fill('20.000,00');
+    await tick(71364.99, 'BTC');
+    assert.equal(await field('re-qtd').textContent(), '0,27777778');
+    await field('re-simbolo').selectOption('ETH');
+    await fillBase();
     await page.locator('.re-help').focus();
     assert.equal(await field('re-mmr-help').isVisible(), true);
     await field('re-simbolo').focus();
