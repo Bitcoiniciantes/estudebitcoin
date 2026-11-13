@@ -713,6 +713,87 @@ function computeQuote(raw, symbol, cfg, nowMs = Date.now()) {
   return quote;
 }
 
+const PRE_MARKET_FUTURES = { "^GSPC": "ES=F", "^NDX": "NQ=F" };
+const PRE_MARKET_MAX_AGE_SECONDS = 10 * 60;
+
+function yahooChartResultMap(raw) {
+  const rows = raw && raw.spark && Array.isArray(raw.spark.result) ? raw.spark.result : [];
+  const map = Object.create(null);
+  for (const row of rows) {
+    const result = row && Array.isArray(row.response) ? row.response[0] : null;
+    const symbol = result && result.meta && result.meta.symbol;
+    if (symbol) map[String(symbol).toUpperCase()] = result;
+  }
+  return map;
+}
+
+function isYahooPreMarket(meta, nowSeconds) {
+  const period = meta && meta.currentTradingPeriod;
+  const pre = period && period.pre;
+  const regular = period && period.regular;
+  return meta && meta.exchangeTimezoneName === "America/New_York" &&
+    Number.isFinite(pre && pre.start) && Number.isFinite(pre && pre.end) &&
+    Number.isFinite(regular && regular.start) && Number.isFinite(regular && regular.end) &&
+    pre.start < regular.start && pre.end === regular.start &&
+    nowSeconds >= pre.start && nowSeconds < regular.start;
+}
+
+function latestValidPoint(result, notAfterSeconds) {
+  const timestamps = result && Array.isArray(result.timestamp) ? result.timestamp : [];
+  const closes = result && result.indicators && result.indicators.quote &&
+    result.indicators.quote[0] && result.indicators.quote[0].close;
+  if (!Array.isArray(closes)) return null;
+  for (let index = Math.min(timestamps.length, closes.length) - 1; index >= 0; index -= 1) {
+    const time = Number(timestamps[index]);
+    const close = Number(closes[index]);
+    if (Number.isFinite(time) && time <= notAfterSeconds && Number.isFinite(close) && close > 0) {
+      return { time, close };
+    }
+  }
+  return null;
+}
+
+function lastCompletedRegularPeriod(meta, nowSeconds) {
+  const groups = meta && Array.isArray(meta.tradingPeriods) ? meta.tradingPeriods : [];
+  let latest = null;
+  for (const group of groups) {
+    const periods = Array.isArray(group) ? group : [group];
+    for (const period of periods) {
+      if (!period || !Number.isFinite(period.start) || !Number.isFinite(period.end)) continue;
+      if (period.start >= period.end || period.end > nowSeconds) continue;
+      if (!latest || period.end > latest.end) latest = period;
+    }
+  }
+  return latest;
+}
+
+function computePreMarketEstimates(raw, nowMs = Date.now()) {
+  const nowSeconds = Math.floor(nowMs / 1000);
+  const results = yahooChartResultMap(raw);
+  const estimates = Object.create(null);
+  for (const indexSymbol of Object.keys(PRE_MARKET_FUTURES)) {
+    const indexResult = results[indexSymbol];
+    const futureSymbol = PRE_MARKET_FUTURES[indexSymbol];
+    const futureResult = results[futureSymbol];
+    if (!indexResult || !futureResult || !isYahooPreMarket(indexResult.meta, nowSeconds)) continue;
+    const referenceSession = lastCompletedRegularPeriod(indexResult.meta, nowSeconds);
+    if (!referenceSession) continue;
+    const officialClose = latestValidPoint(indexResult, referenceSession.end);
+    const futureReference = latestValidPoint(futureResult, referenceSession.end);
+    const futureCurrent = latestValidPoint(futureResult, nowSeconds + 60);
+    if (!officialClose || !futureReference || !futureCurrent) continue;
+    if (referenceSession.end - officialClose.time > PRE_MARKET_MAX_AGE_SECONDS) continue;
+    if (referenceSession.end - futureReference.time > PRE_MARKET_MAX_AGE_SECONDS) continue;
+    const currentAge = nowSeconds - futureCurrent.time;
+    if (currentAge < -60 || currentAge > PRE_MARKET_MAX_AGE_SECONDS) continue;
+    const changePct = ((futureCurrent.close - futureReference.close) / futureReference.close) * 100;
+    const price = officialClose.close * (1 + changePct / 100);
+    if (!Number.isFinite(changePct) || !Number.isFinite(price) || price <= 0) continue;
+    estimates[indexSymbol] = { price, changePct, asOf: futureCurrent.time, future: futureSymbol };
+  }
+  return estimates;
+}
+
 function pruneQuotesCache(nowMs) {
   for (const [key, entry] of quotesCache) {
     if (entry.expiresAt <= nowMs) quotesCache.delete(key);
@@ -765,11 +846,15 @@ function mapLimit(items, limit, worker) {
 
 function quotesInRequestedOrder(rawAssets, cached) {
   const bySymbol = cached.entries;
-  return {
+  const body = {
     window: cached.window,
     updatedAt: cached.updatedAt,
     quotes: rawAssets.map((symbol) => bySymbol[symbol]).filter(Boolean),
   };
+  if (cached.preMarketEstimates && Object.keys(cached.preMarketEstimates).length) {
+    body.preMarketEstimates = cached.preMarketEstimates;
+  }
+  return body;
 }
 
 async function assetQuotes(request) {
@@ -804,6 +889,7 @@ async function assetQuotes(request) {
   const load = (async () => {
     const configs = [cfg].concat(cfg.fallbacks || []);
     const nowMs = Date.now();
+    const sessionMeta = Object.create(null);
     const results = await mapLimit(rawAssets, 4, async (symbol) => {
       for (const item of configs) {
         try {
@@ -813,6 +899,10 @@ async function assetQuotes(request) {
             : `interval=${item.interval}&range=${item.range}`;
           const response = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?${query}`);
           const raw = await response.json();
+          if (windowKey === "24h" && PRE_MARKET_FUTURES[symbol]) {
+            const result = raw && Array.isArray(raw.chart?.result) ? raw.chart.result[0] : null;
+            if (result && result.meta) sessionMeta[symbol] = result.meta;
+          }
           const quote = computeQuote(raw, symbol, item, nowMs);
           if (quote) return quote;
         } catch (error) {
@@ -823,11 +913,26 @@ async function assetQuotes(request) {
     });
     const quotes = results.filter(Boolean);
     const body = { window: windowKey, updatedAt: new Date(nowMs).toISOString(), quotes };
+    const preMarketIndexes = [...new Set(rawAssets)].filter((symbol) =>
+      PRE_MARKET_FUTURES[symbol] && isYahooPreMarket(sessionMeta[symbol], Math.floor(nowMs / 1000)));
+    let preMarketEstimates = Object.create(null);
+    if (preMarketIndexes.length) {
+      const sparkSymbols = [];
+      for (const symbol of preMarketIndexes) sparkSymbols.push(symbol, PRE_MARKET_FUTURES[symbol]);
+      try {
+        const sparkUrl = `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${encodeURIComponent(sparkSymbols.join(","))}&range=5d&interval=5m&includePrePost=true`;
+        const sparkResponse = await fetchWithTimeout(sparkUrl);
+        preMarketEstimates = computePreMarketEstimates(await sparkResponse.json(), nowMs);
+        if (Object.keys(preMarketEstimates).length) body.preMarketEstimates = preMarketEstimates;
+      } catch (error) {
+        console.error("pre-market-estimate-error", error);
+      }
+    }
     const entries = Object.create(null);
     rawAssets.forEach((symbol, index) => {
       if (results[index] && !entries[symbol]) entries[symbol] = results[index];
     });
-    const cacheBody = { window: windowKey, updatedAt: body.updatedAt, entries };
+    const cacheBody = { window: windowKey, updatedAt: body.updatedAt, entries, preMarketEstimates };
     if (trackPending && quotes.length && results.every(Boolean)) storeQuotesBody(cacheKey, cacheBody, cacheTtlMs);
     return { body, cacheBody };
   })();
@@ -947,6 +1052,7 @@ function rlClientIp(request) {
 }
 
 export { rlKeyFor, rlTtlSeconds, FUND_RL_LIMIT, computeQuote, exchangeDateKey, rsiWilder, QUOTE_WINDOWS };
+export { computePreMarketEstimates, isYahooPreMarket };
 function pickNum(...vals) {
   for (const v of vals) {
     const n = Number(v);

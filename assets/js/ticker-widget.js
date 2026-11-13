@@ -103,6 +103,7 @@
   var uiStateGen = 0;
   var cache = {};
   var livePrices = {};
+  var preMarketEstimates = {}; // display-only: lido exclusivamente por card()
   var cardPrices = {}; // último preço visto por símbolo (p/ modal Graham)
   var cardChangePct = {}; // variação do dia (%) por monitorado (não sobrescreve preço)
   var cardChange30d = {}; // variação 30d (%) por monitorado (janela fixa; só memória)
@@ -390,11 +391,17 @@
   }
 
   function card(quote) {
-    var change = quote.shortHistory === true ? null : (typeof quote.changePct === "number" ? quote.changePct : null);
+    var preMarket = activeTab === "stocks" && activeWindow === "24h" &&
+      (quote.symbol === "^GSPC" || quote.symbol === "^NDX") ? preMarketEstimates[quote.symbol] : null;
+    var change = preMarket && typeof preMarket.changePct === "number"
+      ? preMarket.changePct
+      : (quote.shortHistory === true ? null : (typeof quote.changePct === "number" ? quote.changePct : null));
     var pct = change === null ? "—" : (change >= 0 ? "+" : "") + change.toFixed(2).replace(".", ",") + "%";
     var shortWindowLabel = activeWindow === "3y" ? "3 anos" : activeWindow === "1y" ? "1 ano" : (activeWindow === "90d" ? "90 dias" : "30 dias");
     var pctTitle = quote.shortHistory === true ? ' title="Menos de ' + shortWindowLabel + ' de histórico"' : "";
-    var price = typeof livePrices[quote.symbol] === "number" ? livePrices[quote.symbol] : quote.price;
+    var price = preMarket && typeof preMarket.price === "number"
+      ? preMarket.price
+      : (typeof livePrices[quote.symbol] === "number" ? livePrices[quote.symbol] : quote.price);
     // Moeda do próprio objeto de cotação primeiro: a B3 chega com BRL do
     // Worker. CRIPTO e STOCKS continuam com o mesmo valor de antes.
     var currency = quote.currency || symbolCurrency[quote.symbol] || "USD";
@@ -421,6 +428,9 @@
       (activeTab === "b3" ? (rsiMemo.b3.bySymbol || {})[quoteSymbol] : (activeTab === "stocks" ? (rsiMemo.stocks.bySymbol || {})[quoteSymbol] : null));
     var rsiContext = activeTab === "crypto" && quoteSymbol === "USDT-BRL" ? "USDT/BRL" : "";
     var badge = (activeTab === "crypto" || activeTab === "b3" || activeTab === "stocks") ? rsiBadge(activeRsi, rsiContext) : '';
+    var preMarketBadge = preMarket
+      ? '<span class="tq-pre-market" title="Estimativa pelo futuro ' + esc(preMarket.future || "") + '">PRÉ · FUT</span>'
+      : '';
     var pulseKey = activeTab + "|" + quoteSymbol;
     var pulseThreshold = RSI_LOW_PULSE_THRESHOLDS[activeTab];
     var lowRsiPulse = (activeTab === "b3" || activeTab === "stocks") && typeof activeRsi === "number" &&
@@ -460,6 +470,7 @@
       bell +
       grahamBtn +
       badge +
+      preMarketBadge +
       '<span class="tqPct' + pctClass + '"' + pctTitle + '>' + pctInner + "</span>" +
       '<strong class="tqPrice' + small + '">' + priceText + "</strong>" +
       referenceBlock +
@@ -651,6 +662,8 @@
       .then(function (payload) {
         if (!payload || !Array.isArray(payload.quotes)) return [];
         if (payload.window !== activeWindow) return [];
+        preMarketEstimates = activeWindow === "24h" && payload.preMarketEstimates &&
+          typeof payload.preMarketEstimates === "object" ? payload.preMarketEstimates : {};
         return payload.quotes.map(function (quote) {
           quoteData[quote.symbol] = {
             name: STOCK_NAMES[quote.symbol] || quote.name || quote.symbol,
