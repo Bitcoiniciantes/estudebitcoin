@@ -115,6 +115,34 @@
     if (el) el.textContent = text;
   }
 
+  /** Classificação exclusivamente visual; não participa do motor financeiro. */
+  function classifyLiquidationDistance(value, riskState) {
+    if (riskState === "LIQUIDACAO") {
+      return { key: "critical", label: "CRÍTICO" };
+    }
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return { key: "unavailable", label: "INDISPONÍVEL" };
+    }
+    if (value > 30) return { key: "comfortable", label: "CONFORTÁVEL" };
+    if (value > 20) return { key: "safe", label: "SEGURO" };
+    if (value > 10) return { key: "attention", label: "ATENÇÃO" };
+    if (value > 5) return { key: "elevated", label: "RISCO ELEVADO" };
+    return { key: "critical", label: "CRÍTICO" };
+  }
+
+  function renderLiquidationDistance(value, riskState) {
+    var el = document.getElementById("re-dist");
+    if (!el) return;
+    var visual = classifyLiquidationDistance(value, riskState);
+    var displayed = typeof value === "number" && Number.isFinite(value)
+      ? num(value, 2) + "%"
+      : "—";
+    el.textContent = displayed;
+    el.setAttribute("data-distance", visual.key);
+    el.setAttribute("data-distance-label", visual.label);
+    el.setAttribute("aria-label", displayed + " — " + visual.label);
+  }
+
   /* ---------- Status de persistência (feedback visual, sem botão) ----------
    * Texto reflete só o que é determinístico no painel: save local (retorno
    * de saveLocal) e eventos de push vindos do PanelSync. Nuvem nunca é
@@ -361,7 +389,8 @@
         errBox.textContent = vm ? vm.mensagem : "Aguardando cotação do ativo selecionado.";
       }
       ["re-qtd", "re-pmedio", "re-margem", "re-livre", "re-pnl", "re-equity",
-       "re-plq", "re-dist", "re-res"].forEach(function (id) { setText(id, "—"); });
+       "re-plq", "re-res"].forEach(function (id) { setText(id, "—"); });
+      renderLiquidationDistance(null, vm && vm.estadoRisco);
       setText("re-estado", "—");
       ["re-pnl", "re-res", "re-estado"].forEach(function (id) {
         var el = document.getElementById(id);
@@ -389,7 +418,7 @@
     }
     setText("re-equity", fmtUsd(vm.equityAtual));
     setText("re-plq", vm.precoLiquidacao === null ? "Sem preço positivo" : fmtUsd(vm.precoLiquidacao));
-    setText("re-dist", vm.distanciaLiquidacaoPercentual === null ? "—" : num(vm.distanciaLiquidacaoPercentual, 2) + "%");
+    renderLiquidationDistance(vm.distanciaLiquidacaoPercentual, vm.estadoRisco);
     // §4 etapa anterior: "+12%" = ganho, nunca "perda de -12%".
     var resEl = document.getElementById("re-res");
     if (resEl) {
@@ -554,6 +583,7 @@
 
   return {
     buildViewModel: buildViewModel,
+    classifyLiquidationDistance: classifyLiquidationDistance,
     render: render,
     readParams: readParams,
     bind: bind,

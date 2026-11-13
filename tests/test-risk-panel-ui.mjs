@@ -54,6 +54,55 @@ test('Risk Engine: controls, original calculations, errors and responsive layout
     assert.equal(await field('re-qtd').textContent(), '1,65');
     assert.equal(await field('re-estado').textContent(), 'SEGURO');
     assert.equal(await field('re-pnl').getAttribute('data-sign'), 'positive');
+    const distanceCard = field('re-dist').locator('..');
+    const visualState = () => distanceCard.evaluate((card) => {
+      const value = card.querySelector('#re-dist');
+      const icon = card.querySelector('.re-icon');
+      const label = card.querySelector('small');
+      const cardStyle = getComputedStyle(card);
+      return {
+        key: value.dataset.distance,
+        classification: value.dataset.distanceLabel,
+        pseudo: getComputedStyle(value, '::after').content.replace(/^"|"$/g, ''),
+        background: cardStyle.backgroundColor,
+        border: cardStyle.borderColor,
+        value: getComputedStyle(value).color,
+        icon: getComputedStyle(icon).color,
+        label: getComputedStyle(label).color,
+        transition: cardStyle.transitionDuration,
+      };
+    });
+    const expectedVisuals = [
+      [35, 'SEGURO', 'comfortable', 'CONFORTÁVEL', 'rgb(16, 59, 43)', 'rgb(34, 197, 94)', 'rgb(74, 222, 128)'],
+      [24.86, 'SEGURO', 'safe', 'SEGURO', 'rgb(18, 55, 44)', 'rgb(22, 163, 74)', 'rgb(74, 222, 128)'],
+      [15, 'SEGURO', 'attention', 'ATENÇÃO', 'rgb(68, 56, 15)', 'rgb(234, 179, 8)', 'rgb(250, 204, 21)'],
+      [8, 'SEGURO', 'elevated', 'RISCO ELEVADO', 'rgb(69, 29, 40)', 'rgb(244, 63, 94)', 'rgb(251, 113, 133)'],
+      [3, 'SEGURO', 'critical', 'CRÍTICO', 'rgb(91, 21, 32)', 'rgb(239, 68, 68)', 'rgb(255, 64, 64)'],
+      [-1, 'LIQUIDACAO', 'critical', 'CRÍTICO', 'rgb(91, 21, 32)', 'rgb(239, 68, 68)', 'rgb(255, 64, 64)'],
+      [null, 'SEGURO', 'unavailable', 'INDISPONÍVEL', 'rgb(31, 41, 55)', 'rgb(100, 116, 139)', 'rgb(203, 213, 225)'],
+    ];
+    const transitionBlock = await page.addStyleTag({ content: '#re-painel .re-cell:has(#re-dist), #re-painel #re-dist, #re-painel .re-cell:has(#re-dist) .re-icon { transition: none !important; }' });
+    for (const [distance, risk, key, classification, background, border, color] of expectedVisuals) {
+      await page.evaluate(({ distance, risk }) => window.RiskEnginePanel.render({
+        ok: true, quantidadeAtivo: 1, precoMedio: 100, margemRetida: 10, margemLivre: 90,
+        pnlNaoRealizado: 0, equityAtual: 100, equityLiquidacao: 0, precoLiquidacao: 50,
+        distanciaLiquidacaoPercentual: distance, resultadoEquityPercentual: 0,
+        estadoRisco: risk, lado: 'LONG'
+      }, 100), { distance, risk });
+      assert.deepEqual(await visualState(), { key, classification, pseudo: classification,
+        background, border, value: color, icon: color, label: 'rgb(229, 231, 235)',
+        transition: '0s' });
+    }
+    await transitionBlock.evaluate(e => e.remove());
+    assert.equal((await visualState()).transition, '0.2s, 0.2s, 0.2s');
+    // Tick e edição de parâmetro percorrem o mesmo render em tempo real.
+    await fillBase();
+    assert.equal((await visualState()).key, 'comfortable');
+    await tick(1000);
+    assert.equal((await visualState()).key, 'elevated');
+    await field('re-saldo').fill('1.100,00');
+    assert.equal((await visualState()).key, 'attention');
+    await fillBase();
 
     for (const [id, value, property, expected] of [
       ['re-saldo', '1.200,50', 'saldoCorretora', 1200.5],
@@ -179,6 +228,7 @@ test('Risk Engine: controls, original calculations, errors and responsive layout
     }
     await page.emulateMedia({ reducedMotion: 'reduce' });
     assert.equal(await field('re-saldo').evaluate(e => getComputedStyle(e).transitionDuration), '0s');
+    assert.equal(await distanceCard.evaluate(e => getComputedStyle(e).transitionDuration), '0s');
     await page.clock.install();
     await tick(2012.88);
     await page.clock.fastForward(20000);
