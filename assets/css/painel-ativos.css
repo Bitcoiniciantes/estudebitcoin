@@ -414,7 +414,7 @@
 #painel-ativos tbody td { border-bottom: 1px solid rgba(255, 255, 255, 0.06); color: var(--pa-text); font-variant-numeric: tabular-nums; }
 #painel-ativos tbody tr:last-child td { border-bottom: 0; }
 #painel-ativos .pa-ticker { font-weight: 800; color: #fff; white-space: nowrap; }
-#painel-ativos .pa-chart-btn { display: inline-flex; width: 24px; height: 24px; margin-left: 6px; vertical-align: middle; font-size: 13px; opacity: 1; visibility: visible; }
+#painel-ativos .pa-chart-btn { display: inline-flex; width: 32px; height: 32px; margin-left: 6px; vertical-align: middle; font-size: 13px; opacity: 1; visibility: visible; }
 #painel-ativos .pa-ticker small { display: block; font-weight: 400; color: var(--pa-muted); font-size: 11px; }
 /* Nome da empresa limitado (teste 120px): corta com reticências. */
 #painel-ativos .pa-ticker small.pa-name { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

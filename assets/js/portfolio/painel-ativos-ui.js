@@ -434,7 +434,6 @@
         '<td class="' + cls(a.dailyVariation) + '">' + esc(fmtPct(a.dailyVariation)) + '</td>' +
         '<td>' + a.calc.allocation.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '%</td>' +
         '<td>' + (ui.mode === 'demo' ? '' : '<span class="pa-row-actions">' +
-        '<button class="pa-icon-btn" data-act="detail" data-ticker="' + esc(a.ticker) + '" title="Preço justo (Graham) de ' + esc(a.ticker) + '" aria-label="Preço justo de ' + esc(a.ticker) + '">&#9878;</button>' +
         '<button class="pa-icon-btn" data-act="edit" data-ticker="' + esc(a.ticker) + '" title="Editar ' + esc(a.ticker) + '" aria-label="Editar ' + esc(a.ticker) + '">' + ICON_EDIT + '</button>' +
         '<button class="pa-icon-btn danger" data-act="del" data-ticker="' + esc(a.ticker) + '" title="Excluir ' + esc(a.ticker) + '" aria-label="Excluir ' + esc(a.ticker) + '">' + ICON_DEL + '</button>' +
         '</span>') + '</td>' +

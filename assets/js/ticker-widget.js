@@ -1806,22 +1806,8 @@
       } catch (e) {}
       return;
     }
-    var row = event.target && event.target.closest ? event.target.closest("tr[data-ticker]") : null;
-    if (!row) return;
-    var sym = row.getAttribute("data-ticker");
-    var price = null;
-    // DISPLAY-ONLY: preço vivo do card p/ o modal; sem card, o snapshot
-    // armazenado. O histórico nunca é alterado aqui.
-    var seenRow = Number(cardPrices[sym]);
-    if (Number.isFinite(seenRow) && seenRow > 0) { price = seenRow; }
-    else {
-      for (var i = 0; i < grahamHistory.length; i++) {
-        if (grahamHistory[i].ticker === sym) { price = grahamHistory[i].currentUSD; break; }
-      }
-    }
-    if (sym && window.Graham && window.Graham.open) {
-      window.Graham.open(sym, grahamModalOpts(price));
-    }
+    // A linha não abre mais o modal Graham. As ações explícitas são apenas
+    // o ícone de gráfico e o botão de remoção.
   });
 
   function updateGrahamBar() {
