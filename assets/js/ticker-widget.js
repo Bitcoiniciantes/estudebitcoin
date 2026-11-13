@@ -662,10 +662,13 @@
 
   function fetchStocks() {
     return fetch(WORKER + "?assets=" + encodeURIComponent(STOCKS.join(",")) + "&window=" + activeWindow, { cache: "no-store" })
-      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (response) {
+        if (!response.ok) throw new Error("Worker HTTP " + response.status);
+        return response.json();
+      })
       .then(function (payload) {
-        if (!payload || !Array.isArray(payload.quotes)) return [];
-        if (payload.window !== activeWindow) return [];
+        if (!payload || !Array.isArray(payload.quotes)) throw new Error("Payload de cotações inválido");
+        if (payload.window !== activeWindow) throw new Error("Janela de cotações divergente");
         preMarketEstimates = activeWindow === "24h" && payload.preMarketEstimates &&
           typeof payload.preMarketEstimates === "object" ? payload.preMarketEstimates : {};
         return payload.quotes.map(function (quote) {
@@ -793,10 +796,10 @@
     });
   }
 
-  function render(quotes) {
+  function render(quotes, errorMessage) {
     grid.innerHTML = quotes.length
       ? quotes.map(card).join("")
-      : '<div class="tqEmpty">Sem cotações disponíveis no momento.</div>';
+      : '<div class="tqEmpty">' + (errorMessage || "Sem cotações disponíveis no momento.") + "</div>";
     for (var i = 0; i < quotes.length; i++) {
       var q = quotes[i];
       var seen = typeof livePrices[q.symbol] === "number" ? livePrices[q.symbol] : q.price;
@@ -886,7 +889,9 @@
       // portfólio (USD), o Risk Engine e o histórico do Graham.
       if (tab !== "b3") broadcastQuotes(quotes);
       render(quotes);
-    }).catch(function () { if (gen === uiStateGen) render([]); });
+    }).catch(function () {
+      if (gen === uiStateGen) render([], tab === "stocks" ? "Falha ao carregar cotações. Tente novamente." : null);
+    });
   }
 
   function updateLivePrice(symbol, price, volume, changePct) {
