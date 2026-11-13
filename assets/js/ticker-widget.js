@@ -396,6 +396,7 @@
     var change = preMarket && typeof preMarket.changePct === "number"
       ? preMarket.changePct
       : (quote.shortHistory === true ? null : (typeof quote.changePct === "number" ? quote.changePct : null));
+    if (preMarket && typeof change === "number" && Math.abs(change) < 0.005) change = 0;
     var pct = change === null ? "—" : (change >= 0 ? "+" : "") + change.toFixed(2).replace(".", ",") + "%";
     var shortWindowLabel = activeWindow === "3y" ? "3 anos" : activeWindow === "1y" ? "1 ano" : (activeWindow === "90d" ? "90 dias" : "30 dias");
     var pctTitle = quote.shortHistory === true ? ' title="Menos de ' + shortWindowLabel + ' de histórico"' : "";
@@ -428,8 +429,11 @@
       (activeTab === "b3" ? (rsiMemo.b3.bySymbol || {})[quoteSymbol] : (activeTab === "stocks" ? (rsiMemo.stocks.bySymbol || {})[quoteSymbol] : null));
     var rsiContext = activeTab === "crypto" && quoteSymbol === "USDT-BRL" ? "USDT/BRL" : "";
     var badge = (activeTab === "crypto" || activeTab === "b3" || activeTab === "stocks") ? rsiBadge(activeRsi, rsiContext) : '';
+    var preMarketTitle = preMarket && typeof preMarket.delayMinutes === "number" && preMarket.delayMinutes > 0
+      ? 'Cotação estimada · aproximadamente ' + preMarket.delayMinutes + ' minutos de atraso'
+      : 'Estimativa pelo futuro ' + (preMarket ? preMarket.future || "" : "");
     var preMarketBadge = preMarket
-      ? '<span class="tq-pre-market" title="Estimativa pelo futuro ' + esc(preMarket.future || "") + '">PRÉ · FUT</span>'
+      ? '<span class="tq-pre-market" title="' + esc(preMarketTitle) + '">PRÉ · FUT</span>'
       : '';
     var pulseKey = activeTab + "|" + quoteSymbol;
     var pulseThreshold = RSI_LOW_PULSE_THRESHOLDS[activeTab];

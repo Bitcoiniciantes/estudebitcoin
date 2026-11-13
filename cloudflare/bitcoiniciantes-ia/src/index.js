@@ -715,6 +715,7 @@ function computeQuote(raw, symbol, cfg, nowMs = Date.now()) {
 
 const PRE_MARKET_FUTURES = { "^GSPC": "ES=F", "^NDX": "NQ=F" };
 const PRE_MARKET_MAX_AGE_SECONDS = 10 * 60;
+const PRE_MARKET_MAX_DECLARED_DELAY_MINUTES = 15;
 
 function yahooChartResultMap(raw) {
   const rows = raw && raw.spark && Array.isArray(raw.spark.result) ? raw.spark.result : [];
@@ -767,6 +768,16 @@ function lastCompletedRegularPeriod(meta, nowSeconds) {
   return latest;
 }
 
+function yahooDelayMinutes(meta) {
+  const delay = Number(meta && meta.exchangeDataDelayedBy);
+  return Number.isFinite(delay) && delay > 0 && delay <= PRE_MARKET_MAX_DECLARED_DELAY_MINUTES ? delay : null;
+}
+
+function preMarketCurrentAgeLimit(meta) {
+  const delayMinutes = yahooDelayMinutes(meta);
+  return delayMinutes === null ? PRE_MARKET_MAX_AGE_SECONDS : delayMinutes * 60 + 120;
+}
+
 function computePreMarketEstimates(raw, nowMs = Date.now()) {
   const nowSeconds = Math.floor(nowMs / 1000);
   const results = yahooChartResultMap(raw);
@@ -785,11 +796,12 @@ function computePreMarketEstimates(raw, nowMs = Date.now()) {
     if (referenceSession.end - officialClose.time > PRE_MARKET_MAX_AGE_SECONDS) continue;
     if (referenceSession.end - futureReference.time > PRE_MARKET_MAX_AGE_SECONDS) continue;
     const currentAge = nowSeconds - futureCurrent.time;
-    if (currentAge < -60 || currentAge > PRE_MARKET_MAX_AGE_SECONDS) continue;
+    const delayMinutes = yahooDelayMinutes(futureResult.meta);
+    if (currentAge < -60 || currentAge > preMarketCurrentAgeLimit(futureResult.meta)) continue;
     const changePct = ((futureCurrent.close - futureReference.close) / futureReference.close) * 100;
     const price = officialClose.close * (1 + changePct / 100);
     if (!Number.isFinite(changePct) || !Number.isFinite(price) || price <= 0) continue;
-    estimates[indexSymbol] = { price, changePct, asOf: futureCurrent.time, future: futureSymbol };
+    estimates[indexSymbol] = { price, changePct, asOf: futureCurrent.time, future: futureSymbol, delayMinutes };
   }
   return estimates;
 }
@@ -1052,7 +1064,7 @@ function rlClientIp(request) {
 }
 
 export { rlKeyFor, rlTtlSeconds, FUND_RL_LIMIT, computeQuote, exchangeDateKey, rsiWilder, QUOTE_WINDOWS };
-export { computePreMarketEstimates, isYahooPreMarket };
+export { computePreMarketEstimates, isYahooPreMarket, preMarketCurrentAgeLimit, yahooDelayMinutes };
 function pickNum(...vals) {
   for (const v of vals) {
     const n = Number(v);

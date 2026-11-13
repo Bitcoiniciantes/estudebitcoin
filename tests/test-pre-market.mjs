@@ -33,6 +33,7 @@ function sparkFixture({
   futureCurrent = 6161,
   futureCurrentTime = now - 300,
   omitReference = false,
+  delayMinutes = null,
 } = {}) {
   const common = { preStart, regularStart, regularEnd, previousStart, previousEnd };
   const index = chart('^GSPC', {
@@ -43,6 +44,7 @@ function sparkFixture({
   if (!omitReference) futurePoints.push([previousEnd, futureReference]);
   futurePoints.push([futureCurrentTime, futureCurrent]);
   const future = chart('ES=F', { ...common, points: futurePoints });
+  if (delayMinutes !== null) future.meta.exchangeDataDelayedBy = delayMinutes;
   return {
     now,
     raw: {
@@ -121,6 +123,34 @@ test('futuro desatualizado ou referência ausente mantém cotação oficial', ()
   assert.deepEqual(Object.keys(computePreMarketEstimates(missing.raw, missing.now * 1000)), []);
 });
 
+test('atraso declarado de 10 minutos aceita candle de 650 s e rejeita 730 s', () => {
+  const accepted = sparkFixture({ delayMinutes: 10, futureCurrentTime: ts('2026-11-13T12:49:10Z') });
+  const rejected = sparkFixture({ delayMinutes: 10, futureCurrentTime: ts('2026-11-13T12:47:50Z') });
+  assert.ok(computePreMarketEstimates(accepted.raw, accepted.now * 1000)['^GSPC']);
+  assert.deepEqual(Object.keys(computePreMarketEstimates(rejected.raw, rejected.now * 1000)), []);
+});
+
+test('atraso ausente, zero, inválido ou acima de 15 minutos mantém limite de 600 s', () => {
+  for (const delayMinutes of [null, 0, 'inválido', 20]) {
+    const fixture = sparkFixture({ delayMinutes, futureCurrentTime: ts('2026-11-13T12:49:10Z') });
+    assert.deepEqual(Object.keys(computePreMarketEstimates(fixture.raw, fixture.now * 1000)), [], String(delayMinutes));
+  }
+});
+
+test('ES e NQ usam atrasos declarados independentes', () => {
+  const es = sparkFixture({ delayMinutes: 10, futureCurrentTime: ts('2026-11-13T12:49:10Z') });
+  const nq = structuredClone(es.raw);
+  nq.spark.result[0].symbol = '^NDX';
+  nq.spark.result[0].response[0].meta.symbol = '^NDX';
+  nq.spark.result[1].symbol = 'NQ=F';
+  nq.spark.result[1].response[0].meta.symbol = 'NQ=F';
+  nq.spark.result[1].response[0].meta.exchangeDataDelayedBy = 0;
+  es.raw.spark.result.push(...nq.spark.result);
+  const estimates = computePreMarketEstimates(es.raw, es.now * 1000);
+  assert.ok(estimates['^GSPC']);
+  assert.equal(estimates['^NDX'], undefined);
+});
+
 test('front-end mantém estimativa separada e restrita a card(), STOCKS e 24H', () => {
   const source = fs.readFileSync(new URL('../assets/js/ticker-widget.js', import.meta.url), 'utf8');
   const cardStart = source.indexOf('function card(quote)');
@@ -132,6 +162,8 @@ test('front-end mantém estimativa separada e restrita a card(), STOCKS e 24H', 
   assert.match(cardSource, /activeTab === "stocks" && activeWindow === "24h"/);
   assert.match(cardSource, /quote\.symbol === "\^GSPC" \|\| quote\.symbol === "\^NDX"/);
   assert.match(cardSource, /PRÉ · FUT/);
+  assert.match(cardSource, /Cotação estimada · aproximadamente/);
+  assert.match(cardSource, /Math\.abs\(change\) < 0\.005/);
   assert.doesNotMatch(source.slice(broadcastStart, broadcastEnd), /preMarketEstimates/);
 });
 
