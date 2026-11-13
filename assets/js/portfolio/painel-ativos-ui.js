@@ -422,7 +422,7 @@
     if (tfoot) tfoot.style.display = '';
     tbody.innerHTML = assets.map(function (a) {
       return '<tr>' +
-        '<td><span class="pa-ticker">' + esc(a.ticker) + (a.type === 'STOCK' ? '<button type="button" class="pa-icon-btn pa-chart-btn" data-act="chart" data-ticker="' + esc(a.ticker) + '" title="Abrir gráfico de ' + esc(a.ticker) + '" aria-label="Abrir gráfico de ' + esc(a.ticker) + '">&#128200;</button>' : '') + '<small class="pa-name" title="' + esc(a.name) + '">' + esc(a.name) + '</small></span>' +
+        '<td><span class="pa-ticker">' + esc(a.ticker) + '<button type="button" class="pa-icon-btn pa-chart-btn" data-act="chart" data-kind="' + (a.type === 'STOCK' ? 'stock' : 'crypto') + '" data-ticker="' + esc(a.ticker) + '" title="Abrir gráfico de ' + esc(a.ticker) + '" aria-label="Abrir gráfico de ' + esc(a.ticker) + '">&#128200;</button><small class="pa-name" title="' + esc(a.name) + '">' + esc(a.name) + '</small></span>' +
         (a.closedAt ? ' <span class="pa-pill">ENCERRADA</span>' : '') + '</td>' +
         '<td><span class="pa-pill">' + (a.type === 'STOCK' ? 'STOCK' : 'CRYPTO') + '</span></td>' +
         '<td>' + esc(fmtMoney(a.currentPrice)) + (liveFresh(a.ticker) ? ' <span class="pa-live" title="Preço ao vivo do ticker"></span>' : '') + '</td>' +
@@ -1327,6 +1327,16 @@
     // Toggle do formulário (colapsado por padrão)
     var toggle = $('pa-add-toggle');
     if (toggle) toggle.addEventListener('click', function () {
+      var earlyBtn = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
+      if (earlyBtn && earlyBtn.getAttribute('data-act') === 'chart') {
+        var earlyApi = getRoot();
+        if (earlyApi && earlyApi.EstudeBitcoin && earlyApi.EstudeBitcoin.loadAssetInConversor) {
+          e.preventDefault();
+          e.stopPropagation();
+          earlyApi.EstudeBitcoin.loadAssetInConversor(earlyBtn.getAttribute('data-ticker'), earlyBtn.getAttribute('data-kind'), earlyBtn.getAttribute('data-ticker'));
+        }
+        return;
+      }
       if (ui.mode === 'locked' || ui.mode === 'demo' || ui.loading) {
         setErr('Entre para acessar sua carteira sincronizada.');
         try { var h2 = getRoot(); if (h2 && h2.EstudeAuth && h2.EstudeAuth.openModal) h2.EstudeAuth.openModal('login'); } catch (e) {}
@@ -1370,16 +1380,7 @@
         } catch (e) {}
         return;
       }
-      if (act === 'chart') {
-        if (String(btn.closest('tr')?.querySelector('.pa-pill')?.textContent || '').trim().toUpperCase() !== 'STOCK') return;
-        try {
-          var chartApi = getRoot();
-          if (chartApi && chartApi.EstudeBitcoin && chartApi.EstudeBitcoin.loadStockInConversor) {
-            chartApi.EstudeBitcoin.loadStockInConversor(ticker, ticker);
-          }
-        } catch (e) {}
-        return;
-      }
+      if (act === 'chart') return;
       var found = service.findByTicker ? service.findByTicker(ticker) : null;
       if (act === 'del') {
         if (!found) {

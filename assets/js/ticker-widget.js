@@ -1071,8 +1071,34 @@
     }
   }
 
+  function loadCryptoInConversor(rawSymbol, rawLabel) {
+    var symbol = String(rawSymbol || "").trim().toUpperCase();
+    if (!symbol || !/^[A-Z][A-Z0-9-]{1,15}$/.test(symbol)) return false;
+    var detail = {
+      kind: "crypto",
+      symbol: symbol,
+      pair: displayToPair[symbol] || (symbol + "USDT"),
+      label: String(rawLabel || CRYPTO_NAMES[symbol] || symbol).trim() || symbol
+    };
+    try {
+      window.dispatchEvent(new CustomEvent("estudebitcoin:load-asset", { detail: detail }));
+      scrollToConversorIfNeeded();
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function loadAssetInConversor(rawSymbol, kind, rawLabel) {
+    return String(kind || "").toLowerCase() === "crypto"
+      ? loadCryptoInConversor(rawSymbol, rawLabel)
+      : loadStockInConversor(rawSymbol, rawLabel);
+  }
+
   window.EstudeBitcoin = window.EstudeBitcoin || {};
   window.EstudeBitcoin.loadStockInConversor = loadStockInConversor;
+  window.EstudeBitcoin.loadCryptoInConversor = loadCryptoInConversor;
+  window.EstudeBitcoin.loadAssetInConversor = loadAssetInConversor;
 
   grid.addEventListener("click", function (event) {
     if (event.target.closest(".tq-bell, .tq-graham")) return;
@@ -1086,12 +1112,7 @@
     }
     try {
       if (isCrypto(symbol)) {
-        window.dispatchEvent(new CustomEvent("estudebitcoin:load-asset", { detail: {
-          kind: "crypto", symbol: symbol,
-          pair: displayToPair[symbol] || (symbol + "USDT"),
-          label: CRYPTO_NAMES[symbol] || symbol
-        }}));
-        scrollToConversorIfNeeded();
+        loadCryptoInConversor(symbol, CRYPTO_NAMES[symbol] || symbol);
       } else {
         loadStockInConversor(symbol, STOCK_NAMES[symbol] || STOCK_LABELS[symbol] || symbol);
       }
@@ -1659,7 +1680,7 @@
       var fullName = h.name || h.ticker;
       var shownName = shortName(h.name || '—');
       html += '<tr data-ticker="' + esc(symbolKey(h.ticker)) + '">' +
-        '<td title="' + esc(fullName) + '"><span class="tq-h-name" title="' + esc(fullName) + '" aria-label="' + esc(fullName) + '">' + esc(shownName) + '</span><br><span class="tq-h-ticker">' + esc(h.ticker) + '</span>' + flag + '</td>' +
+        '<td title="' + esc(fullName) + '"><span class="tq-h-name" title="' + esc(fullName) + '" aria-label="' + esc(fullName) + '">' + esc(shownName) + '</span><br><span class="tq-h-ticker">' + esc(h.ticker) + '</span><button type="button" class="tq-h-chart" data-chart-ticker="' + esc(symbolKey(h.ticker)) + '" title="Abrir gráfico de ' + esc(h.ticker) + '" aria-label="Abrir gráfico de ' + esc(h.ticker) + '">&#128200;</button>' + flag + '</td>' +
         '<td><b>' + esc(fmtShortUSD(livePrice)) + '</b>' + dotHtml + '</td>' +
         '<td class="' + dayCls + '">' + esc(fmtPctSigned(dayCh)) + '</td>' +
         '<td class="' + day30Cls + '">' + esc(fmtPctSigned(day30Ch)) + '</td>' +
@@ -1762,6 +1783,16 @@
   }
 
   grahamHistEl.addEventListener("click", function (event) {
+    var chart = event.target && event.target.closest ? event.target.closest("[data-chart-ticker]") : null;
+    if (chart) {
+      event.preventDefault();
+      event.stopPropagation();
+      var chartTicker = chart.getAttribute("data-chart-ticker");
+      if (chartTicker && window.EstudeBitcoin && window.EstudeBitcoin.loadStockInConversor) {
+        window.EstudeBitcoin.loadStockInConversor(chartTicker, chartTicker);
+      }
+      return;
+    }
     var del = event.target && event.target.closest ? event.target.closest("[data-del]") : null;
     if (del) {
       event.stopPropagation();

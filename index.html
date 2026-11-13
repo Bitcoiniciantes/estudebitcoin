@@ -973,9 +973,11 @@
     padding: 7px 14px;
   }
   .tq-graham-bar button:hover { filter: brightness(1.1); }
-  .tq-chart-btn { width: 32px; min-width: 32px; padding: 0 !important; display: inline-flex; align-items: center; justify-content: center; }
+  .tq-chart-btn { width: 32px; min-width: 32px; height: 31px; box-sizing: border-box; padding: 0 !important; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
   .tq-chart-btn:focus-visible, .pa-chart-btn:focus-visible { outline: 2px solid #54b85a; outline-offset: 2px; }
   .pa-ticker .pa-chart-btn { margin-left: 5px; vertical-align: middle; }
+  .tq-graham-hist .tq-h-chart { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: 5px; padding: 0; border: 1px solid rgba(0,0,0,.18); border-radius: 5px; background: transparent; color: #587064; cursor: pointer; vertical-align: middle; }
+  .tq-graham-hist .tq-h-chart:hover, .tq-graham-hist .tq-h-chart:focus-visible { color: #198754; border-color: #54b85a; outline: none; }
   /* ── Histórico Graham da sessão (só aba STOCKS, abaixo da busca) ── */
   .tq-graham-hist { margin-top: 8px; overflow: auto; max-width: 100%; max-height: 70vh; }
   .tq-graham-hist-title {
@@ -2116,7 +2118,7 @@
 <script defer src="assets/js/projections.js"></script>
 <script defer src="assets/js/conversor.js?v=17"></script>
 <script defer src="assets/js/analista-ia.js?v=13"></script>
-<script defer src="assets/js/ticker-widget.js?v=24"></script>
+<script defer src="assets/js/ticker-widget.js?v=25"></script>
 <script defer src="assets/js/widgets/orderbook.js?v=30"></script>
 <script defer src="assets/js/widgets/depth-column.js?v=10"></script>
 
@@ -2131,7 +2133,7 @@
 <script src="assets/js/portfolio/portfolioService.js?v=1"></script>
 <script src="assets/js/portfolio/portfolioDemo.js?v=2"></script>
 <script src="assets/js/portfolio/firebasePortfolio.js?v=1"></script>
-<script defer src="assets/js/portfolio/painel-ativos-ui.js?v=10"></script>
+<script defer src="assets/js/portfolio/painel-ativos-ui.js?v=11"></script>
 <script defer src="assets/js/portfolio/portfolioLive.js?v=1"></script>
 <script defer src="assets/js/portfolio/portfolioExport.js?v=1"></script>
 <script defer src="assets/js/portfolio/graham.js?v=3"></script>
