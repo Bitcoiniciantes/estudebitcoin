@@ -1032,6 +1032,48 @@
     rsiPulseCounts[activeTab + "|" + symbol] = RSI_LOW_PULSE_LIMIT;
     cardEl.classList.remove("rsi-low-pulse");
   });
+
+  // Fluxo compartilhado para carregar ações no Conversor. Os cards usam esta
+  // mesma função; outras áreas podem chamar a API mínima sem duplicar evento
+  // ou regra de rolagem.
+  function scrollToConversorIfNeeded() {
+    var conversor = document.getElementById("conversor");
+    if (!conversor) return;
+    var cv = conversor.getBoundingClientRect();
+    var vh = window.innerHeight;
+    if (cv.bottom < 0 || cv.top > vh) {
+      conversor.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  function loadStockInConversor(rawSymbol, rawLabel) {
+    var raw = String(rawSymbol || "").trim().toUpperCase();
+    if (!raw) return false;
+
+    var symbol = canonicalB3Symbol(raw) || raw;
+    var recognizedSpecial = STOCKS.indexOf(symbol) !== -1 || B3_ASSETS.indexOf(symbol) !== -1;
+    var validB3 = /^[A-Z]{4}\d{1,2}(?:\.SA)?$/.test(symbol);
+    var validUs = /^[A-Z][A-Z0-9.-]{0,11}$/.test(symbol) && !/[=^]/.test(symbol);
+    if (!recognizedSpecial && !validB3 && !validUs) return false;
+
+    var detail = {
+      kind: "stock",
+      symbol: symbol,
+      pair: null,
+      label: String(rawLabel || STOCK_NAMES[symbol] || STOCK_LABELS[symbol] || raw).trim() || symbol
+    };
+    try {
+      window.dispatchEvent(new CustomEvent("estudebitcoin:load-asset", { detail: detail }));
+      scrollToConversorIfNeeded();
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  window.EstudeBitcoin = window.EstudeBitcoin || {};
+  window.EstudeBitcoin.loadStockInConversor = loadStockInConversor;
+
   grid.addEventListener("click", function (event) {
     if (event.target.closest(".tq-bell, .tq-graham")) return;
     var cardEl = event.target.closest(".tq");
@@ -1043,21 +1085,15 @@
       pinTooltip(symbol, cardEl);
     }
     try {
-      var detail;
       if (isCrypto(symbol)) {
-        detail = { kind: "crypto", symbol: symbol, pair: displayToPair[symbol] || (symbol + "USDT"), label: CRYPTO_NAMES[symbol] || symbol };
+        window.dispatchEvent(new CustomEvent("estudebitcoin:load-asset", { detail: {
+          kind: "crypto", symbol: symbol,
+          pair: displayToPair[symbol] || (symbol + "USDT"),
+          label: CRYPTO_NAMES[symbol] || symbol
+        }}));
+        scrollToConversorIfNeeded();
       } else {
-        detail = { kind: "stock", symbol: symbol, pair: null, label: STOCK_NAMES[symbol] || STOCK_LABELS[symbol] || symbol };
-      }
-      window.dispatchEvent(new CustomEvent("estudebitcoin:load-asset", { detail: detail }));
-      var conversor = document.getElementById("conversor");
-      if (conversor) {
-        var cv = conversor.getBoundingClientRect();
-        var vh = window.innerHeight;
-        /// Só rola quando o conversor não está visível na janela
-        if (cv.bottom < 0 || cv.top > vh) {
-          conversor.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
+        loadStockInConversor(symbol, STOCK_NAMES[symbol] || STOCK_LABELS[symbol] || symbol);
       }
     } catch (err) { /* evento opcional, ignorar falhas */ }
   });
@@ -1520,7 +1556,8 @@
   grahamBar.innerHTML = '<span class="tq-graham-label">&#9878; Preço justo (Graham): <span id="tq-graham-count">0/30</span></span>' +
     '<input id="tq-graham-input" placeholder="TICKER (ex: PETR4, AAPL)" maxlength="14" autocomplete="off" spellcheck="false" value="ITUB4" />' +
     '<input id="tq-graham-name" placeholder="EMPRESA (ex: Petrobras)" maxlength="40" autocomplete="off" spellcheck="false" value="Itau Unibanco Holding SA Pfd" />' +
-    '<button type="button" id="tq-graham-go">Consultar</button>';
+    '<button type="button" id="tq-graham-go">Consultar</button>' +
+    '<button type="button" id="tq-graham-chart" class="tq-chart-btn" title="Abrir gráfico do ticker" aria-label="Abrir gráfico do ticker">&#128200;</button>';
   var b3Controls = document.getElementById("b3-custom-controls");
   grid.parentNode.insertBefore(grahamBar, b3Controls ? b3Controls.nextSibling : grid.nextSibling);
   // A legenda RSI deve ficar imediatamente acima da consulta Graham.
@@ -1820,6 +1857,15 @@
 
   var grahamGo = document.getElementById("tq-graham-go");
   if (grahamGo) grahamGo.addEventListener("click", submitGrahamSearch);
+  var grahamChart = document.getElementById("tq-graham-chart");
+  if (grahamChart) grahamChart.addEventListener("click", function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    var input = document.getElementById("tq-graham-input");
+    var ticker = input ? String(input.value || "").trim() : "";
+    if (!ticker || !window.EstudeBitcoin || !window.EstudeBitcoin.loadStockInConversor) return;
+    window.EstudeBitcoin.loadStockInConversor(ticker, ticker.toUpperCase());
+  });
   var grahamInput = document.getElementById("tq-graham-input");
   if (grahamInput) grahamInput.addEventListener("keydown", function (event) {
     if (event.key === "Enter") { event.preventDefault(); submitGrahamSearch(); }
