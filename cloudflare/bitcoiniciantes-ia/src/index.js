@@ -529,11 +529,8 @@ async function assetQuote(request, asset) {
 
 const QUOTE_CACHE_TTL_MS = 20 * 1000;
 const QUOTE_CACHE_MAX_ENTRIES = 64;
-// Bound isolate-local coalescing metadata; overflow uses the uncached request path.
-const QUOTE_PENDING_MAX_ENTRIES = 64;
 // Isolate-local only: entries and in-flight requests are not shared across isolates.
 const quotesCache = new Map();
-const quotesPending = new Map();
 // 3y é uma série longa (busca por period1/period2); 60s basta para não repetir o download.
 const QUOTE_CACHE_TTL_3Y_MS = 60 * 1000;
 // 1wk existe só para o RSI semanal (indicador de 14 semanas): a série é longa
@@ -891,13 +888,7 @@ async function assetQuotes(request) {
   if (!hasRepeatedAssets) {
     const cached = cachedQuotesBody(cacheKey);
     if (cached) return json(request, quotesInRequestedOrder(rawAssets, cached));
-    const pending = quotesPending.get(cacheKey);
-    if (pending) {
-      const shared = await pending;
-      return json(request, quotesInRequestedOrder(rawAssets, shared.cacheBody));
-    }
   }
-  const trackPending = !hasRepeatedAssets && quotesPending.size < QUOTE_PENDING_MAX_ENTRIES;
   const load = (async () => {
     const configs = [cfg].concat(cfg.fallbacks || []);
     const nowMs = Date.now();
@@ -945,17 +936,10 @@ async function assetQuotes(request) {
       if (results[index] && !entries[symbol]) entries[symbol] = results[index];
     });
     const cacheBody = { window: windowKey, updatedAt: body.updatedAt, entries, preMarketEstimates };
-    if (trackPending && quotes.length && results.every(Boolean)) storeQuotesBody(cacheKey, cacheBody, cacheTtlMs);
+    if (quotes.length && results.every(Boolean)) storeQuotesBody(cacheKey, cacheBody, cacheTtlMs);
     return { body, cacheBody };
   })();
-  if (!trackPending) return json(request, (await load).body);
-  quotesPending.set(cacheKey, load);
-  try {
-    const loaded = await load;
-    return json(request, loaded.body);
-  } finally {
-    quotesPending.delete(cacheKey);
-  }
+  return json(request, (await load).body);
 }
 
 // ---------- Busca de ticker por nome de empresa (brapi, catálogo B3) ----------
