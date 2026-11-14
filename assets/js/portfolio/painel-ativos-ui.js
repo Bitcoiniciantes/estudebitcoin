@@ -1326,16 +1326,6 @@
     // Toggle do formulário (colapsado por padrão)
     var toggle = $('pa-add-toggle');
     if (toggle) toggle.addEventListener('click', function () {
-      var earlyBtn = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
-      if (earlyBtn && earlyBtn.getAttribute('data-act') === 'chart') {
-        var earlyApi = getRoot();
-        if (earlyApi && earlyApi.EstudeBitcoin && earlyApi.EstudeBitcoin.loadAssetInConversor) {
-          e.preventDefault();
-          e.stopPropagation();
-          earlyApi.EstudeBitcoin.loadAssetInConversor(earlyBtn.getAttribute('data-ticker'), earlyBtn.getAttribute('data-kind'), earlyBtn.getAttribute('data-ticker'));
-        }
-        return;
-      }
       if (ui.mode === 'locked' || ui.mode === 'demo' || ui.loading) {
         setErr('Entre para acessar sua carteira sincronizada.');
         try { var h2 = getRoot(); if (h2 && h2.EstudeAuth && h2.EstudeAuth.openModal) h2.EstudeAuth.openModal('login'); } catch (e) {}
@@ -1358,15 +1348,27 @@
     // estável entre local e nuvem (ids internos mudam na transição).
     var tbody = $('pa-tbody');
     if (tbody) tbody.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
+      if (!btn) return;
+      var ticker = btn.getAttribute('data-ticker');
+      var act = btn.getAttribute('data-act');
+      // O gráfico é uma navegação somente-leitura e também deve funcionar na
+      // amostra bloqueada. A API compartilhada seleciona o ativo e leva a tela
+      // ao Conversor.
+      if (act === 'chart') {
+        var api = getRoot();
+        if (api && api.EstudeBitcoin && api.EstudeBitcoin.loadAssetInConversor) {
+          e.preventDefault();
+          e.stopPropagation();
+          api.EstudeBitcoin.loadAssetInConversor(ticker, btn.getAttribute('data-kind'), ticker);
+        }
+        return;
+      }
       if (ui.mode === 'locked' || ui.mode === 'demo' || ui.loading) {
         setErr('Entre para acessar sua carteira sincronizada.');
         try { var hh = getRoot(); if (hh && hh.EstudeAuth && hh.EstudeAuth.openModal) hh.EstudeAuth.openModal('login'); } catch (ee) {}
         return;
       }
-      var btn = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
-      if (!btn) return;
-      var ticker = btn.getAttribute('data-ticker');
-      var act = btn.getAttribute('data-act');
       // Preço Justo (Graham): modal genérico, só leitura — não exige
       // posição válida nem altera nada da carteira.
       if (act === 'detail') {
@@ -1379,7 +1381,6 @@
         } catch (e) {}
         return;
       }
-      if (act === 'chart') return;
       var found = service.findByTicker ? service.findByTicker(ticker) : null;
       if (act === 'del') {
         if (!found) {

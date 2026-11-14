@@ -86,6 +86,7 @@ function mountAuth({ user, whenReadyUser = user, remoteAssets = [], loadResult =
   let signInAnonymouslyCalled = false;
   let loadCalled = 0;
   let lastLoadUid = null;
+  const conversorCalls = [];
 
   const fakeAuth = {
     whenReady: () => Promise.resolve(whenReadyUser),
@@ -142,9 +143,13 @@ function mountAuth({ user, whenReadyUser = user, remoteAssets = [], loadResult =
   // Predefine globals for auth/portfolio
   sandbox.EstudeAuth = fakeAuth;
   sandbox.FirebasePortfolio = fakeFirebase;
+  sandbox.EstudeBitcoin = {
+    loadAssetInConversor: (...args) => { conversorCalls.push(args); return true; }
+  };
   // Also via globalThis for getRoot()
   sandbox.window.EstudeAuth = fakeAuth;
   sandbox.window.FirebasePortfolio = fakeFirebase;
+  sandbox.window.EstudeBitcoin = sandbox.EstudeBitcoin;
 
   vm.createContext(sandbox);
   for (const src of SOURCES) vm.runInContext(src, sandbox, { filename: 'painel.js' });
@@ -155,6 +160,7 @@ function mountAuth({ user, whenReadyUser = user, remoteAssets = [], loadResult =
     resolve({
       PA, els, sandbox, store, localStorage,
       getCalls: () => ({ ensureAnonymousCalled, signInAnonymouslyCalled, loadCalled, lastLoadUid, tickerListeners }),
+      conversorCalls,
       triggerAuth: (u) => fakeAuth._trigger(u),
       fakeAuth, fakeFirebase
     });
@@ -188,7 +194,8 @@ describe('login obrigatório', () => {
     assert.match(els['pa-tbody'].innerHTML, /BTC/);
     assert.match(els['pa-tbody'].innerHTML, /NVDA/);
     assert.match(els['pa-tbody'].innerHTML, /USDC/);
-    assert.doesNotMatch(els['pa-tbody'].innerHTML, /data-act=/);
+    assert.equal((els['pa-tbody'].innerHTML.match(/data-act="chart"/g) || []).length, 3);
+    assert.doesNotMatch(els['pa-tbody'].innerHTML, /data-act="(?:edit|del)"/);
     assert.equal(els['pa-updated'].textContent, '');
     assert.equal(PA.getService(), null);
     assert.equal(localStorage.writes, 0);
@@ -205,6 +212,26 @@ describe('login obrigatório', () => {
     const c = getCalls();
     assert.equal(c.loadCalled, 1, 'load chamado');
     assert.equal(c.lastLoadUid, 'uid123', 'UID autenticado usado');
+  });
+
+  it('ícone de gráfico carrega o ativo no Conversor', async () => {
+    const user = { id: 'uid-chart', anonymous: false };
+    const asset = { id: 'a1', ticker: 'BTC', name: 'Bitcoin', type: 'CRYPTO', quantity: 0.1, averagePrice: 60000, currentPrice: 70000, dailyVariation: 1 };
+    const { els, conversorCalls } = await mountAuth({ user, whenReadyUser: user, remoteAssets: [asset] });
+    const attrs = { 'data-act': 'chart', 'data-ticker': 'BTC', 'data-kind': 'crypto' };
+    const button = { getAttribute: (name) => attrs[name] || null };
+    let prevented = false;
+    let stopped = false;
+
+    els['pa-tbody']._events.click({
+      target: { closest: () => button },
+      preventDefault: () => { prevented = true; },
+      stopPropagation: () => { stopped = true; }
+    });
+
+    assert.deepEqual(conversorCalls, [['BTC', 'crypto', 'BTC']]);
+    assert.equal(prevented, true);
+    assert.equal(stopped, true);
   });
 
   it('UID autenticado é usado no caminho RTDB', async () => {
