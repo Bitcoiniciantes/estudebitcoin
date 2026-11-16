@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const titleEl = document.querySelector('.preev__title'); // Seleciona o título
   const PUBLIC_MARKERS_URL = 'https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/public-markers';
 
-  let activeTimeframe = '1H';
+  let activeTimeframe = '1D';
   let externalAsset = null;       // { kind:'crypto'|'stock', symbol, pair, label }
   let stockPollTimer = null;
   let markerMode = false;
