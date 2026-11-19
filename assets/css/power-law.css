@@ -1,0 +1,731 @@
+/* =====================================================================
+   Análise Power Law do Bitcoin — versão embutida no index.html
+   Origem: analise-power-law-bitcoin.html (página standalone).
+   Todo o CSS é escopado em #power-law-card: nada vaza para o dashboard.
+   Variáveis prefixadas com --pl- para não colidir com assets/css/main.css.
+   ===================================================================== */
+
+/* ── Wrapper da seção (alinhado ao .container do site) ── */
+.pl-section {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-top: 24px;    /* mínimo entre cabeçalho do site e o card */
+}
+
+#power-law-card {
+  scroll-margin-top: 80px;
+  --pl-card-bg: #fff;
+  --pl-ink: #131c36;
+  --pl-muted: #596275;
+  --pl-line: #d2d9e5;
+  --pl-line-soft: #e7eaf0;
+  --pl-surface: #f6f8fb;
+  --pl-field: #fff;
+  --pl-focus: #2563eb;
+  --pl-shadow: 0 12px 32px rgba(20, 39, 75, .10), 0 2px 5px rgba(20, 39, 75, .08);
+  --pl-radius: 20px;
+  --pl-navy: #173d83;
+  --pl-navy-hover: #244f9c;
+  --pl-bitcoin: #ff9300;
+  --pl-trend: #086aff;
+  --pl-price: #ff8305;
+  --pl-btc-price: #ea580c;      /* textos grandes: campo e linha "Preço hoje" (tema claro) */
+  --pl-btc-price-small: #c2410c; /* texto pequeno: preço BTC na caixa azul (tema claro) */
+  --pl-covid: #6241e9;
+  --pl-ftx: #00b82a;
+  --pl-custom: #089fca;
+  --pl-track: #e2e7ed;
+  --pl-live: #087d41;
+  --pl-manual: #647083;
+  --pl-stale: #945f03;
+  --pl-verdict-red: #b4232d;
+  --pl-verdict-red-bg: #ffebee;
+  --pl-verdict-red-border: #ee7785;
+  --pl-verdict-amber: #8e5600;
+  --pl-verdict-amber-bg: #fff6dd;
+  --pl-verdict-amber-border: #e8bb51;
+  --pl-verdict-blue: #1458ad;
+  --pl-verdict-blue-bg: #eaf3ff;
+  --pl-verdict-blue-border: #83b7f7;
+  --pl-verdict-neutral: #56637a;
+  --pl-verdict-neutral-bg: #f1f3f7;
+  --pl-verdict-neutral-border: #b7c0ce;
+  --pl-info-bg: #e7f3ff;
+  --pl-info-border: #75b6fc;
+  --pl-info-ink: #123867;
+  --pl-chip-covid-bg: #f5f2ff;
+  --pl-chip-ftx-bg: #edfff1;
+  --pl-chip-custom-bg: #effbff;
+
+  color-scheme: light;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto 16px; /* celular: espaço até o rodapé */
+  padding: clamp(16px, 3vw, 32px);
+  border: 1px solid var(--pl-line-soft);
+  border-radius: var(--pl-radius);
+  background: var(--pl-card-bg);
+  box-shadow: var(--pl-shadow);
+  color: var(--pl-ink);
+  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  text-align: left;
+  transition: background .2s ease, border-color .2s ease;
+}
+
+@media (min-width: 640px) and (max-width: 899px) {
+  #power-law-card { margin-bottom: 20px; } /* tablet */
+}
+
+@media (min-width: 900px) {
+  #power-law-card { margin-bottom: 24px; } /* desktop ≥ 900px */
+}
+
+#power-law-card[data-theme="dark"] {
+  color-scheme: dark;
+  --pl-card-bg: #111b2b;
+  --pl-ink: #f1f5ff;
+  --pl-muted: #b1bdd1;
+  --pl-line: #354458;
+  --pl-line-soft: #283549;
+  --pl-surface: #1b2a3d;
+  --pl-field: #142137;
+  --pl-focus: #8dbaff;
+  --pl-shadow: 0 15px 40px rgba(0, 0, 0, .35);
+  --pl-navy: #315ca6;
+  --pl-navy-hover: #406fbd;
+  --pl-btc-price: #fb923c;
+  --pl-btc-price-small: #fb923c;
+  --pl-track: #314055;
+  --pl-live: #19a96c;
+  --pl-manual: #8496ad;
+  --pl-stale: #d69d37;
+  --pl-verdict-red: #ffc0c5;
+  --pl-verdict-red-bg: #381e2a;
+  --pl-verdict-red-border: #bb5464;
+  --pl-verdict-amber: #ffe09a;
+  --pl-verdict-amber-bg: #372c17;
+  --pl-verdict-amber-border: #b58d40;
+  --pl-verdict-blue: #c1ddff;
+  --pl-verdict-blue-bg: #183350;
+  --pl-verdict-blue-border: #458acb;
+  --pl-verdict-neutral: #cad2e0;
+  --pl-verdict-neutral-bg: #202e42;
+  --pl-verdict-neutral-border: #526176;
+  --pl-info-bg: #172f4b;
+  --pl-info-border: #4077b5;
+  --pl-info-ink: #e1efff;
+  --pl-chip-covid-bg: #2b234c;
+  --pl-chip-ftx-bg: #153f31;
+  --pl-chip-custom-bg: #173e4b;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+#power-law-card *,
+#power-law-card *::before,
+#power-law-card *::after { box-sizing: border-box; }
+
+#power-law-card button,
+#power-law-card input {
+  font: inherit;
+  letter-spacing: normal;
+}
+
+#power-law-card button { cursor: pointer; }
+
+#power-law-card button:focus-visible,
+#power-law-card input:focus-visible {
+  outline: 3px solid var(--pl-focus);
+  outline-offset: 3px;
+}
+
+#power-law-card .header,
+#power-law-card .brand,
+#power-law-card .price-row,
+#power-law-card .status,
+#power-law-card .small-note,
+#power-law-card .verdict,
+#power-law-card .info-block,
+#power-law-card .chip,
+#power-law-card .custom-chip,
+#power-law-card .date-fields,
+#power-law-card .theme-toggle,
+#power-law-card .chip-check {
+  display: flex;
+  align-items: center;
+}
+
+#power-law-card .header { gap: 14px; justify-content: space-between; margin-bottom: 13px; }
+#power-law-card .brand { min-width: 0; gap: 17px; }
+#power-law-card .btc-logo { width: 65px; height: 65px; flex: 0 0 65px; }
+
+#power-law-card h2,
+#power-law-card h3,
+#power-law-card p { margin: 0; }
+
+#power-law-card .pl-title {
+  font-size: clamp(24px, 3.2vw, 38px);
+  font-weight: 800;
+  letter-spacing: -.045em;
+  line-height: 1.13;
+  color: var(--pl-ink);
+}
+
+#power-law-card .subtitle {
+  margin-top: 3px;
+  color: var(--pl-muted);
+  font-size: 14px;
+}
+
+#power-law-card h2 {
+  font-size: clamp(20px, 2.2vw, 24px);
+  line-height: 1.25;
+  letter-spacing: -.026em;
+  color: var(--pl-ink);
+}
+
+#power-law-card h3 { font-size: 18px; line-height: 1.25; color: var(--pl-ink); }
+
+#power-law-card .svg-icon {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  max-width: none;
+}
+
+#power-law-card .theme-toggle {
+  flex: 0 0 auto;
+  border: 1px solid var(--pl-line);
+  border-radius: 24px;
+  background: var(--pl-surface);
+  padding: 2px;
+}
+
+#power-law-card .theme-btn {
+  width: 45px;
+  height: 44px;
+  border: 0;
+  border-radius: 24px;
+  color: var(--pl-muted);
+  background: transparent;
+  display: grid;
+  place-items: center;
+}
+
+#power-law-card .theme-btn.active { background: var(--pl-field); color: #f3a500; box-shadow: 0 1px 5px #0002; }
+#power-law-card .theme-btn[data-set-theme="dark"].active { color: #c0d7ff; }
+#power-law-card .theme-btn .svg-icon { width: 24px; height: 24px; }
+
+#power-law-card .controls,
+#power-law-card .bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+#power-law-card .controls { margin: 2px 0 14px; }
+#power-law-card .controls > section,
+#power-law-card .bottom > section { min-width: 0; }
+#power-law-card .controls > section + section,
+#power-law-card .bottom > section + section {
+  border-left: 1px solid var(--pl-line);
+  padding-left: 30px;
+}
+
+#power-law-card label,
+#power-law-card .label {
+  display: block;
+  color: var(--pl-ink);
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: normal;
+  margin-bottom: 6px;
+}
+
+#power-law-card .price-row { gap: 12px; flex-wrap: wrap; }
+
+#power-law-card .price-control {
+  display: flex;
+  align-items: stretch;
+  width: min(100%, 323px);
+  border: 1px solid var(--pl-line);
+  border-radius: 10px;
+  background: var(--pl-field);
+  overflow: hidden;
+}
+
+#power-law-card .price-control:focus-within { outline: 2px solid var(--pl-focus); outline-offset: 1px; }
+
+#power-law-card .price-control input {
+  min-width: 0;
+  flex: 1;
+  width: 1px;
+  padding: 8px 12px;
+  height: 46px;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: var(--pl-btc-price);
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: none;
+}
+
+#power-law-card .price-control input:focus,
+#power-law-card .price-control input:focus-visible { outline: none; border-color: transparent; }
+
+#power-law-card .stepper {
+  width: 43px;
+  flex: 0 0 43px;
+  border: 0;
+  border-left: 1px solid var(--pl-line-soft);
+  border-radius: 0;
+  background: var(--pl-surface);
+  color: var(--pl-ink);
+  font-size: 22px;
+  font-weight: 650;
+}
+
+#power-law-card .stepper:hover { filter: brightness(.94); }
+
+#power-law-card .status {
+  gap: 8px;
+  font-weight: 750;
+  font-size: 13px;
+  padding: 9px 12px;
+  border-radius: 30px;
+  min-height: 44px;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+#power-law-card .status[data-mode="live"] { background: var(--pl-live); color: #fff; }
+#power-law-card .status[data-mode="manual"],
+#power-law-card .status[data-mode="loading"] {
+  background: var(--pl-surface);
+  color: var(--pl-muted);
+  border: 1px solid var(--pl-line);
+}
+#power-law-card .status[data-mode="stale"] {
+  background: var(--pl-verdict-amber-bg);
+  color: var(--pl-verdict-amber);
+  border: 1px solid var(--pl-verdict-amber-border);
+}
+#power-law-card .status .svg-icon { width: 17px; height: 17px; }
+
+#power-law-card .back-live {
+  margin-top: 7px;
+  background: transparent;
+  border: 0;
+  color: var(--pl-verdict-blue);
+  padding: 4px 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-size: 13px;
+  font-weight: 700;
+}
+#power-law-card .back-live[hidden] { display: none; }
+
+#power-law-card .small-note {
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--pl-muted);
+  font-size: 13px;
+}
+#power-law-card .small-note .svg-icon { width: 16px; height: 16px; margin-top: 1px; }
+
+#power-law-card .error {
+  color: var(--pl-verdict-red);
+  min-height: 0;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+#power-law-card .segmented { display: flex; gap: 9px; }
+
+#power-law-card .segment {
+  min-height: 44px;
+  min-width: 0;
+  flex: 1;
+  border: 1px solid var(--pl-line);
+  border-radius: 9px;
+  color: var(--pl-ink);
+  background: var(--pl-field);
+  padding: 9px 12px;
+  font-weight: 600;
+}
+
+#power-law-card .segment.active { background: var(--pl-navy); border-color: var(--pl-navy); color: #fff; }
+#power-law-card .segment:hover:not(.active) { background: var(--pl-surface); }
+
+#power-law-card .verdict {
+  border: 1px solid var(--pl-verdict-neutral-border);
+  background: var(--pl-verdict-neutral-bg);
+  color: var(--pl-verdict-neutral);
+  padding: 10px 16px;
+  border-radius: 12px;
+  gap: 19px;
+  min-height: 76px;
+}
+#power-law-card .verdict[data-state="red"] { background: var(--pl-verdict-red-bg); border-color: var(--pl-verdict-red-border); color: var(--pl-verdict-red); }
+#power-law-card .verdict[data-state="amber"] { background: var(--pl-verdict-amber-bg); border-color: var(--pl-verdict-amber-border); color: var(--pl-verdict-amber); }
+#power-law-card .verdict[data-state="blue"] { background: var(--pl-verdict-blue-bg); border-color: var(--pl-verdict-blue-border); color: var(--pl-verdict-blue); }
+
+#power-law-card .verdict-mark {
+  border-radius: 100%;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  display: grid;
+  place-items: center;
+  background: currentColor;
+}
+#power-law-card .verdict-mark .svg-icon { color: var(--pl-card-bg); width: 32px; height: 32px; stroke-width: 3; }
+#power-law-card .verdict[data-state="red"] .verdict-mark { background: #db2330; }
+#power-law-card .verdict[data-state="amber"] .verdict-mark { background: #c48718; }
+#power-law-card .verdict[data-state="blue"] .verdict-mark { background: #1766c4; }
+#power-law-card .verdict[data-state="neutral"] .verdict-mark { background: #7c889c; }
+#power-law-card .verdict-mark .svg-icon { color: #fff; }
+
+#power-law-card .verdict-copy { min-width: 0; }
+#power-law-card .verdict h2 { font-size: clamp(18px, 2.2vw, 24px); color: inherit; font-weight: 800; }
+#power-law-card .verdict p { color: var(--pl-ink); font-size: 15px; margin-top: 2px; }
+
+#power-law-card .disclaimer { color: var(--pl-muted); font-size: 12px; margin: 5px 1px 10px; }
+#power-law-card .comparative { margin: 4px 0 14px; }
+#power-law-card .section-sub { margin-top: 1px; color: var(--pl-muted); font-size: 14px; font-weight: 400; }
+
+#power-law-card .bar-list { display: grid; gap: 7px; margin-top: 12px; }
+
+#power-law-card .bar-row {
+  display: grid;
+  grid-template-columns: minmax(245px, 29%) minmax(0, 1fr) 124px;
+  gap: 16px;
+  align-items: center;
+  min-width: 0;
+}
+
+#power-law-card .bar-label { color: var(--pl-ink); font-size: 15px; line-height: 1.25; min-width: 0; }
+#power-law-card .bar-label strong { font-weight: 750; }
+#power-law-card .bar-label span { white-space: nowrap; }
+
+#power-law-card .bar-track {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--pl-track);
+  overflow: hidden;
+}
+
+#power-law-card .bar-fill {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+  border-radius: 6px;
+  color: #fff;
+  padding-right: 8px;
+  transition: width .3s ease;
+}
+#power-law-card .bar-fill.trend { background: linear-gradient(90deg, #0068ee, var(--pl-trend)); }
+#power-law-card .bar-fill.price { background: linear-gradient(90deg, #ea580c, #fb923c); }
+#power-law-card .bar-fill.covid { background: linear-gradient(90deg, #5338e8, #7254fa); }
+#power-law-card .bar-fill.ftx { background: linear-gradient(90deg, #00a722, #05d037); }
+#power-law-card .bar-fill.custom { background: linear-gradient(90deg, #048bac, #32bcd6); }
+
+#power-law-card .bar-percent { font-size: 13px; font-weight: 800; color: #fff; white-space: nowrap; }
+#power-law-card .bar-percent.outside {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--pl-ink);
+  padding: 0 4px;
+}
+
+#power-law-card .bar-value {
+  text-align: right;
+  white-space: nowrap;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+#power-law-card .bar-row[data-bar="price"] .bar-value {
+  color: var(--pl-btc-price);
+  font-weight: 700;
+}
+
+#power-law-card .used-prices {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  padding: 8px 12px;
+  border: 1px solid var(--pl-line);
+  background: var(--pl-surface);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--pl-ink);
+  margin-bottom: 10px;
+  overflow-wrap: anywhere;
+}
+#power-law-card .used-prices .svg-icon { width: 17px; height: 17px; color: var(--pl-muted); }
+#power-law-card .used-prices span { min-width: 0; }
+
+#power-law-card .info-block {
+  min-height: 65px;
+  justify-content: flex-start;
+  padding: 10px 16px;
+  gap: 18px;
+  border: 1px solid var(--pl-info-border);
+  border-radius: 10px;
+  background: var(--pl-info-bg);
+  color: var(--pl-info-ink);
+  margin-bottom: 16px;
+}
+
+#power-law-card .info-mark {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #0b67ee;
+}
+#power-law-card .info-mark .svg-icon { width: 29px; height: 29px; }
+#power-law-card .info-copy { line-height: 1.45; font-size: 15px; min-width: 0; }
+#power-law-card .info-copy strong { font-weight: 800; }
+#power-law-card .info-copy .pl-btc-price { color: var(--pl-btc-price-small); font-weight: 700; }
+
+#power-law-card .bottom { padding: 0 0 17px; }
+
+#power-law-card #custom-form {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#power-law-card .chip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 14px;
+}
+
+#power-law-card .chip {
+  gap: 9px;
+  min-width: 0;
+  min-height: 66px;
+  justify-content: flex-start;
+  border-radius: 11px;
+  padding: 9px 10px;
+  border: 1px solid var(--pl-line);
+  background: var(--pl-field);
+  color: var(--pl-ink);
+  text-align: left;
+}
+
+#power-law-card .chip[aria-pressed="true"][data-event="covid"] { border-color: var(--pl-covid); background: var(--pl-chip-covid-bg); }
+#power-law-card .chip[aria-pressed="true"][data-event="ftx"] { border-color: var(--pl-ftx); background: var(--pl-chip-ftx-bg); }
+
+#power-law-card .chip-check {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 25px;
+  border-radius: 50%;
+  color: var(--pl-muted);
+  border: 1px solid var(--pl-line);
+}
+#power-law-card .chip[aria-pressed="true"] .chip-check { color: #fff; border-color: transparent; }
+#power-law-card .chip[data-event="covid"][aria-pressed="true"] .chip-check { background: var(--pl-covid); }
+#power-law-card .chip[data-event="ftx"][aria-pressed="true"] .chip-check { background: #008748; }
+#power-law-card .chip-check .svg-icon { width: 16px; height: 16px; }
+#power-law-card .chip[aria-pressed="false"] .chip-check .svg-icon { visibility: hidden; }
+
+#power-law-card .chip-text { display: block; min-width: 0; font-size: 12px; line-height: 1.3; }
+#power-law-card .chip-text strong { display: block; font-size: 13px; }
+#power-law-card .chip-text small { display: block; font-size: 12px; color: var(--pl-muted); }
+
+#power-law-card .custom-date-section { margin-top: 0; }
+#power-law-card .custom-date-label {
+  font-size: 14px;
+  font-weight: 750;
+  color: var(--pl-ink);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+#power-law-card .date-fields { display: flex; justify-content: center; align-items: flex-end; gap: 12px; flex-wrap: nowrap; }
+#power-law-card .date-fields > div { min-width: 0; flex: 0 0 140px; }
+#power-law-card .date-fields > div:first-of-type { flex: 0 0 190px; }
+#power-law-card .date-fields label { font-size: 13px; font-weight: 750; }
+#power-law-card #custom-error { text-align: center; }
+#power-law-card .custom-chips { justify-content: center; }
+
+#power-law-card .date-fields input {
+  height: 44px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--pl-line);
+  border-radius: 9px;
+  background: var(--pl-field);
+  color: var(--pl-ink);
+  padding: 9px 10px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  transition: none;
+}
+#power-law-card .date-fields input:focus { border-color: var(--pl-focus); }
+
+#power-law-card .add-button {
+  min-height: 44px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  border: 0;
+  color: #fff;
+  background: #5144c5;
+  font-weight: 750;
+  padding: 9px 14px;
+  border-radius: 9px;
+}
+#power-law-card .add-button:hover { background: #4334b5; }
+#power-law-card .add-button .svg-icon { width: 21px; height: 21px; }
+
+#power-law-card .custom-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+#power-law-card .custom-chip {
+  gap: 9px;
+  border-radius: 9px;
+  padding: 7px 9px;
+  color: var(--pl-ink);
+  border: 1px solid var(--pl-custom);
+  background: var(--pl-chip-custom-bg);
+  font-size: 12px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+#power-law-card .remove-chip {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  background: transparent;
+  color: var(--pl-ink);
+}
+#power-law-card .remove-chip:hover { background: var(--pl-surface); }
+#power-law-card .remove-chip .svg-icon { width: 16px; height: 16px; }
+
+#power-law-card .pl-footer-note {
+  border-top: 1px solid var(--pl-line);
+  padding: 11px 0 0;
+  margin: 0;
+  color: var(--pl-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+#power-law-card .skeleton {
+  background: linear-gradient(105deg, var(--pl-surface) 25%, var(--pl-line-soft) 45%, var(--pl-surface) 65%);
+  background-size: 200% 100%;
+  animation: pl-shimmer 1.2s ease-in-out infinite;
+  color: transparent !important;
+}
+
+@keyframes pl-shimmer { to { background-position-x: -200%; } }
+
+#power-law-card [hidden] { display: none !important; }
+
+@media (max-width: 1060px) {
+  #power-law-card .controls,
+  #power-law-card .bottom { gap: 20px; }
+  #power-law-card .controls > section + section,
+  #power-law-card .bottom > section + section { padding-left: 20px; }
+  #power-law-card .chip-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #power-law-card .bar-row { grid-template-columns: minmax(200px, 30%) minmax(0, 1fr) 115px; gap: 10px; }
+}
+
+@media (min-width: 640px) and (max-width: 899px) {
+  #power-law-card .bottom { grid-template-columns: 1fr; }
+  #power-law-card .bottom > section + section {
+    border-left: 0;
+    padding-left: 0;
+    border-top: 1px solid var(--pl-line);
+    padding-top: 15px;
+  }
+  #power-law-card .chip-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #power-law-card .date-fields { flex-wrap: nowrap; }
+  #power-law-card .date-fields .add-button { flex: 0 0 auto; }
+  #power-law-card .bar-row { grid-template-columns: 225px minmax(0, 1fr) 110px; }
+}
+
+@media (max-width: 639px) {
+  #power-law-card { padding: 16px; border-radius: 16px; font-size: 15px; }
+  #power-law-card .header { align-items: flex-start; margin-bottom: 17px; gap: 8px; }
+  #power-law-card .brand { gap: 10px; }
+  #power-law-card .btc-logo { width: 43px; height: 43px; flex-basis: 43px; }
+  #power-law-card .pl-title { font-size: clamp(20px, 6vw, 28px); letter-spacing: -.035em; }
+  #power-law-card .subtitle { font-size: 14px; }
+  #power-law-card .theme-toggle { margin-left: 2px; }
+  #power-law-card .theme-btn { width: 31px; height: 44px; }
+  #power-law-card .theme-btn .svg-icon { width: 17px; height: 17px; }
+  #power-law-card .controls,
+  #power-law-card .bottom { grid-template-columns: minmax(0, 1fr); gap: 15px; }
+  #power-law-card .controls > section + section,
+  #power-law-card .bottom > section + section {
+    border-left: 0;
+    padding-left: 0;
+    border-top: 1px solid var(--pl-line);
+    padding-top: 13px;
+  }
+  #power-law-card .price-row { display: grid; gap: 8px; }
+  #power-law-card .price-control { width: 100%; }
+  #power-law-card .status { width: max-content; max-width: 100%; white-space: normal; }
+  #power-law-card .verdict { padding: 11px; gap: 10px; align-items: flex-start; }
+  #power-law-card .verdict-mark { width: 37px; height: 37px; flex-basis: 37px; }
+  #power-law-card .verdict-mark .svg-icon { width: 23px; height: 23px; }
+  #power-law-card .verdict h2 { font-size: 17px; }
+  #power-law-card .verdict p { font-size: 13px; }
+  #power-law-card .bar-row { grid-template-columns: minmax(0, 1fr) auto; gap: 5px 8px; margin-bottom: 4px; }
+  #power-law-card .bar-label { grid-column: 1 / -1; font-size: 14px; }
+  #power-law-card .bar-track { grid-column: 1; height: 22px; }
+  #power-law-card .bar-value { grid-column: 2; font-size: 13px; }
+  #power-law-card .bar-list { gap: 9px; }
+  #power-law-card .info-block { padding: 9px 10px; gap: 9px; }
+  #power-law-card .info-mark { flex-basis: 35px; width: 35px; height: 35px; }
+  #power-law-card .info-mark .svg-icon { width: 22px; height: 22px; }
+  #power-law-card .info-copy { font-size: 14px; }
+  #power-law-card .chip-grid { grid-template-columns: 1fr; gap: 8px; }
+  #power-law-card .chip { min-height: 52px; }
+  #power-law-card .custom-date-label { padding-bottom: 0; text-align: center; }
+  #power-law-card .date-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 9px; justify-items: center; }
+  #power-law-card .date-fields > div,
+  #power-law-card .date-fields > div:first-of-type { width: 100%; flex: none; }
+  #power-law-card .date-fields .add-button { width: 100%; }
+  #power-law-card .used-prices { font-size: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #power-law-card *,
+  #power-law-card *::before,
+  #power-law-card *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}

@@ -25,6 +25,7 @@
   <link rel="stylesheet" href="assets/css/graham.css?v=2" />
   <link rel="stylesheet" href="assets/css/orderbook.css?v=10" />
   <link rel="stylesheet" href="assets/css/risk-engine-panel.css?v=1" />
+  <link rel="stylesheet" href="assets/css/power-law.css?v=1" />
 
   <style>
     body { background: #ffffff; color: #1a1a1a; scroll-behavior: smooth; padding-top: 52px; }
@@ -486,6 +487,7 @@
     <div class="dash-menu-dropdown" id="dashMenuDrop">
       <button type="button" class="dash-menu-close" id="dashMenuClose" aria-label="Fechar menu">&times;</button>
       <a href="#painel-ativos">Carteira</a>
+      <a href="#power-law-card">Power Law</a>
       <a href="#mempool-root">Taxa Transação</a>
       <a href="#halving-root">Halving</a>
       <a href="#conversor">Conversor</a>
@@ -1944,6 +1946,102 @@
   </div>
 </section>
 
+<!-- ANÁLISE POWER LAW DO BITCOIN (embutida; CSS/JS escopados) -->
+<section class="pl-section container" id="power-law-section" aria-labelledby="power-law-title">
+  <!-- SVGs locais: nenhuma biblioteca, fonte de ícones ou recurso externo. -->
+  <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true">
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.8 14.9A9 9 0 0 1 9.1 3.2 9 9 0 1 0 20.8 14.9Z"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 8a16 16 0 0 1 20 0M5 11.5a11 11 0 0 1 14 0M8.5 15a6 6 0 0 1 7 0"/><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 3v17m0 0-7-7m7 7 7-7"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 21V4m0 0-7 7m7-7 7 7"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-calc" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8v4H8zM8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></symbol>
+  </svg>
+  <style>
+    #power-law-card { margin-bottom: 16px; }
+    @media (min-width: 640px) and (max-width: 899px) { #power-law-card { margin-bottom: 20px; } }
+    @media (min-width: 900px) { #power-law-card { margin-bottom: 24px; } }
+  </style>
+
+  <div id="power-law-card">
+    <header class="header">
+      <div class="brand">
+        <svg class="btc-logo" viewBox="0 0 64 64" role="img" aria-label="Bitcoin"><circle cx="32" cy="32" r="32" fill="var(--pl-bitcoin)"/><text x="32" y="47" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="bold" font-size="47">₿</text></svg>
+        <div>
+          <h2 class="pl-title" id="power-law-title">Análise Power Law</h2>
+          <p class="subtitle">Preço atual vs. tendência e fundos históricos</p>
+        </div>
+      </div>
+      <div class="theme-toggle" role="group" aria-label="Tema de cores deste painel">
+        <button type="button" class="theme-btn" data-set-theme="light" aria-label="Usar tema claro" aria-pressed="true"><svg class="svg-icon"><use href="#i-sun"/></svg></button>
+        <button type="button" class="theme-btn" data-set-theme="dark" aria-label="Usar tema escuro" aria-pressed="false"><svg class="svg-icon"><use href="#i-moon"/></svg></button>
+      </div>
+    </header>
+
+    <div class="controls">
+      <section aria-label="Cotação do Bitcoin">
+        <label for="btc-price">Preço do BTC (US$)</label>
+        <div class="price-row">
+          <div class="price-control" id="price-control">
+            <input type="text" id="btc-price" inputmode="decimal" autocomplete="off" spellcheck="false" aria-describedby="price-help price-error" placeholder="Carregando preço…">
+            <button type="button" class="stepper" id="step-down" aria-label="Reduzir preço em US$ 100">−</button>
+            <button type="button" class="stepper" id="step-up" aria-label="Aumentar preço em US$ 100">+</button>
+          </div>
+          <span id="live-badge" class="status" data-mode="loading" role="status" aria-live="polite"><svg class="svg-icon"><use href="#i-wifi"/></svg><span id="badge-text">Carregando preço</span></span>
+        </div>
+        <p class="small-note" id="price-help"><svg class="svg-icon"><use href="#i-info"/></svg><span id="price-source">Buscando cotação ao vivo via Binance (fallback: CoinGecko).</span></p>
+        <p id="price-error" class="error" role="alert" hidden></p>
+        <button id="resume-live" class="back-live" type="button" hidden>Voltar ao ao vivo</button>
+      </section>
+      <section aria-label="Configuração de comparação">
+        <p class="label" id="criterion-label">Critério de comparação</p>
+        <div class="segmented" role="group" aria-labelledby="criterion-label">
+          <button type="button" class="segment active" data-criterion="close" aria-pressed="true">Fechamento diário</button>
+          <button type="button" class="segment" data-criterion="low" aria-pressed="false">Mínima do dia</button>
+        </div>
+        <p class="small-note"><svg class="svg-icon"><use href="#i-info"/></svg><span>Define qual preço de cada evento será usado (fechamento ou mínima).</span></p>
+      </section>
+    </div>
+
+    <section id="verdict" class="verdict" data-state="neutral" role="status" aria-live="polite" aria-atomic="true">
+      <span class="verdict-mark"><svg class="svg-icon"><use id="verdict-icon" href="#i-info"/></svg></span>
+      <div class="verdict-copy"><h2 id="verdict-title">Carregando comparação</h2><p id="verdict-description">Aguarde a primeira cotação ou informe um preço.</p></div>
+    </section>
+    <p class="disclaimer">Comparação histórica baseada em um modelo estatístico. Não é recomendação de investimento.</p>
+
+    <section class="comparative" aria-labelledby="comparison-title">
+      <h2 id="comparison-title">Comparativo na escala da tendência</h2>
+      <p class="section-sub" id="comparison-sub">Barras proporcionais de 0 até a tendência.</p>
+      <div id="bar-list" class="bar-list" aria-live="polite"></div>
+    </section>
+
+    <aside class="used-prices" aria-label="Preços históricos utilizados"><svg class="svg-icon"><use href="#i-info"/></svg><span id="used-prices-copy">Preços históricos conforme o critério selecionado.</span></aside>
+    <aside class="info-block" aria-label="Posição em relação à tendência">
+      <span class="info-mark"><svg class="svg-icon"><use href="#i-calc"/></svg></span>
+      <p class="info-copy" id="info-copy">Aguardando cotação para calcular a distância até a tendência.</p>
+    </aside>
+
+    <section class="custom-date-section" aria-labelledby="custom-title">
+      <form id="custom-form" novalidate>
+        <div class="date-fields">
+          <span class="custom-date-label" id="custom-title" title="Adicione uma data personalizada (entre 2011 e hoje).">Outra data (opcional)</span>
+          <div><label for="custom-date">Data</label><input id="custom-date" type="date" placeholder="dd/mm/aaaa" min="2011-01-01" required></div>
+          <div><label for="custom-price">Preço (US$)</label><input id="custom-price" type="text" inputmode="decimal" placeholder="0,00" required></div>
+          <button type="submit" class="add-button"><svg class="svg-icon"><use href="#i-plus"/></svg>Adicionar</button>
+        </div>
+        <p id="custom-error" class="error" role="alert" hidden></p>
+      </form>
+      <div id="custom-chips" class="custom-chips" aria-live="polite"></div>
+    </section>
+
+    <div class="pl-footer-note" id="footer-copy">Modelo Power Law (Santostasi/Burger) · conteúdo educacional, não é recomendação de investimento. É um ajuste estatístico ao passado, com poucos ciclos de dados.</div>
+  </div>
+</section>
+
 <!-- FOOTER -->
 <footer class="container" style="margin-top:0;margin-bottom:24px;">
   <div style="background:#111;border-radius:20px;padding:36px 0 28px;text-align:center;">
@@ -2041,7 +2139,24 @@
   });
 
   drop.addEventListener('click', function(e){
-    if(e.target.tagName === 'A') setMenu(false);
+    var a = e.target.closest ? e.target.closest('a') : (e.target.tagName === 'A' ? e.target : null);
+    if(!a) return;
+    var href = a.getAttribute('href') || '';
+    if(href.charAt(0) === '#'){
+      var id = href.slice(1);
+      var target = document.getElementById(id);
+      if(target){
+        e.preventDefault();
+        setMenu(false);
+        var painel = target.closest('#painel-ativos');
+        if(painel && painel.style && painel.style.display === 'none') painel.style.display = '';
+        setTimeout(function(){
+          try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(err) { target.scrollIntoView(true); }
+        }, 50);
+        return;
+      }
+    }
+    setMenu(false);
   });
 
   document.addEventListener('click', function(e){
@@ -2071,6 +2186,7 @@
 <script defer src="assets/js/ticker-widget.js?v=27"></script>
 <script defer src="assets/js/widgets/orderbook.js?v=30"></script>
 <script defer src="assets/js/widgets/depth-column.js?v=10"></script>
+<script defer src="assets/js/power-law.js?v=1"></script>
 
 <!-- Push Notifications -->
 <script src="assets/js/push-config.js"></script>
