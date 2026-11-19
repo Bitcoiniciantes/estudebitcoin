@@ -352,7 +352,6 @@ Inserido na barra de ferramentas do gráfico (`.preev__chart-type`).
 - `assets/js/config.js` — configurações gerais
 - `assets/js/utils.js` — utilitários
 - `assets/js/main.js` — lazy-load e menu
-- `assets/js/projections.js` — projeções
 - `assets/js/analista-ia.js` — IA analista
 - `assets/js/services/*` — outros serviços
 - `assets/js/chart/*` — exceto `dynamicSR.js`

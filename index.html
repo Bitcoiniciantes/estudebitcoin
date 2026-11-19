@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BITCOIN INICIANTES – Dashboard</title>
-  <meta name="description" content="Dashboard Bitcoin Iniciantes — cotação em tempo real, sentiment, projeções e simuladores." />
+  <meta name="description" content="Dashboard Bitcoin Iniciantes — cotação em tempo real, sentiment e simuladores." />
   <link rel="canonical" href="https://bitcoiniciantes.com.br/" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="BITCOIN INICIANTES – Dashboard" />
-  <meta property="og:description" content="Cotação BTC, Fear & Greed, projeções e simuladores." />
+  <meta property="og:description" content="Cotação BTC, Fear & Greed e simuladores." />
   <meta property="og:image" content="https://bitcoiniciantes.com.br/assets/img/og-image.png" />
   <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg" />
   <meta name="theme-color" content="#ffffff" />
@@ -393,20 +393,6 @@
     .btc-footer-row { margin-top: 2px !important; }
     .btc-footer span { font-size: 0.6rem !important; }
 
-    /* Projeções FULL SCREEN */
-    .projeccoes-fullscreen {
-      background: #ffffff;
-      padding: 4px 0 30px;
-    }
-    .projeccoes-fullscreen .section-inner {
-      background: #ffffff;
-    }
-
-    /* Consulta de preço above projecoes */
-    .consulta-above-proj {
-      margin-bottom: 12px;
-    }
-
     /* Responsive */
     @media (max-width: 1200px) {
       .widget-grid { grid-template-columns: repeat(6, 1fr); }
@@ -513,7 +499,6 @@
       <a href="#strategy-tesouraria">Strategy</a>
       <a href="#sif-root">Simulador IF</a>
       <a href="#cotacoes">Cotações</a>
-      <a href="#projecoes">Projeções</a>
       <a href="#re-painel">Alavancagem</a>
     </div>
     </div>
@@ -1405,7 +1390,7 @@
     var conversor = document.getElementById('conversor');
     var halving = document.getElementById('halving-root');
     var muralSection = document.getElementById('mural-section');
-    var projecoes = document.getElementById('projecoes');
+    var entropySection = document.querySelector('.entropy-embed-section');
 
     if (grid && conversor && halving) {
       var conversorSection = conversor.closest('.ws');
@@ -1417,9 +1402,9 @@
       if (widgetSection) grid.insertBefore(widgetSection, conversorSection);
     }
 
-    if (muralSection && projecoes) {
+    if (muralSection && entropySection) {
       muralSection.className = 'container mural-final-section';
-      projecoes.parentNode.insertBefore(muralSection, projecoes);
+      entropySection.parentNode.insertBefore(muralSection, entropySection);
     }
   }
 
@@ -1431,7 +1416,7 @@
 })();
 </script>
 <!-- ══════════════════════════════════════════════════════════ -->
-<!-- WIDGET ETF — SoSoValue (acima de Projeções) -->
+<!-- WIDGET ETF — SoSoValue -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <section class="container" style="padding-top:0; padding-bottom:10px;">
   <div id="widget-etf-sosovalue"></div>
@@ -1569,42 +1554,8 @@
   </div>
 </section>
 <!-- ══════════════════════════════════════════════════════════ -->
-<!-- PROJEÇÕES — TELA FULL -->
+<!-- JOGO DE DADOS / ENTROPIA -->
 <!-- ══════════════════════════════════════════════════════════ -->
-<section class="projeccoes-fullscreen" id="projecoes">
-  <div class="container">
-  <div class="section-inner" style="max-width:100%;margin:0;">
-    <div class="proj-pricebar" id="proj-pricebar">
-      <div class="proj-pricebar-input-group">
-        <label class="proj-pricebar-label">Preço base BTC (US$)</label>
-        <div class="proj-pricebar-input-wrap">
-          <input id="proj-base-price" type="number" value="62000" min="1" max="1000000000" step="500" class="proj-pricebar-input" />
-          <span class="proj-pricebar-unit">USD</span>
-        </div>
-      </div>
-      <span class="proj-pricebar-hint">Ajuste o preço atual do BTC.</span>
-      <div class="proj-live-badge" id="proj-live-badge">
-        <span class="proj-live-dot"></span>
-        <span id="proj-live-price">Carregando...</span>
-      </div>
-    </div>
-    <div class="proj-legend">
-      <span class="proj-legend-item"><i class="proj-legend-dot" style="background:#16c784;"></i> Conservador</span>
-      <span class="proj-legend-item"><i class="proj-legend-dot" style="background:#f0b90b;"></i> Base</span>
-      <span class="proj-legend-item"><i class="proj-legend-dot" style="background:#F7931A;"></i> Moonshot</span>
-    </div>
-    <div id="proj-grid" class="proj-grid"></div>
-    <div class="proj-disclaimer">
-      <strong>Aviso:</strong> Informativo, não constitui recomendação de investimento. Faça sua própria pesquisa.
-    </div>
-    <p class="proj-sources" style="font-size:0.72rem;color:#555;margin-top:8px;">
-      Fontes: Standard Chartered, Citigroup, JPMorgan, Goldman Sachs, ARK Invest, VanEck, Bitwise, Galaxy Digital, Fidelity, TD Cowen.
-    </p>
-  </div>
-  </div>
-</section>
-
-
 <section class="container entropy-embed-section">
   <div class="entropy-embed">
     <iframe id="entropyFrame" class="entropy-frame"
@@ -2115,7 +2066,6 @@
 <script src="assets/js/services/alertEngine.js"></script>
 <script src="assets/js/chart/dynamicSR.js"></script>
 <script defer src="assets/js/main.js?v=20260729-2"></script>
-<script defer src="assets/js/projections.js"></script>
 <script defer src="assets/js/conversor.js?v=17"></script>
 <script defer src="assets/js/analista-ia.js?v=13"></script>
 <script defer src="assets/js/ticker-widget.js?v=27"></script>
