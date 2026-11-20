@@ -24,6 +24,7 @@
 #rp-painel .rp-reference-row { display:flex; justify-content:space-between; align-items:end; gap:12px; margin-top:12px; }
 #rp-painel .rp-reference-row label { min-width:min(100%,300px); }
 #rp-painel .rp-position-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(245px,1fr)); gap:10px; margin-top:12px; }
+#rp-painel .rp-empty { grid-column:1/-1; margin:0; padding:13px; border:1px dashed #b7832c; border-radius:10px; color:#f7d69a; font-size:13px; }
 #rp-painel .rp-position { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; border:1px solid #b7832c; border-radius:11px; padding:10px; background:#131a20; }
 #rp-painel .rp-position-title { grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; color:#ffd486; }
 #rp-painel .rp-delete { min-height:30px; border-color:#ef4444; background:#451c22; color:#fecaca; font-size:12px; }
