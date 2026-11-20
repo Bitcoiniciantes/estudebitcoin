@@ -25,6 +25,7 @@
   <link rel="stylesheet" href="assets/css/graham.css?v=2" />
   <link rel="stylesheet" href="assets/css/orderbook.css?v=10" />
   <link rel="stylesheet" href="assets/css/risk-engine-panel.css?v=1" />
+  <link rel="stylesheet" href="assets/css/risk-portfolio-panel.css?v=1" />
   <link rel="stylesheet" href="assets/css/power-law.css?v=1" />
 
   <style>
@@ -1668,6 +1669,34 @@
   </div>
 </section>
 
+<!-- Risk Engine Multicripto: independente do painel re-* acima. -->
+<section class="rp-section container" aria-label="Risk Engine Multicripto">
+  <details id="rp-painel">
+    <summary class="rp-header">
+      <div><p class="rp-kicker">CARTEIRA MULTICRIPTO</p><h2>Posição ao Vivo — Risk Engine Multicripto</h2><p class="rp-sub">Até 5 posições; cálculo independente do Risk Engine original.</p></div>
+      <span id="rp-updated" class="rp-status">Dados indisponíveis</span>
+    </summary>
+    <section class="rp-group" aria-labelledby="rp-essentials-title">
+      <h3 id="rp-essentials-title">1 — Dados essenciais</h3>
+      <div class="rp-fields"><label>Saldo da conta de trading (USD)<input id="rp-balance" inputmode="decimal" autocomplete="off" aria-describedby="rp-status"></label><label>Patrimônio inicial (USD)<input id="rp-initial" inputmode="decimal" autocomplete="off" aria-describedby="rp-status"></label><label>Poder de trading (USD)<input id="rp-power" inputmode="decimal" autocomplete="off" aria-describedby="rp-status"></label></div>
+      <div class="rp-reference-row"><p class="rp-note">Modo: Quantfury — Simulação de saldo da conta. A referência evita somar novamente o PnL já incorporado ao saldo.</p><button id="rp-reference" type="button">Redefinir referência</button></div>
+    </section>
+    <section class="rp-group rp-positions" aria-labelledby="rp-positions-title">
+      <h3 id="rp-positions-title">2 — Posições acumuladas <small id="rp-count"></small></h3>
+      <div class="rp-add-fields"><label>Ativo<select id="rp-symbol"><option>BTC</option><option>ETH</option><option>SOL</option><option>LINK</option><option>AVAX</option><option>RENDER</option><option>PAXG</option></select></label><label>Lado<select id="rp-side"><option>LONG</option><option>SHORT</option></select></label><label>Quantidade<input id="rp-quantity" inputmode="decimal" autocomplete="off"></label><label>Preço médio (USD)<input id="rp-average" inputmode="decimal" autocomplete="off"></label><button id="rp-add" type="button">+ Adicionar ativo</button></div>
+      <div id="rp-positions" class="rp-position-list" aria-live="polite"></div>
+      <div class="rp-totals"><div class="rp-total"><span>Total investido</span><strong id="rp-invested">—</strong></div><div class="rp-total"><span>Valor de mercado</span><strong id="rp-market">—</strong></div><div class="rp-total"><span>Ativos com dados</span><strong id="rp-valid-quotes">0 de 0 ativos com cotação</strong></div><div class="rp-total"><span>Exposição atual</span><strong id="rp-exposure">—</strong></div></div>
+    </section>
+    <section class="rp-group rp-summary" aria-labelledby="rp-summary-title">
+      <h3 id="rp-summary-title">3 — Resumo / Resultado consolidado</h3>
+      <div class="rp-cards"><div class="rp-card"><small>Patrimônio atual</small><strong id="rp-equity">—</strong></div><div class="rp-card"><small>PnL acumulado</small><strong id="rp-pnl">—</strong></div><div class="rp-card"><small>Alavancagem efetiva</small><strong id="rp-leverage">—</strong></div><div class="rp-card"><small>Queda uniforme até patrimônio zero</small><strong id="rp-drop">—</strong></div><div class="rp-card"><small>Perda adicional suportável</small><strong id="rp-loss">—</strong></div><div class="rp-card"><small>Estado de risco</small><strong id="rp-risk">—</strong></div></div>
+      <p class="rp-disclaimer">Simulação baseada nas criptomoedas cadastradas. Outras posições da conta podem alterar significativamente o risco real de liquidação.</p>
+      <details class="rp-scenario"><summary>Simular queda da carteira</summary><div class="rp-scenario-row"><label>Variação uniforme (%)<input id="rp-scenario" value="-10" inputmode="decimal"></label><button id="rp-simulate" type="button">Simular</button></div><output id="rp-scenario-result"></output></details>
+    </section>
+    <output id="rp-status" role="status" aria-live="polite"></output>
+  </details>
+</section>
+
 <!-- CALCULADORA DE LIQUIDAÇÃO DCA -->
 <style id="calc-liquidacao-embed-style">
   .calc-liquidacao-section { padding-top: 0; padding-bottom: 16px; }
@@ -2178,6 +2207,9 @@
 <script src="assets/js/risk-engine/risk-engine.js"></script>
 <script src="assets/js/risk-engine/risk-engine-adapter.js"></script>
 <script src="assets/js/risk-engine/risk-engine-panel.js"></script>
+<script src="assets/js/risk-engine/risk-portfolio-engine.js"></script>
+<script src="assets/js/risk-engine/risk-portfolio-adapter.js"></script>
+<script src="assets/js/risk-engine/risk-portfolio-panel.js"></script>
 <script src="assets/js/services/alertEngine.js"></script>
 <script src="assets/js/chart/dynamicSR.js"></script>
 <script defer src="assets/js/main.js?v=20260729-2"></script>

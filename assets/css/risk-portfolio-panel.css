@@ -1,0 +1,44 @@
+/* Painel multicripto: escopo exclusivo rp-. */
+.rp-section { padding: 0 0 16px; }
+#rp-painel { color-scheme: dark; color: #eef7fa; background: radial-gradient(ellipse at 92% 0, #06445a88, transparent 45%), #06111d; border: 1px solid #145c72; border-radius: 20px; padding: 16px; font-family: var(--font-body, system-ui, sans-serif); }
+#rp-painel * { box-sizing: border-box; }
+#rp-painel summary { cursor: pointer; list-style: none; }
+#rp-painel summary::-webkit-details-marker { display: none; }
+#rp-painel .rp-header { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:6px 8px 18px; }
+#rp-painel .rp-kicker { margin:0 0 4px; color:#00d5ff; font-size:12px; font-weight:800; letter-spacing:.08em; }
+#rp-painel h2 { margin:0; font-size:clamp(20px,2.2vw,30px); }
+#rp-painel .rp-sub, #rp-painel .rp-note { margin:6px 0 0; color:#abc1cc; font-size:13px; line-height:1.45; }
+#rp-painel .rp-status { color:#7ce9fe; font-size:12px; text-align:right; }
+#rp-painel .rp-group { margin-top:12px; padding:14px; border:1px solid #00cfff; border-radius:15px; background:#003a4a3d; }
+#rp-painel .rp-positions { border-color:#f59e0b; background:#4b320e35; }
+#rp-painel .rp-summary { border-color:#10b981; background:#063b2d55; }
+#rp-painel h3 { margin:0 0 12px; font-size:18px; }
+#rp-painel .rp-fields, #rp-painel .rp-add-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+#rp-painel .rp-add-fields { grid-template-columns:1.1fr .8fr 1fr 1fr auto; align-items:end; }
+#rp-painel label { display:grid; gap:5px; color:#d8ecf2; font-size:12px; font-weight:700; }
+#rp-painel input, #rp-painel select, #rp-painel button { min-height:42px; border-radius:9px; font:600 15px var(--font-body,system-ui,sans-serif); }
+#rp-painel input, #rp-painel select { width:100%; border:1px solid #547682; padding:8px; background:#0b1b27; color:#f2fbff; }
+#rp-painel button { border:1px solid #00cfff; padding:8px 12px; background:#06445a; color:#e9fcff; cursor:pointer; }
+#rp-painel button:disabled { cursor:not-allowed; opacity:.6; }
+#rp-painel button:focus-visible, #rp-painel input:focus-visible, #rp-painel select:focus-visible, #rp-painel summary:focus-visible { outline:2px solid #fff; outline-offset:3px; }
+#rp-painel .rp-reference-row { display:flex; justify-content:space-between; align-items:end; gap:12px; margin-top:12px; }
+#rp-painel .rp-reference-row label { min-width:min(100%,300px); }
+#rp-painel .rp-position-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(245px,1fr)); gap:10px; margin-top:12px; }
+#rp-painel .rp-position { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; border:1px solid #b7832c; border-radius:11px; padding:10px; background:#131a20; }
+#rp-painel .rp-position-title { grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; color:#ffd486; }
+#rp-painel .rp-delete { min-height:30px; border-color:#ef4444; background:#451c22; color:#fecaca; font-size:12px; }
+#rp-painel .rp-live { grid-column:1/-1; display:grid; grid-template-columns:1fr auto; gap:4px 8px; padding-top:6px; border-top:1px solid #31434a; font-size:12px; color:#a9c0c8; }
+#rp-painel .rp-live strong { color:#effbff; text-align:right; }
+#rp-painel .rp-totals, #rp-painel .rp-cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-top:12px; }
+#rp-painel .rp-total, #rp-painel .rp-card { min-width:0; padding:10px; border:1px solid #267066; border-radius:10px; background:#0b201e; }
+#rp-painel .rp-total span, #rp-painel .rp-card small { display:block; color:#a8c5bf; font-size:11px; }
+#rp-painel .rp-total strong, #rp-painel .rp-card strong { display:block; margin-top:4px; font-size:clamp(16px,1.5vw,22px); overflow-wrap:anywhere; }
+#rp-painel .rp-card { border-color:#1d8d79; }
+#rp-painel .rp-positive { color:#42e99a !important; } #rp-painel .rp-negative { color:#ff777c !important; }
+#rp-painel .rp-risk-baixo-no-cenario { color:#10b981; } #rp-painel .rp-risk-atencao { color:#f59e0b; } #rp-painel .rp-risk-elevado { color:#ef4444; } #rp-painel .rp-risk-critico { color:#ff606b; } #rp-painel .rp-risk-indeterminado { color:#94a3b8; }
+#rp-painel .rp-disclaimer { margin:12px 0 0; padding:10px; border-left:3px solid #f59e0b; background:#422f133d; color:#fde6bd; font-size:12px; line-height:1.45; }
+#rp-painel .rp-scenario { margin-top:12px; border:1px solid #466b79; border-radius:10px; padding:10px; }
+#rp-painel .rp-scenario summary { font-weight:800; } #rp-painel .rp-scenario-row { display:flex; align-items:end; gap:10px; margin-top:10px; } #rp-painel #rp-scenario { max-width:160px; }
+#rp-painel #rp-scenario-result, #rp-painel #rp-status { display:block; margin-top:9px; color:#bdd8e2; font-size:12px; }
+@media (max-width:800px) { #rp-painel .rp-fields { grid-template-columns:1fr; } #rp-painel .rp-add-fields { grid-template-columns:1fr 1fr; } #rp-painel .rp-add-fields button { grid-column:1/-1; } #rp-painel .rp-totals, #rp-painel .rp-cards { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:390px) { #rp-painel { padding:11px; } #rp-painel .rp-position, #rp-painel .rp-add-fields, #rp-painel .rp-totals, #rp-painel .rp-cards { grid-template-columns:1fr; } #rp-painel .rp-reference-row, #rp-painel .rp-scenario-row { align-items:stretch; flex-direction:column; } }

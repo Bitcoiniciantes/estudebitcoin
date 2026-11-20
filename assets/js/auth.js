@@ -23,7 +23,8 @@
   'use strict';
 
   var LS_PREFIX = 'eb_panel_';
-  var PANELS = ['risk', 'sim'];
+  // `risk_portfolio` é um documento único, separado de risk/{asset}.
+  var PANELS = ['risk', 'sim', 'risk_portfolio'];
   var PUSH_DEBOUNCE_MS = 2500;
   var LS_KEY_LEGACY = LS_PREFIX + 'risk'; // 'eb_panel_risk' (slot único legado)
   var LS_LAST_ASSET = 'eb_last_risk_asset';
@@ -724,6 +725,12 @@
           if (ownership === 'other') {
             // Estado de outra sessão: descartar imediatamente, nunca empurrar.
             try { global.localStorage.removeItem(lsKey(panel)); } catch (e) {}
+            jobs.push(Promise.resolve(false));
+            return;
+          }
+          // Dados anônimos deste painel permanecem apenas neste navegador;
+          // um login posterior não os promove implicitamente à conta.
+          if (panel === 'risk_portfolio' && ownership === 'legacy') {
             jobs.push(Promise.resolve(false));
             return;
           }
