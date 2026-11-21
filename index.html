@@ -1770,9 +1770,9 @@
       </div>
       <div class="rp-table-wrap">
         <table class="rp-table">
-          <colgroup><col style="width:23%"><col style="width:11.5%"><col style="width:12%"><col style="width:13%"><col style="width:11.5%"><col style="width:12%"><col style="width:12%"><col style="width:46px"></colgroup>
+          <colgroup><col class="rp-col-asset" style="width:18%"><col class="rp-col-side" style="width:8%"><col class="rp-col-invested" style="width:12%"><col class="rp-col-qty" style="width:13%"><col class="rp-col-avg" style="width:13%"><col class="rp-col-price" style="width:12%"><col class="rp-col-value" style="width:12%"><col class="rp-col-pnl" style="width:12%"><col class="rp-col-del" style="width:44px"></colgroup>
           <thead>
-            <tr><th scope="col">Ativo</th><th scope="col">Investido</th><th scope="col">Quantidade</th><th scope="col">Preço médio</th><th scope="col">Preço atual</th><th scope="col">Valor atual</th><th scope="col">P/L</th><th scope="col"><span class="rp-sr-only">Excluir</span></th></tr>
+            <tr><th scope="col">Ativo</th><th scope="col">Lado</th><th scope="col" class="rp-th-num">Investido</th><th scope="col" class="rp-th-num">Quantidade</th><th scope="col" class="rp-th-num">Preço médio</th><th scope="col" class="rp-th-num">Preço atual</th><th scope="col" class="rp-th-num">Valor atual</th><th scope="col" class="rp-th-num">P/L</th><th scope="col"><span class="rp-sr-only">Excluir</span></th></tr>
           </thead>
           <tbody id="rp-positions" aria-live="polite"></tbody>
         </table>
@@ -2270,6 +2270,13 @@
     btn.setAttribute('aria-expanded', String(open));
   }
 
+  function scrollToMenuTarget(target){
+    var header = document.querySelector('.dash-header');
+    var offset = (header ? header.getBoundingClientRect().height : 0) + 12;
+    var top = target.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }
+
   btn.addEventListener('click', function(e){
     e.stopPropagation();
     setMenu(!drop.classList.contains('open'));
@@ -2292,9 +2299,10 @@
         setMenu(false);
         var painel = target.closest('#painel-ativos');
         if(painel && painel.style && painel.style.display === 'none') painel.style.display = '';
-        setTimeout(function(){
-          try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(err) { target.scrollIntoView(true); }
-        }, 50);
+        window.history.pushState(null, '', '#' + encodeURIComponent(id));
+        [50, 180, 550, 1100].forEach(function(delay){
+          window.setTimeout(function(){ scrollToMenuTarget(target); }, delay);
+        });
         return;
       }
     }

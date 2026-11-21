@@ -1,5 +1,5 @@
 /* Risk Engine: presentation only; all selectors are scoped to the panel. */
-.re-section { padding-top: 0; padding-bottom: 16px; }
+.re-section { padding: 0; margin-bottom: 5mm; }
 #re-painel {
   --re-cyan: #00cfff;
   --re-green: #32e66c;

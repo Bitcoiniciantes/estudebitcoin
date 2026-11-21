@@ -113,7 +113,7 @@
     var body = $("#rp-positions"); if (!body) return;
     body.innerHTML = "";
     if (!positions.length) {
-      body.innerHTML = '<tr class="rp-empty-row"><td colspan="8" data-label="">Nenhuma criptomoeda cadastrada. Use <b>+ Adicionar ativo</b> para começar.</td></tr>';
+      body.innerHTML = '<tr class="rp-empty-row"><td colspan="9" data-label="">Nenhuma criptomoeda cadastrada. Use <b>+ Adicionar ativo</b> para começar.</td></tr>';
       return;
     }
     positions.forEach(function (p, i) {
@@ -127,12 +127,12 @@
           '<span class="rp-asset">' +
             '<span class="rp-coin" style="--coin:' + coin.color + '"><svg class="rp-coin-svg" aria-hidden="true"><use href="#rp-coin-' + key + '"/></svg></span>' +
             '<span class="rp-asset-name"><strong>' + esc(p.symbol) + '</strong><small>' + esc(coin.name) + '</small></span>' +
-            '<select class="rp-side' + (p.side === "SHORT" ? " rp-side-short" : "") + '" data-field="side" aria-label="Lado de ' + esc(p.symbol) + '"><option value="LONG"' + (p.side === "LONG" ? " selected" : "") + '>LONG</option><option value="SHORT"' + (p.side === "SHORT" ? " selected" : "") + '>SHORT</option></select>' +
           '</span>' +
         '</td>' +
+        '<td class="rp-cell-side" data-label="Lado"><select class="rp-side' + (p.side === "SHORT" ? " rp-side-short" : "") + '" data-field="side" aria-label="Lado de ' + esc(p.symbol) + '"><option value="LONG"' + (p.side === "LONG" ? " selected" : "") + '>LONG</option><option value="SHORT"' + (p.side === "SHORT" ? " selected" : "") + '>SHORT</option></select></td>' +
         '<td class="rp-cell-num" data-label="Investido" data-live="invested">—</td>' +
-        '<td class="rp-cell-qty" data-label="Quantidade"><input data-field="quantity" inputmode="decimal" value="' + inputNumber(Number(p.quantity), 0, 8) + '" aria-label="Quantidade de ' + esc(p.symbol) + '"></td>' +
-        '<td class="rp-cell-avg" data-label="Preço médio"><input data-field="averagePrice" inputmode="decimal" value="' + inputNumber(Number(p.averagePrice), 2, 8) + '" aria-label="Preço médio de ' + esc(p.symbol) + '"></td>' +
+        '<td class="rp-cell-qty rp-cell-num" data-label="Quantidade"><input data-field="quantity" inputmode="decimal" value="' + inputNumber(Number(p.quantity), 0, 8) + '" aria-label="Quantidade de ' + esc(p.symbol) + '"></td>' +
+        '<td class="rp-cell-avg rp-cell-num" data-label="Preço médio"><input data-field="averagePrice" inputmode="decimal" value="' + inputNumber(Number(p.averagePrice), 2, 8) + '" aria-label="Preço médio de ' + esc(p.symbol) + '"></td>' +
         '<td class="rp-cell-num" data-label="Preço atual" data-live="price">—</td>' +
         '<td class="rp-cell-num" data-label="Valor atual" data-live="value">—</td>' +
         '<td class="rp-cell-num rp-pnl" data-label="P/L" data-live="pnl">—</td>' +
