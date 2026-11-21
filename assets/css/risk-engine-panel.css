@@ -50,12 +50,15 @@
 #re-painel .re-help { position: absolute; top: 8px; right: 0; display: inline-grid; place-items: center; border: 1px solid #a7becf; border-radius: 50%; background: transparent; color: #dfebee; font: 700 11px/1 sans-serif; width: 18px; height: 18px; padding: 0; cursor: help; }
 #re-painel .re-tooltip { display: none; position: absolute; bottom: calc(100% + 8px); left: 0; width: min(290px, 100%); padding: 12px; border: 1px solid #f59e0b; border-radius: 10px; background: #182533; color: #f3f6fa; font-size: 13px; line-height: 1.45; z-index: 2; box-shadow: 0 4px 15px #0006; }
 #re-painel .re-field:has(.re-help:hover) .re-tooltip, #re-painel .re-field:has(.re-help:focus) .re-tooltip { display: block; }
-#re-painel .re-out { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 5mm; }
+#re-painel .re-out { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 12px; }
+#re-painel .re-out-row { display: contents; }
+#re-painel .re-out-row:last-child .re-cell:first-child { grid-column: 6; grid-row: 1; }
+#re-painel .re-out-row:last-child .re-cell:not(:first-child) { grid-row: 2; }
 #re-painel .re-cell { min-width: 0; border: 1px solid #375754; border-radius: 14px; padding: 10px 12px; background: linear-gradient(125deg, #779d9b1c, #6c979419); transition: border-color .18s, background .18s; }
 #re-painel .re-cell:hover { border-color: #6b9490; background-color: #73989012; }
 #re-painel .re-cell small { display: flex; align-items: center; gap: 8px; color: #ecf4f5; font-size: 12px; line-height: 1.35; min-height: 32px; margin-bottom: 4px; }
 #re-painel .re-cell .re-icon { width: 19px; height: 19px; flex-basis: 19px; }
-#re-painel .re-cell strong { display: block; font-size: clamp(18px, 1.65vw, 24px); font-weight: 800; letter-spacing: -.035em; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#re-painel .re-cell strong { display: block; font-size: clamp(12px, 1.05vw, 17px); font-weight: 800; letter-spacing: -.035em; line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; }
 #re-painel .re-cell:has(#re-dist) { transition: background-color .2s, border-color .2s, color .2s; }
 #re-painel .re-cell:has(#re-dist) small { color: #e5e7eb; }
 #re-painel .re-cell:has(#re-dist) .re-icon, #re-painel #re-dist { transition: color .2s; }
@@ -89,7 +92,9 @@
 #re-painel .re-status-container { min-height: 17px; margin-top: 6px; text-align: right; font-size: 11px; color: #a7becf; }
 @media (max-width: 1199px) {
   #re-painel .re-parameter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  #re-painel .re-out { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  #re-painel .re-out { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #re-painel .re-out-row:last-child .re-cell:first-child,
+  #re-painel .re-out-row:last-child .re-cell:not(:first-child) { grid-column: auto; grid-row: auto; }
   #re-painel .re-group-header p { flex-basis: 100%; border: 0; padding: 0; }
 }
 @media (max-width: 767px) {
@@ -102,17 +107,18 @@
   #re-painel .re-group { padding: 13px 12px; }
   #re-painel .re-essential-grid { grid-template-columns: minmax(0, 1fr); }
   #re-painel .re-parameter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  #re-painel .re-out { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5mm; }
+  #re-painel .re-out { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #re-painel .re-parameter-grid label { min-height: 40px; }
   #re-painel .re-group-header { gap: 9px; }
   #re-painel .re-group h3 { gap: 10px; font-size: 20px; }
   #re-painel .re-badge { margin-left: 48px; }
   #re-painel .re-cell { padding: 10px; }
   #re-painel .re-cell small { align-items: flex-start; min-height: 34px; gap: 6px; }
-  #re-painel .re-cell strong { font-size: 19px; }
+  #re-painel .re-cell strong { font-size: clamp(13px, 2.5vw, 19px); }
   #re-painel .re-foot { align-items: flex-start; padding: 12px; }
 }
 @media (max-width: 479px) {
+  #re-painel .re-out { grid-template-columns: minmax(0, 1fr); }
   #re-painel .re-parameter-grid { grid-template-columns: minmax(0, 1fr); }
   #re-painel .re-parameter-grid label { min-height: 30px; }
 }

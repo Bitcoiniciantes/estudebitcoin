@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="assets/css/painel-ativos.css?v=5" />
   <link rel="stylesheet" href="assets/css/graham.css?v=2" />
   <link rel="stylesheet" href="assets/css/orderbook.css?v=10" />
-  <link rel="stylesheet" href="assets/css/risk-engine-panel.css?v=1" />
+  <link rel="stylesheet" href="assets/css/risk-engine-panel.css?v=2" />
   <link rel="stylesheet" href="assets/css/risk-portfolio-panel.css?v=4" />
   <link rel="stylesheet" href="assets/css/power-law.css?v=1" />
 
@@ -1650,17 +1650,21 @@
         <p>Principais informações da posição, risco e desempenho em tempo real.</p>
       </div>
       <div class="re-out">
+        <div class="re-out-row">
         <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-chart"/></svg>Preço atual (ticker)</small><strong id="re-preco-atual">—</strong></div>
         <div class="re-cell re-danger"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-alert"/></svg>Preço de liquidação</small><strong id="re-plq">—</strong></div>
         <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-layers"/></svg>Quantidade do ativo</small><strong id="re-qtd">—</strong></div>
         <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-target"/></svg>Preço médio</small><strong id="re-pmedio">—</strong></div>
         <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-lock"/></svg>Margem retida</small><strong id="re-margem">—</strong></div>
+        </div>
+        <div class="re-out-row">
         <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-coins"/></svg>Margem livre</small><strong id="re-livre">—</strong></div>
         <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-chart"/></svg>PnL não realizado</small><strong id="re-pnl">—</strong></div>
         <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-wallet"/></svg>Patrimônio</small><strong id="re-equity">—</strong></div>
         <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-percent"/></svg>Distância até liquidação</small><strong id="re-dist">—</strong></div>
         <div class="re-cell"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-bars"/></svg>Resultado atual</small><strong id="re-res">—</strong></div>
         <div class="re-cell re-risk"><small><svg class="re-icon" aria-hidden="true"><use href="#re-icon-shield"/></svg>Estado de risco</small><strong id="re-estado">—</strong></div>
+        </div>
       </div>
       <div class="re-feedback"><div id="re-erro" role="status" aria-live="polite"></div></div>
       <p class="re-foot"><svg class="re-icon" aria-hidden="true"><use href="#re-icon-info"/></svg><span><b>Atenção:</b> Toda a margem foi utilizada para chegar no preço de liquidação (Margem Cruzada). Não utilize a margem livre para novas posições.</span></p>
