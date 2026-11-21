@@ -1671,7 +1671,7 @@
 
 <!-- Risk Engine Multicripto: independente do painel re-* acima. -->
 <section class="rp-section container" aria-label="Risk Engine Multicripto">
-  <details id="rp-painel">
+  <div id="rp-painel">
     <svg class="rp-sprite" aria-hidden="true" focusable="false" width="0" height="0">
       <defs>
         <symbol id="rp-i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7.5 15l4-5 3 3 5-7"/></symbol>
@@ -1698,7 +1698,7 @@
         <symbol id="rp-coin-paxg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="12" y="15.6" text-anchor="middle" font-family="Instrument Sans, system-ui, sans-serif" font-size="8" font-weight="700" fill="currentColor" stroke="none">AU</text></symbol>
       </defs>
     </svg>
-    <summary class="rp-header">
+    <header class="rp-header">
       <span class="rp-brand">
         <span class="rp-brand-icon" aria-hidden="true"><svg class="rp-ico"><use href="#rp-i-chart"/></svg></span>
         <span class="rp-brand-divider" aria-hidden="true"></span>
@@ -1710,9 +1710,8 @@
       </span>
       <span class="rp-header-side">
         <span id="rp-updated" class="rp-status">Nenhuma criptomoeda cadastrada</span>
-        <span class="rp-toggle" aria-hidden="true"><svg class="rp-ico"><use href="#rp-i-chevron"/></svg></span>
       </span>
-    </summary>
+    </header>
 
     <section class="rp-group rp-essentials" aria-labelledby="rp-essentials-title">
       <header class="rp-group-head">
@@ -1804,7 +1803,7 @@
       <details class="rp-scenario"><summary>Simular queda da carteira</summary><div class="rp-scenario-row"><label>Variação uniforme (%)<input id="rp-scenario" value="-10" inputmode="decimal"></label><button id="rp-simulate" type="button">Simular</button></div><output id="rp-scenario-result"></output></details>
     </section>
     <output id="rp-status" role="status" aria-live="polite"></output>
-  </details>
+  </div>
 </section>
 
 <!-- CALCULADORA DE LIQUIDAÇÃO DCA -->
