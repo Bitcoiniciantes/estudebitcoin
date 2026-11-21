@@ -43,6 +43,6 @@ describe("RiskPortfolioEngine", () => {
   it("rejeita dados inválidos e não produz infinitos com patrimônio não positivo", () => {
     assert.equal(Engine.calculate({ referenceBalance: 1, positions: [{ symbol: "BTC", side: "LONG", quantity: 0, averagePrice: 1, currentPrice: 1 }] }).success, false);
     const r = Engine.calculate({ referenceBalance: 0, referencePrices: { BTC: 100 }, positions: [{ symbol: "BTC", side: "LONG", quantity: 1, averagePrice: 100, currentPrice: 100 }] });
-    assert.equal(r.leverage, null); assert.equal(r.riskState, "CRÍTICO");
+    assert.equal(r.leverage, null); assert.equal(r.riskState, "LIMITE TEÓRICO ATINGIDO");
   });
 });

@@ -4,7 +4,7 @@
   else { global.RiskPortfolioPanel = factory(global); if (global.document) global.document.readyState === "loading" ? global.document.addEventListener("DOMContentLoaded", global.RiskPortfolioPanel.bind) : global.RiskPortfolioPanel.bind(); }
 })(typeof globalThis !== "undefined" ? globalThis : this, function (host) {
   "use strict";
-  var PANEL = "risk_portfolio", VERSION = 1, MAX = 5, positions = [], balance = 0, referenceAt = null, referencePrices = {}, initial = null, power = null, last = null, bound = false, uid = null, rowsSignature = null, demo = false;
+  var PANEL = "risk_portfolio", VERSION = 2, MAX = 5, positions = [], balance = 0, referenceAt = null, referencePrices = {}, initial = null, power = null, last = null, bound = false, uid = null, rowsSignature = null, demo = false;
   /* Demonstração: só cripto (sem ações). Não é salva até o usuário editar. */
   var DEMO = [
     { symbol: "AVAX", side: "LONG", quantity: 109.5678, averagePrice: 8.21 },
@@ -27,6 +27,7 @@
     "ATENÇÃO": "rp-risk-atencao",
     "ELEVADO": "rp-risk-elevado",
     "CRÍTICO": "rp-risk-critico",
+    "LIMITE TEÓRICO ATINGIDO": "rp-risk-critico",
     "INDETERMINADO": "rp-risk-indeterminado"
   };
   var RISK_TONE = {
@@ -34,6 +35,7 @@
     "ATENÇÃO": "amber",
     "ELEVADO": "red",
     "CRÍTICO": "red",
+    "LIMITE TEÓRICO ATINGIDO": "red",
     "INDETERMINADO": "neutral"
   };
   function $(s) { return document.querySelector(s); }
@@ -58,13 +60,25 @@
   function hasBalance() { return referenceAt != null || balance > 0; }
   function unavailable(id, label) { text(id, label); var el = $(id); if (el) el.title = "Informe o valor depositado na corretora para calcular."; }
   function valid(p) { return p && symbol(p.symbol) && (p.side === "LONG" || p.side === "SHORT") && Number(p.quantity) > 0 && Number(p.averagePrice) > 0 && Number.isFinite(Number(p.quantity)) && Number.isFinite(Number(p.averagePrice)); }
-  function payload() { return { schemaVersion: VERSION, model: "quantfury-account-balance-simulation", referenceBalance: balance, referenceTimestamp: referenceAt, referencePrices: referencePrices, settings: { initialWealth: null, tradingPower: power }, positions: positions.map(function (p) { return { id: p.id, symbol: p.symbol, side: p.side, quantity: p.quantity, averagePrice: p.averagePrice, invested: p.quantity * p.averagePrice }; }) }; }
+  function ensureRefs() {
+    /* Modelo do painel: "Depositado na corretora" = capital depositado (base A).
+       Referência contábil alinhada ao preço médio para garantir equity = depositado + PnL. */
+    for (var i = 0; i < positions.length; i++) {
+      var s = positions[i].symbol;
+      referencePrices[s] = positions[i].averagePrice;
+    }
+  }
+  function payload() { return { schemaVersion: VERSION, equityBasis: "deposited", model: "quantfury-account-balance-simulation", referenceBalance: balance, referenceTimestamp: referenceAt, referencePrices: referencePrices, settings: { initialWealth: null, tradingPower: power }, positions: positions.map(function (p) { return { id: p.id, symbol: p.symbol, side: p.side, quantity: p.quantity, averagePrice: p.averagePrice, invested: p.quantity * p.averagePrice }; }) }; }
   function apply(data) {
-    if (!data || Number(data.schemaVersion || 1) !== VERSION || !Array.isArray(data.positions) || data.positions.length > MAX) return false;
+    /* Aceita apenas o formato canônico (capital depositado). Estados legados/ambíguos são
+       ignorados (persistência do painel pode ser reinicializada) para eliminar interferência
+       de referências históricas e garantir resultados determinísticos. */
+    if (!data || Number(data.schemaVersion) !== VERSION || data.equityBasis !== "deposited" || !Array.isArray(data.positions) || data.positions.length > MAX) return false;
     var seen = {}, next = [];
     for (var i = 0; i < data.positions.length; i++) { var p = data.positions[i], s = symbol(p && p.symbol); if (!valid(p) || seen[s]) return false; seen[s] = true; next.push({ id: typeof p.id === "string" ? p.id : "rp-" + s, symbol: s, side: p.side, quantity: Number(p.quantity), averagePrice: Number(p.averagePrice) }); }
-    positions = next; balance = Number(data.referenceBalance) || 0; referenceAt = typeof data.referenceTimestamp === "string" ? data.referenceTimestamp : null; referencePrices = data.referencePrices && typeof data.referencePrices === "object" ? data.referencePrices : {};
+    positions = next; balance = Number(data.referenceBalance) || 0; referenceAt = typeof data.referenceTimestamp === "string" ? data.referenceTimestamp : null; referencePrices = {};
     var settings = data.settings || {}; initial = null; power = settings.tradingPower != null && Number.isFinite(Number(settings.tradingPower)) ? Number(settings.tradingPower) : null;
+    ensureRefs();
     demo = false; syncDemoNotice(); return true;
   }
   function syncDemoNotice() {
@@ -80,6 +94,7 @@
     balance = 3000; referenceAt = new Date().toISOString();
     referencePrices = { AVAX: 8.21, ETH: 1978.32, LINK: 9.906, BTC: 65919.21, SOL: 80.16 };
     initial = null; power = null; rowsSignature = null; last = null;
+    ensureRefs();
   }
   function clearDemo() {
     demo = false;
@@ -100,7 +115,7 @@
     var saved = host.PanelSync && host.PanelSync.loadLocal && host.PanelSync.loadLocal(PANEL);
     return !!(saved && saved.params && saved.owner === currentUid && apply(saved.params));
   }
-  function adapterState() { return { referenceBalance: balance, referencePrices: referencePrices, positions: positions }; }
+  function adapterState() { return { referenceBalance: balance, referencePrices: referencePrices, positions: positions, equityBasis: "deposited" }; }
   function configure() { var result = host.RiskPortfolioAdapter.configure(adapterState()); render(result || last); }
   function positionSignature() { return positions.map(function (p) { return [p.id, p.symbol, p.side, p.quantity, p.averagePrice].join("|"); }).join(";"); }
   function setLive(row, key, value, cls) {
@@ -213,6 +228,8 @@
       referenceAt = new Date().toISOString();
       referencePrices = {};
       positions.forEach(function (p) { referencePrices[p.symbol] = p.averagePrice; });
+    } else {
+      ensureRefs();
     }
     save(); configure();
   }
@@ -222,10 +239,13 @@
     var old = positions.filter(function (p) { return p.symbol === s; })[0];
     if (old) {
       if (old.side !== side) return status("Não é permitido inverter o lado na mesma posição.");
-      positions[positions.indexOf(old)] = host.RiskPortfolioEngine.addPurchase(old, quantity, price);
+      var updated = host.RiskPortfolioEngine.addPurchase(old, quantity, price);
+      positions[positions.indexOf(old)] = updated;
+      referencePrices[s] = updated.averagePrice;
     } else {
       if (positions.length >= MAX) return status("Limite de 5 posições atingido.");
       positions.push({ id: "rp-" + s, symbol: s, side: side, quantity: quantity, averagePrice: price });
+      referencePrices[s] = price;
     }
     $("#rp-quantity").value = ""; $("#rp-average").value = "";
     closeAddForm();
@@ -248,7 +268,7 @@
     var missing = positions.filter(function (p) { return !q[p.symbol] || !(q[p.symbol].price > 0); });
     if (missing.length) { out.textContent = "Cotação indisponível para: " + missing.map(function (p) { return p.symbol; }).join(", ") + "."; return; }
     var changes = {}, inputPositions = positions.map(function (p) { changes[p.symbol] = pct; return { symbol: p.symbol, side: p.side, quantity: p.quantity, averagePrice: p.averagePrice, currentPrice: q[p.symbol].price }; });
-    var simulated = host.RiskPortfolioEngine.simulate({ referenceBalance: balance, referencePrices: referencePrices, positions: inputPositions }, changes);
+    var simulated = host.RiskPortfolioEngine.simulate({ referenceBalance: balance, referencePrices: referencePrices, positions: inputPositions, equityBasis: "deposited" }, changes);
     if (!simulated.success) { out.textContent = simulated.message || "Não foi possível simular."; return; }
     if (!hasBalance()) {
       out.textContent = "Cenário de " + fmt(pct, 2) + "%: resultado do cenário " + usd(simulated.additionalPnl) + " nos ativos. Informe o valor depositado na corretora para calcular patrimônio e risco.";
@@ -277,7 +297,9 @@
     $("#rp-positions").addEventListener("change", function (e) {
       var row = e.target.closest(".rp-row"), i = row && Number(row.dataset.index), field = e.target.dataset.field, v = field === "side" ? e.target.value : num(e.target.value);
       if (!Number.isInteger(i) || !field || (field !== "side" && !(v > 0))) return status("Quantidade e preço médio devem ser positivos.");
-      positions[i][field] = v; save(); configure();
+      positions[i][field] = v;
+      if (field === "averagePrice") referencePrices[positions[i].symbol] = positions[i].averagePrice;
+      ensureRefs(); save(); configure();
     });
     host.addEventListener("estudebitcoin:auth-change", function (ev) {
       var u = ev.detail && ev.detail.user;

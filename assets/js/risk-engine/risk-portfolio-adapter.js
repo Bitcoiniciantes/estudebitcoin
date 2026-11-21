@@ -15,7 +15,9 @@
     var sig = JSON.stringify(positions.map(function (p) { return [p.symbol, p.currentPrice]; }));
     if (sig === lastSignature) return null;
     lastSignature = sig;
-    var result = engine().calculate({ referenceBalance: state.referenceBalance, referencePrices: state.referencePrices, positions: positions });
+    var input = { referenceBalance: state.referenceBalance, referencePrices: state.referencePrices, positions: positions };
+    if (state.equityBasis) input.equityBasis = state.equityBasis;
+    var result = engine().calculate(input);
     result.quotes = quotes; notify(result); return result;
   }
   function configure(next) { state = next && typeof next === "object" ? next : null; lastSignature = ""; return snapshot(); }

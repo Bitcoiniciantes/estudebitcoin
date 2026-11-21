@@ -179,9 +179,9 @@ test('Demo com US$ 3.000,00; saldo vazio sem falso CRÍTICO; saldo zero explíci
         { id: 'rp-BTC', symbol: 'BTC', side: 'LONG', quantity: 0.03489119, averagePrice: 65919.21 },
         { id: 'rp-SOL', symbol: 'SOL', side: 'LONG', quantity: 13.2609, averagePrice: 80.16 }
       ];
-      window.RiskPortfolioPanel.applyState({ schemaVersion: 1, model: 'quantfury-account-balance-simulation', referenceBalance: 0, referenceTimestamp: null, referencePrices: {}, settings: {}, positions: demo });
+      window.RiskPortfolioPanel.applyState({ schemaVersion: 2, equityBasis: 'deposited', model: 'quantfury-account-balance-simulation', referenceBalance: 0, referenceTimestamp: null, referencePrices: { AVAX: 8.21, ETH: 1978.32, LINK: 9.906, BTC: 65919.21, SOL: 80.16 }, settings: {}, positions: demo });
       const st = window.RiskPortfolioPanel.getState();
-      window.RiskPortfolioAdapter.configure({ referenceBalance: st.referenceBalance, referencePrices: st.referencePrices, positions: st.positions });
+      window.RiskPortfolioAdapter.configure({ referenceBalance: st.referenceBalance, referencePrices: st.referencePrices, positions: st.positions, equityBasis: st.equityBasis });
     });
     await tickAll(page);
     assert.equal((await text(page, 'rp-equity')).trim(), 'Aguardando depósito');
@@ -190,6 +190,7 @@ test('Demo com US$ 3.000,00; saldo vazio sem falso CRÍTICO; saldo zero explíci
     assert.equal((await text(page, 'rp-loss')).trim(), 'Indisponível');
     assert.equal((await text(page, 'rp-risk')).trim(), 'Depósito não informado');
     assert.notEqual((await text(page, 'rp-risk')).trim(), 'CRÍTICO');
+    assert.notEqual((await text(page, 'rp-risk')).trim(), 'LIMITE TEÓRICO ATINGIDO');
     for (const id of ['rp-invested', 'rp-market', 'rp-pnl', 'rp-table-pnl']) {
       assert.notEqual((await text(page, id)).trim(), '—', id + ' segue calculado sem depósito');
     }
@@ -199,7 +200,7 @@ test('Demo com US$ 3.000,00; saldo vazio sem falso CRÍTICO; saldo zero explíci
     const pnlText = (await text(page, 'rp-pnl')).trim();
     const equityAfterZero = (await text(page, 'rp-equity')).trim();
     assert.equal(equityAfterZero, pnlText, 'depósito zero => patrimônio igual ao PnL acumulado');
-    assert.equal((await text(page, 'rp-risk')).trim(), 'CRÍTICO', 'patrimônio não positivo mantém a regra do motor');
+    assert.equal((await text(page, 'rp-risk')).trim(), 'LIMITE TEÓRICO ATINGIDO', 'patrimônio não positivo: limite teórico atingido');
 
     // Depósito positivo: patrimônio = depositado + PnL acumulado.
     await change(page, 'rp-balance', '1.000,00');
@@ -207,7 +208,7 @@ test('Demo com US$ 3.000,00; saldo vazio sem falso CRÍTICO; saldo zero explíci
     const expected = await page.evaluate(() => {
       const st = window.RiskPortfolioPanel.getState();
       const q = window.RiskPortfolioAdapter.getQuotes();
-      const res = window.RiskPortfolioEngine.calculate({ referenceBalance: st.referenceBalance, referencePrices: st.referencePrices, positions: st.positions.map(p => ({ ...p, currentPrice: q[p.symbol].price })) });
+      const res = window.RiskPortfolioEngine.calculate({ referenceBalance: st.referenceBalance, referencePrices: st.referencePrices, positions: st.positions.map(p => ({ ...p, currentPrice: q[p.symbol].price })), equityBasis: st.equityBasis || 'deposited' });
       return res.equity.toLocaleString('pt-BR', { style: 'currency', currency: 'USD' });
     });
     assert.equal((await text(page, 'rp-equity')).trim(), expected);

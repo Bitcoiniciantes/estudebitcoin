@@ -30,6 +30,7 @@
     var positions = input.positions;
     if (!Array.isArray(positions) || positions.length > 5) return fail("INVALID_POSITIONS", "Informe de zero a cinco posições válidas.");
     var ref = input.referencePrices && typeof input.referencePrices === "object" ? input.referencePrices : {};
+    var depositedBasis = input.equityBasis === "deposited";
     var results = [], pnlTotal = 0, variationAfterReference = 0, exposure = 0, directionalExposure = 0;
     for (var i = 0; i < positions.length; i++) {
       var p = positions[i], invalid = validatePosition(p, i);
@@ -37,11 +38,14 @@
       var sign = p.side === "LONG" ? 1 : -1;
       var value = p.quantity * p.currentPrice;
       var pnl = sign * p.quantity * (p.currentPrice - p.averagePrice);
-      var referencePrice = ref[p.symbol];
-      var changeSinceReference = finitePositive(referencePrice) ? sign * p.quantity * (p.currentPrice - referencePrice) : 0;
+      var storedRef = ref[p.symbol];
+      var hasStoredRef = finitePositive(storedRef);
+      var refBasis = depositedBasis ? p.averagePrice : (hasStoredRef ? storedRef : p.averagePrice);
+      var changeSinceReference = sign * p.quantity * (p.currentPrice - refBasis);
+      var reportedRef = depositedBasis ? p.averagePrice : (hasStoredRef ? storedRef : null);
       results.push({ symbol: p.symbol, side: p.side, quantity: p.quantity, averagePrice: p.averagePrice,
         currentPrice: p.currentPrice, marketValue: value, pnl: pnl, pnlPercent: (pnl / (p.quantity * p.averagePrice)) * 100,
-        referencePrice: finitePositive(referencePrice) ? referencePrice : null, changeSinceReference: changeSinceReference });
+        referencePrice: reportedRef, changeSinceReference: changeSinceReference });
       pnlTotal += pnl; variationAfterReference += changeSinceReference; exposure += Math.abs(value); directionalExposure += sign * value;
     }
     var equity = input.referenceBalance + variationAfterReference;
@@ -52,8 +56,9 @@
     return { success: true, positions: results, investedTotal: results.reduce(function (sum, p) { return sum + p.quantity * p.averagePrice; }, 0),
       marketValue: results.reduce(function (sum, p) { return sum + p.marketValue; }, 0), pnlTotal: pnlTotal, exposure: exposure,
       referenceBalance: input.referenceBalance, variationAfterReference: variationAfterReference, equity: equity, leverage: leverage,
-      additionalLossSupported: additionalLoss, uniformDropToZero: uniformDistance, riskState: equity <= 0 ? "CRÍTICO" : riskState(uniformDistance),
-      validQuoteCount: results.length, referenceComplete: results.every(function (p) { return p.referencePrice !== null; }) };
+      additionalLossSupported: additionalLoss, uniformDropToZero: uniformDistance, riskState: equity <= 0 ? "LIMITE TEÓRICO ATINGIDO" : riskState(uniformDistance),
+      validQuoteCount: results.length, referenceComplete: depositedBasis ? true : results.every(function (p) { return p.referencePrice !== null; }),
+      equityBasis: depositedBasis ? "deposited" : (input.equityBasis || "reference") };
   }
   function simulate(input, changes) {
     var base = calculate(input); if (!base.success) return base;
