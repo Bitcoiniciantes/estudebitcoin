@@ -148,7 +148,7 @@
         '<td class="rp-cell-num" data-label="Investido" data-live="invested">—</td>' +
         '<td class="rp-cell-qty rp-cell-num" data-label="Quantidade"><input data-field="quantity" inputmode="decimal" value="' + inputNumber(Number(p.quantity), 0, 8) + '" aria-label="Quantidade de ' + esc(p.symbol) + '"></td>' +
         '<td class="rp-cell-avg rp-cell-num" data-label="Preço médio"><input data-field="averagePrice" inputmode="decimal" value="' + inputNumber(Number(p.averagePrice), 2, 8) + '" aria-label="Preço médio de ' + esc(p.symbol) + '"></td>' +
-        '<td class="rp-cell-num" data-label="Preço atual" data-live="price">—</td>' +
+        '<td class="rp-cell-num rp-current-quote" data-label="Preço atual" data-live="price">—</td>' +
         '<td class="rp-cell-num" data-label="Valor atual" data-live="value">—</td>' +
         '<td class="rp-cell-num rp-pnl" data-label="P/L" data-live="pnl">—</td>' +
         '<td class="rp-cell-del" data-label=""><button type="button" class="rp-delete" data-delete="' + i + '" aria-label="Excluir ' + esc(p.symbol) + '"><svg class="rp-ico" aria-hidden="true"><use href="#rp-i-trash"/></svg></button></td>';
@@ -169,6 +169,10 @@
       setLive(row, "pnl", r ? usd(r.pnl) : "—", r ? (r.pnl < 0 ? "rp-negative" : r.pnl > 0 ? "rp-positive" : "") : "");
     });
   }
+  function setLiquidationAlert(visible) {
+    var alert = $("#rp-liquidation-alert");
+    if (alert) alert.hidden = !visible;
+  }
   function updateEssentials() { /* seção essencial simplificada: saldo na corretora como referência */ }
   function renderRows() {
     var sig = positionSignature();
@@ -187,11 +191,13 @@
     text("#rp-valid-quotes", validQuotes + " de " + positions.length + " ativos com cotação");
     if (!result || !result.success) {
       ["#rp-equity", "#rp-exposure", "#rp-pnl", "#rp-leverage", "#rp-drop", "#rp-loss", "#rp-risk", "#rp-invested", "#rp-market", "#rp-table-pnl"].forEach(function (id) { text(id, "—"); });
+      setLiquidationAlert(false);
       last = null; updateRows(null); return;
     }
     last = result;
     var informed = hasBalance();
-    text("#rp-equity", informed ? usd(result.equity) : "Aguardando depósito");
+    text("#rp-equity", informed ? usd(result.equity) : "Aguardando depósito", informed && result.equity < 0 ? "rp-negative" : "");
+    setLiquidationAlert(informed && result.equity <= 0);
     text("#rp-exposure", usd(result.exposure));
     text("#rp-pnl", usd(result.pnlTotal), result.pnlTotal < 0 ? "rp-negative" : result.pnlTotal > 0 ? "rp-positive" : "");
     if (informed) {

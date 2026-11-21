@@ -81,6 +81,36 @@ async function read(page) {
   return { ...out, n: { equity: parseMoney(out.equity), pnl: parseMoney(out.pnl), exposure: parseMoney(out.exposure), leverage: parseMoney(out.leverage), drop: parseMoney(out.drop) } };
 }
 
+test('Risk Engine Multicripto: cotação ao vivo destacada e alerta de possível liquidação reversível', async () => {
+  const browser = await chromium.launch({ headless: true, executablePath: CHROME });
+  try {
+    const { page, errors } = await openControlled(browser);
+    const state = {
+      schemaVersion: 2, equityBasis: 'deposited', model: 'quantfury-account-balance-simulation',
+      referenceBalance: 10, referenceTimestamp: 't', referencePrices: { BTC: 100 }, settings: {},
+      positions: [{ id: 'rp-BTC', symbol: 'BTC', side: 'LONG', quantity: 1, averagePrice: 100, invested: 100 }]
+    };
+
+    await setQuotes(page, { BTC: 90 });
+    await setState(page, state);
+    const quote = await page.locator('[data-live="price"]').evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { text: el.textContent.trim(), color: style.color, weight: style.fontWeight };
+    });
+    assert.equal(quote.text, (90).toLocaleString('pt-BR', { style: 'currency', currency: 'USD' }));
+    assert.equal(quote.color, 'rgb(249, 115, 22)');
+    assert.equal(quote.weight, '700');
+    assert.equal(await page.locator('#rp-liquidation-alert').isVisible(), true, 'alerta exibido com patrimônio zero');
+    assert.equal(await page.locator('#rp-liquidation-alert').textContent(), 'Possível liquidação');
+
+    await setQuotes(page, { BTC: 91 });
+    assert.equal(await page.locator('#rp-liquidation-alert').isVisible(), false, 'alerta removido quando patrimônio fica positivo');
+    await setQuotes(page, { BTC: 89 });
+    assert.equal(await page.locator('#rp-equity').evaluate((el) => getComputedStyle(el).color), 'rgb(255, 107, 112)', 'patrimônio negativo em vermelho');
+    assert.deepEqual(errors, [], 'sem erros JS: ' + errors.join(';'));
+  } finally { await browser.close(); }
+});
+
 test('P0 controlado: 2 contas mesmos dados => resultados idênticos; refs antigas não interferem; recálculo estável', async () => {
   const browser = await chromium.launch({ headless: true, executablePath: CHROME });
   try {

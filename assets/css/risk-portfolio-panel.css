@@ -480,6 +480,7 @@
 #rp-painel .rp-delete:hover { border-color: #ef4444; background: rgba(239, 68, 68, .2); color: #fff; }
 
 #rp-painel .rp-pnl { font-weight: 800; }
+#rp-painel .rp-current-quote { color: #F97316; font-weight: 700; }
 #rp-painel .rp-positive { color: #3ee08f !important; }
 #rp-painel .rp-negative { color: #ff6b70 !important; }
 #rp-painel .rp-empty-row td {
@@ -564,6 +565,13 @@
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
+#rp-painel .rp-liquidation-alert {
+  color: #EF4444;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+#rp-painel .rp-liquidation-alert[hidden] { display: none !important; }
 #rp-painel .rp-card[data-tone="green"] { border-color: rgba(16, 185, 129, .45); background: linear-gradient(180deg, rgba(16, 185, 129, .14), rgba(6, 21, 31, .8)); }
 #rp-painel .rp-card[data-tone="green"] .rp-card-ico { border-color: rgba(16, 185, 129, .5); background: rgba(16, 185, 129, .14); color: #4be0a2; }
 #rp-painel .rp-card[data-tone="amber"] { border-color: rgba(245, 158, 11, .5); background: linear-gradient(180deg, rgba(245, 158, 11, .16), rgba(6, 21, 31, .8)); }
