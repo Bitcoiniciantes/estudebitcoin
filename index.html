@@ -118,6 +118,13 @@
       padding: 5px 8px;
     }
     .dash-termometro-shortcut::before { width: 5px; height: 5px; }
+    .dash-tools-link {
+      color: #ffad42;
+      border-color: rgba(247,147,26,0.45);
+      background: linear-gradient(135deg, rgba(247,147,26,0.18), rgba(247,147,26,0.07));
+    }
+    .dash-tools-link::before { background: #F7931A; box-shadow: 0 0 9px rgba(247,147,26,0.85); }
+    .dash-tools-link:hover { color: #fff; border-color: #F7931A; background: linear-gradient(135deg, rgba(247,147,26,0.32), rgba(247,147,26,0.12)); }
     /* ── MENU ── */
     .dash-menu { position: relative; }
     .dash-menu-btn {
@@ -496,7 +503,7 @@
   </a>
   <div class="dash-actions">
     <a class="dash-termometro-link dash-termometro-shortcut" href="https://termometros.pages.dev/" target="_blank" rel="noopener" aria-label="Termômetro" title="Termômetro">T</a>
-    <a class="dash-termometro-link" href="ferramentas.html">Tools →</a>
+    <a class="dash-termometro-link dash-tools-link" href="ferramentas.html">Tools →</a>
     <button type="button" class="dash-login-btn" id="eb-login-btn" aria-label="Entrar">Entrar</button>
     <div class="dash-menu">
     <button type="button" class="dash-menu-btn" id="dashMenuBtn" aria-expanded="false" aria-controls="dashMenuDrop">MENU</button>
