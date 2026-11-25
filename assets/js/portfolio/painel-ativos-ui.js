@@ -280,27 +280,9 @@
       } catch (e) {}
       return;
     }
-    var host = getRoot();
     var isDemo = ui.mode === 'demo';
-    var view = isDemo ? demoView() : service.query({ filter: ui.filter === 'ALL' ? null : ui.filter, sort: ui.sort });
+    var view = buildVisibleRows(isDemo);
     if (!view) return;
-    // Overlay ao vivo: patrimônio, donut e tabela acompanham os tickers.
-    if (!isDemo) {
-      try {
-        var calcApi = host && host.PortfolioCalculator;
-        if (calcApi) {
-          var over = view.assets.map(function (a) { return liveView(a); });
-          var touched = over.some(function (o) { return o.live; });
-          if (touched) {
-            var list = over.map(function (o) { return o.asset; });
-            var calcs = list.map(function (x) { return x.calc; });
-            var totals = calcApi.calcTotals(calcs);
-            calcApi.applyAllocations(calcs, totals.current);
-            view = { assets: list, totals: totals };
-          }
-        }
-      } catch (e) {}
-    }
     var totals = view.totals;
     var assets = view.assets;
 
@@ -391,6 +373,49 @@
 
     // Tabela
     renderTable(assets, totals);
+    syncSortedColumn();
+  }
+
+  // Prepara a mesma visão para tabela e exportação: filtra, aplica overlay
+  // ao vivo, recalcula, realoca e SÓ ENTÃO ordena os valores exibidos.
+  function buildVisibleRows(isDemo) {
+    var view = isDemo
+      ? demoView()
+      : service.query({ filter: ui.filter === 'ALL' ? null : ui.filter, sort: 'ticker_asc' });
+    if (!view) return null;
+    var host = getRoot();
+    var calcApi = host && host.PortfolioCalculator;
+    var list = view.assets.slice();
+    if (!isDemo && calcApi) {
+      list = list.map(function (a) { return liveView(a).asset; });
+      var calcs = list.map(function (x) { return x.calc; });
+      var totals = calcApi.calcTotals(calcs);
+      calcApi.applyAllocations(calcs, totals.current);
+      view = { assets: list, totals: totals };
+    }
+    // O serviço é a única definição de comparadores e desempate.
+    if (service && typeof service.sortAssets === 'function') view.assets = service.sortAssets(view.assets, ui.sort);
+    return view;
+  }
+
+  function syncSortedColumn() {
+    var root = $(ROOT_ID);
+    if (!root || !root.querySelectorAll || !service || !service.getSortMeta) return;
+    var meta = service.getSortMeta(ui.sort);
+    var cols = root.querySelectorAll('[data-col]');
+    for (var i = 0; i < cols.length; i++) {
+      var active = cols[i].getAttribute('data-col') === meta.column;
+      if (cols[i].classList) cols[i].classList[active ? 'add' : 'remove']('is-sorted');
+      if (cols[i].tagName === 'TH') {
+        if (active) {
+          cols[i].setAttribute('aria-sort', meta.direction);
+          cols[i].setAttribute('data-sort-arrow', meta.direction === 'ascending' ? '▲' : '▼');
+        } else {
+          cols[i].removeAttribute('aria-sort');
+          cols[i].removeAttribute('data-sort-arrow');
+        }
+      }
+    }
   }
 
   function setText(id, t) {
@@ -422,17 +447,17 @@
     if (tfoot) tfoot.style.display = '';
     tbody.innerHTML = assets.map(function (a) {
       return '<tr>' +
-        '<td><span class="pa-ticker">' + esc(a.ticker) + '<button type="button" class="pa-icon-btn pa-chart-btn" data-act="chart" data-kind="' + (a.type === 'STOCK' ? 'stock' : 'crypto') + '" data-ticker="' + esc(a.ticker) + '" title="Abrir gráfico de ' + esc(a.ticker) + '" aria-label="Abrir gráfico de ' + esc(a.ticker) + '">&#128200;</button><small class="pa-name" title="' + esc(a.name) + '">' + esc(a.name) + '</small></span>' +
+        '<td data-col="asset"><span class="pa-ticker">' + esc(a.ticker) + '<button type="button" class="pa-icon-btn pa-chart-btn" data-act="chart" data-kind="' + (a.type === 'STOCK' ? 'stock' : 'crypto') + '" data-ticker="' + esc(a.ticker) + '" title="Abrir gráfico de ' + esc(a.ticker) + '" aria-label="Abrir gráfico de ' + esc(a.ticker) + '">&#128200;</button><small class="pa-name" title="' + esc(a.name) + '">' + esc(a.name) + '</small></span>' +
         (a.closedAt ? ' <span class="pa-pill">ENCERRADA</span>' : '') + '</td>' +
         '<td><span class="pa-pill">' + (a.type === 'STOCK' ? 'STOCK' : 'CRYPTO') + '</span></td>' +
         '<td>' + esc(fmtMoney(a.currentPrice)) + (liveFresh(a.ticker) ? ' <span class="pa-live" title="Preço ao vivo do ticker"></span>' : '') + '</td>' +
         '<td>' + esc(fmtQty(a.quantity)) + '</td>' +
         '<td>' + esc(fmtMoney(a.averagePrice)) + '</td>' +
-        '<td>' + esc(fmtMoney(a.calc.current)) + '</td>' +
-        '<td class="' + cls(a.calc.profit) + '">' + esc(fmtMoneySigned(a.calc.profit)) + '</td>' +
-        '<td class="' + cls(a.calc.profitability) + '">' + esc(fmtPct(a.calc.profitability)) + '</td>' +
-        '<td class="' + cls(a.dailyVariation) + '">' + esc(fmtPct(a.dailyVariation)) + '</td>' +
-        '<td>' + a.calc.allocation.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '%</td>' +
+        '<td data-col="value">' + esc(fmtMoney(a.calc.current)) + '</td>' +
+        '<td data-col="profit" class="' + cls(a.calc.profit) + '">' + esc(fmtMoneySigned(a.calc.profit)) + '</td>' +
+        '<td data-col="profitability" class="' + cls(a.calc.profitability) + '">' + esc(fmtPct(a.calc.profitability)) + '</td>' +
+        '<td data-col="day" class="' + cls(a.dailyVariation) + '">' + esc(fmtPct(a.dailyVariation)) + '</td>' +
+        '<td data-col="allocation">' + a.calc.allocation.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '%</td>' +
         '<td>' + (ui.mode === 'demo' ? '' : '<span class="pa-row-actions">' +
         '<button class="pa-icon-btn" data-act="edit" data-ticker="' + esc(a.ticker) + '" title="Editar ' + esc(a.ticker) + '" aria-label="Editar ' + esc(a.ticker) + '">' + ICON_EDIT + '</button>' +
         '<button class="pa-icon-btn danger" data-act="del" data-ticker="' + esc(a.ticker) + '" title="Excluir ' + esc(a.ticker) + '" aria-label="Excluir ' + esc(a.ticker) + '">' + ICON_DEL + '</button>' +
@@ -451,22 +476,8 @@
   // Retorna null quando não há carteira visível (modo bloqueado).
   function getExportView() {
     if (!service || ui.mode === 'locked' || ui.mode === 'demo' || ui.loading) return null;
-    var view = service.query({ filter: ui.filter === 'ALL' ? null : ui.filter, sort: ui.sort });
-    try {
-      var host = getRoot();
-      var calcApi = host && host.PortfolioCalculator;
-      if (calcApi) {
-        var over = view.assets.map(function (a) { return liveView(a); });
-        var touched = over.some(function (o) { return o.live; });
-        if (touched) {
-          var list = over.map(function (o) { return o.asset; });
-          var calcs = list.map(function (x) { return x.calc; });
-          var totals = calcApi.calcTotals(calcs);
-          calcApi.applyAllocations(calcs, totals.current);
-          view = { assets: list, totals: totals };
-        }
-      }
-    } catch (e) {}
+    var view = buildVisibleRows(false);
+    if (!view) return null;
     var meta = null;
     try {
       var st = service.getState();
@@ -807,7 +818,10 @@
       change = prev ? prev.change : null; // preserva último 24h (ou null → cai no stored)
     }
     live[t] = { price: price, change: change, at: Date.now(), source: src };
-    paintLiveRow(t);
+    // Para ordenações afetadas pela cotação, o render agendado reordena a
+    // tabela inteira; só a ordem alfabética pode receber o paint cirúrgico.
+    var meta = service && service.getSortMeta ? service.getSortMeta(ui.sort) : null;
+    if (meta && meta.column === 'asset') paintLiveRow(t);
     scheduleLiveRender();
   }
 

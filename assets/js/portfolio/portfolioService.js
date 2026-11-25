@@ -247,16 +247,41 @@
       throw e;
     }
 
+    // Fonte única da ordenação: o painel também consome a coluna/direção
+    // daqui para destacar a tabela. `value` devolve null para indisponíveis;
+    // estes ficam sempre no fim, sem inventar zero para fins de ordenação.
     var SORTS = {
-      value_desc: function (a, b) { return b.calc.current - a.calc.current; },
-      value_asc: function (a, b) { return a.calc.current - b.calc.current; },
-      profit_desc: function (a, b) { return b.calc.profit - a.calc.profit; },
-      profit_asc: function (a, b) { return a.calc.profit - b.calc.profit; },
-      rent_desc: function (a, b) { return b.calc.profitability - a.calc.profitability; },
-      day_desc: function (a, b) { return b.dailyVariation - a.dailyVariation; },
-      ticker_asc: function (a, b) { return String(a.ticker).localeCompare(String(b.ticker)); },
-      alloc_desc: function (a, b) { return b.calc.allocation - a.calc.allocation; }
+      value_desc: { column: 'value', direction: 'descending', value: function (a) { return a.calc && a.calc.current; } },
+      value_asc: { column: 'value', direction: 'ascending', value: function (a) { return a.calc && a.calc.current; } },
+      profit_desc: { column: 'profit', direction: 'descending', value: function (a) { return a.calc && a.calc.profit; } },
+      profit_asc: { column: 'profit', direction: 'ascending', value: function (a) { return a.calc && a.calc.profit; } },
+      rent_desc: { column: 'profitability', direction: 'descending', value: function (a) { return a.calc && a.calc.profitability; } },
+      day_desc: { column: 'day', direction: 'descending', value: function (a) { return a.dailyVariation; } },
+      ticker_asc: { column: 'asset', direction: 'ascending', value: function (a) { return a.ticker; } },
+      alloc_desc: { column: 'allocation', direction: 'descending', value: function (a) { return a.calc && a.calc.allocation; } }
     };
+
+    function sortMeta(sort) {
+      return SORTS[sort] || SORTS.value_desc;
+    }
+
+    function sortAssets(assets, sort) {
+      var meta = sortMeta(sort);
+      var direction = meta.direction === 'ascending' ? 1 : -1;
+      return (assets || []).slice().sort(function (a, b) {
+        var av = meta.value(a), bv = meta.value(b);
+        var aAvailable = typeof av === 'number' ? Number.isFinite(av) : (typeof av === 'string' && av !== '');
+        var bAvailable = typeof bv === 'number' ? Number.isFinite(bv) : (typeof bv === 'string' && bv !== '');
+        if (aAvailable !== bAvailable) return aAvailable ? -1 : 1;
+        if (aAvailable && bAvailable) {
+          var cmp = typeof av === 'string'
+            ? String(av).localeCompare(String(bv))
+            : (av === bv ? 0 : (av < bv ? -1 : 1));
+          if (cmp) return cmp * direction;
+        }
+        return String(a.ticker || '').localeCompare(String(b.ticker || ''));
+      });
+    }
 
     function query(opts) {
       var o = opts || {};
@@ -269,8 +294,7 @@
         calc.applyAllocations(list.map(function (x) { return x.calc; }), totals.current);
         view = { assets: list, totals: totals };
       }
-      var sortFn = SORTS[o.sort] || SORTS.value_desc;
-      view.assets = view.assets.slice().sort(sortFn);
+      view.assets = sortAssets(view.assets, o.sort);
       return view;
     }
 
@@ -290,7 +314,12 @@
       normType: normType,
       normTicker: normTicker,
       maxPositions: MAX_POSITIONS,
-      SORTS: Object.keys(SORTS)
+      SORTS: Object.keys(SORTS),
+      sortAssets: sortAssets,
+      getSortMeta: function (sort) {
+        var m = sortMeta(sort);
+        return { column: m.column, direction: m.direction };
+      }
     };
   }
 

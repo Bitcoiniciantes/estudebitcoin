@@ -413,6 +413,11 @@
 #painel-ativos tbody td:first-child { background: #070a0f; }
 #painel-ativos tbody td { border-bottom: 1px solid rgba(255, 255, 255, 0.06); color: var(--pa-text); font-variant-numeric: tabular-nums; }
 #painel-ativos tbody tr:last-child td { border-bottom: 0; }
+#painel-ativos th[data-col], #painel-ativos td[data-col] { transition: background-color 150ms ease, color 150ms ease, font-weight 150ms ease; }
+#painel-ativos th[data-col].is-sorted { color: #22d3ee; background: rgba(0, 200, 255, 0.07); }
+#painel-ativos th[data-col].is-sorted::after { content: attr(data-sort-arrow); margin-left: 5px; font-size: 10px; }
+#painel-ativos tbody td[data-col].is-sorted { background: rgba(0, 200, 255, 0.07); font-weight: 600; }
+#painel-ativos tbody tr:hover td[data-col].is-sorted { background: rgba(0, 200, 255, 0.07); }
 #painel-ativos .pa-ticker { font-weight: 800; color: #fff; white-space: nowrap; }
 #painel-ativos .pa-chart-btn { display: inline-flex; width: 32px; height: 32px; margin-left: 6px; vertical-align: middle; font-size: 13px; opacity: 1; visibility: visible; }
 #painel-ativos .pa-ticker small { display: block; font-weight: 400; color: var(--pa-muted); font-size: 11px; }
