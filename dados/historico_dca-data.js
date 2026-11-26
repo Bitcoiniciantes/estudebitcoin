@@ -26713,8 +26713,14 @@ window.BI_DCA_HISTORY = [
   },
   {
     "data": "2026-11-25",
-    "precoBtcUsd": 58621.03,
-    "cotacaoUsdBrl": 5.9187,
-    "precoBtcBrl": 346960.31
+    "precoBtcUsd": 60378.2,
+    "cotacaoUsdBrl": 5.904,
+    "precoBtcBrl": 356472.88
+  },
+  {
+    "data": "2026-11-26",
+    "precoBtcUsd": 60718.2,
+    "cotacaoUsdBrl": 5.7739,
+    "precoBtcBrl": 350580.81
   }
 ];
