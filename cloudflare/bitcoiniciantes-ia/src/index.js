@@ -136,7 +136,7 @@ const NEWS_QUERIES = {
   MSTR: "Strategy MSTR Bitcoin",
   QBTS: "D-Wave Quantum QBTS ações",
   QUBT: "Quantum Computing QUBT ações",
-  CRCL: "Circle CRCL ações",
+  BE: "Bloom Energy BE ações",
   MP: "MP Materials ações",
   GLW: "Corning GLW ações",
   SNDK: "SanDisk SNDK ações",
@@ -165,7 +165,7 @@ const BING_QUERIES = {
   MSTR: "Strategy MSTR MicroStrategy Bitcoin",
   QBTS: "D-Wave Quantum QBTS stock news",
   QUBT: "Quantum Computing QUBT stock news",
-  CRCL: "Circle CRCL stock news",
+  BE: "Bloom Energy BE stock news",
   MP: "MP Materials stock news",
   GLW: "Corning GLW stock news",
   SNDK: "SanDisk SNDK stock news",
@@ -186,7 +186,7 @@ const BING_QUERIES = {
 
 const SEC_TICKERS = new Set([
   "MSTR", "NVDA", "AMD", "TSLA", "GOOGL", "META", "AAPL", "QBTS", "QUBT",
-  "SNDK", "GLW", "CRCL", "MP", "RIO", "BHP", "SPCX",
+  "SNDK", "GLW", "BE", "MP", "RIO", "BHP", "SPCX",
 ]);
 const SEC_FORMS = new Set(["8-K", "10-Q", "10-K", "20-F", "40-F", "6-K"]);
 const SEC_USER_AGENT = "Bitcoiniciantes/1.0 (contato: joelhamad@yahoo.com.br)";
@@ -306,7 +306,7 @@ const NEWS_PATTERNS = {
   MSTR: /\b(?:strategy|microstrategy|mstr)\b/i,
   QBTS: /\b(?:d-wave|d wave|qbts)\b/i,
   QUBT: /\b(?:quantum computing|qubt)\b/i,
-  CRCL: /\b(?:circle|crcl)\b/i,
+  BE: /\b(?:bloom energy|\bbe\b)\b/i,
   MP: /\b(?:mp materials|mp)\b/i,
   GLW: /\b(?:corning|glw)\b/i,
   SNDK: /\b(?:sandisk|sndk)\b/i,
@@ -392,7 +392,7 @@ async function fetchAssetNewsItems(asset) {
   const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(`${newsQuery(symbol)} when:7d`)}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
   const fallbackQueries = {
     BTC: "Bitcoin cryptocurrency", ETH: "Ethereum cryptocurrency", SOL: "Solana cryptocurrency", LINK: "Chainlink cryptocurrency", AVAX: "Avalanche AVAX cryptocurrency", POL: "Polygon POL cryptocurrency", PAXG: "gold market", MSTR: "Strategy MSTR Bitcoin",
-    QBTS: "D-Wave Quantum QBTS ações", QUBT: "Quantum Computing QUBT ações", CRCL: "Circle CRCL ações", MP: "MP Materials ações", GLW: "Corning GLW ações", SNDK: "SanDisk SNDK ações", RIO: "Rio Tinto RIO ações", BHP: "BHP Group ações", SPCX: "SPCX ações",
+    QBTS: "D-Wave Quantum QBTS ações", QUBT: "Quantum Computing QUBT ações", BE: "Bloom Energy BE stock", MP: "MP Materials ações", GLW: "Corning GLW ações", SNDK: "SanDisk SNDK ações", RIO: "Rio Tinto RIO ações", BHP: "BHP Group ações", SPCX: "SPCX ações",
     NVDA: "Nvidia stock", AMD: "AMD stock", TSLA: "Tesla stock", GOOGL: "Google Alphabet stock", META: "Meta stock", AAPL: "Apple stock", PRATA: "silver market price", COBRE: "copper market price", URANIO: "uranium market price",
   };
   const globalGoogleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(`${fallbackQueries[symbol] || symbol} when:7d`)}&hl=en-US&gl=US&ceid=US:en`;
