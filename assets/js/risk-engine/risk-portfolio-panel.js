@@ -4,7 +4,8 @@
   else { global.RiskPortfolioPanel = factory(global); if (global.document) global.document.readyState === "loading" ? global.document.addEventListener("DOMContentLoaded", global.RiskPortfolioPanel.bind) : global.RiskPortfolioPanel.bind(); }
 })(typeof globalThis !== "undefined" ? globalThis : this, function (host) {
   "use strict";
-  var PANEL = "risk_portfolio", VERSION = 2, MAX = 5, positions = [], balance = 0, referenceAt = null, referencePrices = {}, initial = null, power = null, last = null, bound = false, uid = null, rowsSignature = null, demo = false;
+  var PANEL = "risk_portfolio", VERSION = 3, MAX = 10, positions = [], balance = 0, referenceAt = null, referencePrices = {}, initial = null, power = null, last = null, bound = false, uid = null, rowsSignature = null, demo = false, activeMarket = "CRYPTO", stocksFetchAt = 0;
+  var STOCK_WORKER = "https://bitcoiniciantes-ia.bitcoiniciantes.workers.dev/api/quotes";
   /* Demonstração: só cripto (sem ações). Não é salva até o usuário editar. */
   var DEMO = [
     { symbol: "AVAX", side: "LONG", quantity: 109.5678, averagePrice: 8.21 },
@@ -21,6 +22,10 @@
     AVAX: { name: "Avalanche", color: "#e84142" },
     RENDER: { name: "Render", color: "#c084fc" },
     PAXG: { name: "Pax Gold", color: "#f5c451" }
+  };
+  var STOCKS = {
+    AAPL: { name: "Apple", color: "#9db6c2" }, AMD: { name: "AMD", color: "#ed1c24" }, GOOGL: { name: "Alphabet", color: "#60a5fa" }, META: { name: "Meta", color: "#60a5fa" },
+    MSFT: { name: "Microsoft", color: "#60a5fa" }, MSTR: { name: "Strategy", color: "#ef4444" }, NVDA: { name: "NVIDIA", color: "#76b900" }, TSLA: { name: "Tesla", color: "#ef4444" }
   };
   var RISK_CLASS = {
     "BAIXO NO CENÁRIO": "rp-risk-baixo-no-cenario",
@@ -41,6 +46,7 @@
   function $(s) { return document.querySelector(s); }
   function num(v) { var s = String(v == null ? "" : v).trim(); if (s.indexOf(",") >= 0) s = s.replace(/\./g, "").replace(",", "."); var n = Number(s); return Number.isFinite(n) ? n : NaN; }
   function symbol(s) { return host.BI && host.BI.normalizeSymbol ? host.BI.normalizeSymbol(s) : String(s || "").trim().toUpperCase().replace(/USDT$/, ""); }
+  function market(v) { return String(v || "CRYPTO").toUpperCase() === "STOCKS" ? "STOCKS" : "CRYPTO"; }
   function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function usd(v) { return Number.isFinite(v) ? v.toLocaleString("pt-BR", { style: "currency", currency: "USD" }) : "—"; }
   function fmt(v, d) { return Number.isFinite(v) ? v.toLocaleString("pt-BR", { minimumFractionDigits: d || 2, maximumFractionDigits: d || 2 }) : "—"; }
@@ -68,14 +74,14 @@
       referencePrices[s] = positions[i].averagePrice;
     }
   }
-  function payload() { return { schemaVersion: VERSION, equityBasis: "deposited", model: "quantfury-account-balance-simulation", referenceBalance: balance, referenceTimestamp: referenceAt, referencePrices: referencePrices, settings: { initialWealth: null, tradingPower: power }, positions: positions.map(function (p) { return { id: p.id, symbol: p.symbol, side: p.side, quantity: p.quantity, averagePrice: p.averagePrice, invested: p.quantity * p.averagePrice }; }) }; }
+  function payload() { return { schemaVersion: VERSION, equityBasis: "deposited", model: "quantfury-account-balance-simulation", referenceBalance: balance, referenceTimestamp: referenceAt, referencePrices: referencePrices, settings: { initialWealth: null, tradingPower: power }, positions: positions.map(function (p) { return { id: p.id, market: market(p.market), symbol: p.symbol, side: p.side, quantity: p.quantity, averagePrice: p.averagePrice, invested: p.quantity * p.averagePrice }; }) }; }
   function apply(data) {
     /* Aceita apenas o formato canônico (capital depositado). Estados legados/ambíguos são
        ignorados (persistência do painel pode ser reinicializada) para eliminar interferência
        de referências históricas e garantir resultados determinísticos. */
-    if (!data || Number(data.schemaVersion) !== VERSION || data.equityBasis !== "deposited" || !Array.isArray(data.positions) || data.positions.length > MAX) return false;
+    if (!data || ![2, VERSION].includes(Number(data.schemaVersion)) || data.equityBasis !== "deposited" || !Array.isArray(data.positions) || data.positions.length > MAX) return false;
     var seen = {}, next = [];
-    for (var i = 0; i < data.positions.length; i++) { var p = data.positions[i], s = symbol(p && p.symbol); if (!valid(p) || seen[s]) return false; seen[s] = true; next.push({ id: typeof p.id === "string" ? p.id : "rp-" + s, symbol: s, side: p.side, quantity: Number(p.quantity), averagePrice: Number(p.averagePrice) }); }
+    for (var i = 0; i < data.positions.length; i++) { var p = data.positions[i], s = symbol(p && p.symbol), m = market(p && p.market), key = m + ":" + s; if (!valid(p) || seen[key]) return false; seen[key] = true; next.push({ id: typeof p.id === "string" ? p.id : "rp-" + m + "-" + s, market: m, symbol: s, side: p.side, quantity: Number(p.quantity), averagePrice: Number(p.averagePrice) }); }
     positions = next; balance = Number(data.referenceBalance) || 0; referenceAt = typeof data.referenceTimestamp === "string" ? data.referenceTimestamp : null; referencePrices = {};
     var settings = data.settings || {}; initial = null; power = settings.tradingPower != null && Number.isFinite(Number(settings.tradingPower)) ? Number(settings.tradingPower) : null;
     ensureRefs();
@@ -90,7 +96,7 @@
   }
   function seedDemo() {
     demo = true;
-    positions = DEMO.map(function (p) { return { id: "rp-" + p.symbol, symbol: p.symbol, side: p.side, quantity: p.quantity, averagePrice: p.averagePrice }; });
+    positions = DEMO.map(function (p) { return { id: "rp-CRYPTO-" + p.symbol, market: "CRYPTO", symbol: p.symbol, side: p.side, quantity: p.quantity, averagePrice: p.averagePrice }; });
     balance = 3000; referenceAt = new Date().toISOString();
     referencePrices = { AVAX: 8.21, ETH: 1978.32, LINK: 9.906, BTC: 65919.21, SOL: 80.16 };
     initial = null; power = null; rowsSignature = null; last = null;
@@ -117,7 +123,7 @@
   }
   function adapterState() { return { referenceBalance: balance, referencePrices: referencePrices, positions: positions, equityBasis: "deposited" }; }
   function configure() { var result = host.RiskPortfolioAdapter.configure(adapterState()); render(result || last); }
-  function positionSignature() { return positions.map(function (p) { return [p.id, p.symbol, p.side, p.quantity, p.averagePrice].join("|"); }).join(";"); }
+  function positionSignature() { return positions.map(function (p) { return [p.id, market(p.market), p.symbol, p.side, p.quantity, p.averagePrice].join("|"); }).join(";"); }
   function setLive(row, key, value, cls) {
     var el = row && row.querySelector('[data-live="' + key + '"]');
     if (!el) return;
@@ -128,22 +134,23 @@
     var body = $("#rp-positions"); if (!body) return;
     body.innerHTML = "";
     if (!positions.length) {
-      body.innerHTML = '<tr class="rp-empty-row"><td colspan="9" data-label="">Nenhuma criptomoeda cadastrada. Use <b>+ Adicionar ativo</b> para começar.</td></tr>';
+      body.innerHTML = '<tr class="rp-empty-row"><td colspan="10" data-label="">Nenhum ativo cadastrado. Use <b>+ Adicionar ativo</b> para começar.</td></tr>';
       return;
     }
     positions.forEach(function (p, i) {
-      var coin = COINS[p.symbol] || { name: p.symbol, color: "#9db6c2" };
-      var key = COINS[p.symbol] ? p.symbol.toLowerCase() : "btc";
+      var isStock = market(p.market) === "STOCKS", coin = (isStock ? STOCKS[p.symbol] : COINS[p.symbol]) || { name: p.symbol, color: "#9db6c2" };
+      var key = !isStock && COINS[p.symbol] ? p.symbol.toLowerCase() : "btc";
       var row = document.createElement("tr");
       row.className = "rp-row";
       row.dataset.index = i;
       row.innerHTML =
         '<td class="rp-cell-asset" data-label="Ativo">' +
           '<span class="rp-asset">' +
-            '<span class="rp-coin" style="--coin:' + coin.color + '"><svg class="rp-coin-svg" aria-hidden="true"><use href="#rp-coin-' + key + '"/></svg></span>' +
+            '<span class="rp-coin' + (isStock ? ' rp-stock-coin' : '') + '" style="--coin:' + coin.color + '">' + (isStock ? '<b>' + esc(p.symbol.slice(0, 1)) + '</b>' : '<svg class="rp-coin-svg" aria-hidden="true"><use href="#rp-coin-' + key + '"/></svg>') + '</span>' +
             '<span class="rp-asset-name"><strong>' + esc(p.symbol) + '</strong><small>' + esc(coin.name) + '</small></span>' +
           '</span>' +
         '</td>' +
+        '<td class="rp-cell-market" data-label="Mercado"><span class="rp-market-badge rp-market-' + (isStock ? 'stock' : 'crypto') + '">' + (isStock ? 'STOCKS' : 'CRIPTO') + '</span></td>' +
         '<td class="rp-cell-side" data-label="Lado"><select class="rp-side' + (p.side === "SHORT" ? " rp-side-short" : "") + '" data-field="side" aria-label="Lado de ' + esc(p.symbol) + '"><option value="LONG"' + (p.side === "LONG" ? " selected" : "") + '>LONG</option><option value="SHORT"' + (p.side === "SHORT" ? " selected" : "") + '>SHORT</option></select></td>' +
         '<td class="rp-cell-num" data-label="Investido" data-live="invested">—</td>' +
         '<td class="rp-cell-qty rp-cell-num" data-label="Quantidade"><input data-field="quantity" inputmode="decimal" value="' + inputNumber(Number(p.quantity), 0, 8) + '" aria-label="Quantidade de ' + esc(p.symbol) + '"></td>' +
@@ -164,7 +171,7 @@
       var p = positions[i]; if (!p) return;
       var quote = q[p.symbol], r = bySymbol[p.symbol];
       setLive(row, "invested", usd(p.quantity * p.averagePrice));
-      setLive(row, "price", quote && quote.price > 0 ? usd(quote.price) : "Cotação indisponível");
+      setLive(row, "price", quote && quote.price > 0 ? usd(quote.price) + (quote.stale ? " (atrasada)" : "") : "Cotação indisponível");
       setLive(row, "value", r ? usd(r.marketValue) : "—");
       setLive(row, "pnl", r ? usd(r.pnl) : "—", r ? (r.pnl < 0 ? "rp-negative" : r.pnl > 0 ? "rp-positive" : "") : "");
     });
@@ -180,14 +187,17 @@
     var add = $("#rp-add-toggle");
     if (add) {
       add.disabled = positions.length >= MAX;
-      add.title = add.disabled ? "Limite de 5 posições atingido" : "Adicionar criptomoeda";
+      add.title = add.disabled ? "Limite de 10 posições atingido" : "Adicionar ativo";
     }
     text("#rp-count", positions.length + " de " + MAX);
   }
   function render(result) {
     renderRows(); updateEssentials();
     var q = quotes(), validQuotes = positions.filter(function (p) { return q[p.symbol] && q[p.symbol].price > 0; }).length;
-    text("#rp-updated", validQuotes ? "Atualizado — " + new Date().toLocaleTimeString("pt-BR") : (positions.length ? "Cotação atrasada ou indisponível" : "Nenhuma criptomoeda cadastrada"));
+    var stockQuotes = positions.filter(function (p) { return market(p.market) === "STOCKS"; }).map(function (p) { return q[p.symbol]; });
+    var staleStocks = stockQuotes.some(function (quote) { return quote && quote.stale; });
+    var latestAt = positions.reduce(function (latest, p) { var quote = q[p.symbol], at = quote && new Date(quote.timestamp).getTime(); return Number.isFinite(at) && at > latest ? at : latest; }, 0);
+    text("#rp-updated", validQuotes ? (staleStocks ? "Cotação de STOCKS atrasada" : "Atualizado — " + new Date(latestAt || Date.now()).toLocaleTimeString("pt-BR")) : (positions.length ? "Cotação atrasada ou indisponível" : "Nenhum ativo cadastrado"));
     text("#rp-valid-quotes", validQuotes + " de " + positions.length + " ativos com cotação");
     if (!result || !result.success) {
       ["#rp-equity", "#rp-exposure", "#rp-pnl", "#rp-leverage", "#rp-drop", "#rp-loss", "#rp-risk", "#rp-invested", "#rp-market", "#rp-table-pnl"].forEach(function (id) { text(id, "—"); });
@@ -202,7 +212,7 @@
     text("#rp-pnl", usd(result.pnlTotal), result.pnlTotal < 0 ? "rp-negative" : result.pnlTotal > 0 ? "rp-positive" : "");
     if (informed) {
       text("#rp-leverage", result.leverage === null ? "Patrimônio não positivo" : fmt(result.leverage) + "x");
-      text("#rp-drop", result.uniformDropToZero === null ? "Indeterminado" : fmt(result.uniformDropToZero) + "%");
+      text("#rp-drop", result.uniformDropToZero === null ? "Não aplicável" : fmt(result.uniformDropToZero) + "%");
       text("#rp-loss", usd(result.additionalLossSupported));
       text("#rp-risk", result.riskState, RISK_CLASS[result.riskState] || "");
     } else {
@@ -239,32 +249,57 @@
     }
     save(); configure();
   }
+  function setMarket(next) {
+    activeMarket = market(next);
+    var stocks = activeMarket === "STOCKS", select = $("#rp-symbol"), manual = $("#rp-stock-symbol");
+    if (select) { select.hidden = stocks; select.disabled = stocks; }
+    if (manual) { manual.hidden = !stocks; manual.disabled = !stocks; }
+    ["#rp-tab-crypto", "#rp-tab-stocks"].forEach(function (id) { var tab = $(id); if (!tab) return; var on = tab.dataset.market === activeMarket; tab.classList.toggle("is-active", on); tab.setAttribute("aria-selected", on ? "true" : "false"); });
+  }
+  function selectedSymbol() { return activeMarket === "STOCKS" ? symbol($("#rp-stock-symbol").value) : symbol($("#rp-symbol").value); }
+  function fetchStockQuotes(force) {
+    var assets = positions.filter(function (p) { return market(p.market) === "STOCKS"; }).map(function (p) { return p.symbol; });
+    assets = assets.filter(function (s, i) { return assets.indexOf(s) === i; });
+    if (!assets.length || (!force && Date.now() - stocksFetchAt < 20000)) return Promise.resolve();
+    stocksFetchAt = Date.now();
+    return fetch(STOCK_WORKER + "?assets=" + encodeURIComponent(assets.join(",")) + "&window=24h", { cache: "no-store" })
+      .then(function (response) { if (!response.ok) throw new Error("Worker HTTP " + response.status); return response.json(); })
+      .then(function (payload) {
+        if (!payload || !Array.isArray(payload.quotes)) throw new Error("Payload de STOCKS inválido");
+        var seen = {};
+        payload.quotes.forEach(function (quote) {
+          var s = symbol(quote && quote.symbol), price = Number(quote && quote.price);
+          if (!s || !Number.isFinite(price) || price <= 0) return;
+          seen[s] = true;
+          host.dispatchEvent(new CustomEvent("estudebitcoin:ticker-price", { detail: { symbol: s, price: price, market: "STOCKS", source: quote.source || "Yahoo Finance", timestamp: payload.updatedAt || new Date().toISOString(), stale: false } }));
+        });
+        assets.forEach(function (s) { if (!seen[s]) { if (host.RiskPortfolioAdapter.markStale) host.RiskPortfolioAdapter.markStale(s); status("Cotação indisponível ou atrasada para " + s + ". Mantida a última cotação válida."); } });
+      })
+      .catch(function () { assets.forEach(function (s) { if (host.RiskPortfolioAdapter.markStale) host.RiskPortfolioAdapter.markStale(s); }); status("Falha ao atualizar STOCKS. Mantida a última cotação válida."); });
+  }
   function add() {
-    var s = symbol($("#rp-symbol").value), side = $("#rp-side").value, quantity = num($("#rp-quantity").value), price = num($("#rp-average").value);
+    var s = selectedSymbol(), side = $("#rp-side").value, quantity = num($("#rp-quantity").value), price = num($("#rp-average").value), m = activeMarket;
     if (!s || quantity <= 0 || price <= 0) return status("Ativo, quantidade e preço médio devem ser positivos.");
-    var old = positions.filter(function (p) { return p.symbol === s; })[0];
+    var old = positions.filter(function (p) { return p.symbol === s && market(p.market) === m; })[0];
     if (old) {
       if (old.side !== side) return status("Não é permitido inverter o lado na mesma posição.");
       var updated = host.RiskPortfolioEngine.addPurchase(old, quantity, price);
       positions[positions.indexOf(old)] = updated;
       referencePrices[s] = updated.averagePrice;
     } else {
-      if (positions.length >= MAX) return status("Limite de 5 posições atingido.");
-      positions.push({ id: "rp-" + s, symbol: s, side: side, quantity: quantity, averagePrice: price });
+      if (positions.length >= MAX) return status("Limite de 10 posições atingido.");
+      positions.push({ id: "rp-" + m + "-" + s, market: m, symbol: s, side: side, quantity: quantity, averagePrice: price });
       referencePrices[s] = price;
     }
-    $("#rp-quantity").value = ""; $("#rp-average").value = "";
+    $("#rp-quantity").value = ""; $("#rp-average").value = ""; if (m === "STOCKS") $("#rp-stock-symbol").value = "";
     closeAddForm();
     save(); configure();
     status(old ? "Aporte acumulado em " + s + "." : s + " adicionado à carteira.");
   }
-  function openAddForm() { var form = $("#rp-add-form"); if (!form || positions.length >= MAX) return; form.hidden = false; var s = $("#rp-symbol"); if (s && s.focus) s.focus(); }
+  function openAddForm() { var form = $("#rp-add-form"); if (!form || positions.length >= MAX) return; form.hidden = false; setMarket(activeMarket); var s = activeMarket === "STOCKS" ? $("#rp-stock-symbol") : $("#rp-symbol"); if (s && s.focus) s.focus(); }
   function closeAddForm() { var form = $("#rp-add-form"); if (form) form.hidden = true; }
   function refreshQuotes() {
-    var result = host.RiskPortfolioAdapter.configure(adapterState());
-    render(result || last);
-    var q = quotes(), n = positions.filter(function (p) { return q[p.symbol] && q[p.symbol].price > 0; }).length;
-    status(positions.length ? "Cotações atualizadas — " + n + " de " + positions.length + " ativos." : "Nenhuma posição para atualizar.");
+    fetchStockQuotes(true).then(function () { var result = host.RiskPortfolioAdapter.configure(adapterState()); render(result || last); var q = quotes(), n = positions.filter(function (p) { return q[p.symbol] && q[p.symbol].price > 0; }).length; status(positions.length ? "Cotações atualizadas — " + n + " de " + positions.length + " ativos." : "Nenhuma posição para atualizar."); });
   }
   function simulateDrop() {
     var out = $("#rp-scenario-result"); if (!out) return;
@@ -294,6 +329,7 @@
     var demoClear = $("#rp-demo-clear"); if (demoClear) demoClear.addEventListener("click", clearDemo);
     var toggle = $("#rp-add-toggle"); if (toggle) toggle.addEventListener("click", openAddForm);
     var cancel = $("#rp-add-cancel"); if (cancel) cancel.addEventListener("click", closeAddForm);
+    ["#rp-tab-crypto", "#rp-tab-stocks"].forEach(function (id) { var tab = $(id); if (tab) tab.addEventListener("click", function () { setMarket(tab.dataset.market); }); });
     var refresh = $("#rp-refresh"); if (refresh) refresh.addEventListener("click", refreshQuotes);
     $("#rp-reference").addEventListener("click", applyDeposit); $("#rp-balance").addEventListener("change", applyDeposit);
     var powerInput = $("#rp-power");
@@ -324,7 +360,7 @@
     });
     host.addEventListener("estudebitcoin:panel-pull", function (ev) { var d = ev.detail; if (uid && d && d.panel === PANEL && apply(d.params)) { fillInputs(); rowsSignature = null; configure(); status("Sincronizado."); } });
     host.addEventListener("estudebitcoin:panel-push-start", function (ev) { if (ev.detail && ev.detail.panel === PANEL) status("Sincronizando..."); }); host.addEventListener("estudebitcoin:panel-push-success", function (ev) { if (ev.detail && ev.detail.panel === PANEL) status("Sincronizado."); }); host.addEventListener("estudebitcoin:panel-push-error", function (ev) { if (ev.detail && ev.detail.panel === PANEL) status("Erro de sincronização."); });
-    configure(); syncDemoNotice(); return true;
+    setMarket(activeMarket); configure(); fetchStockQuotes(false); setInterval(function () { fetchStockQuotes(false); }, 30000); syncDemoNotice(); return true;
   }
   return { bind: bind, getState: payload, applyState: apply };
 });

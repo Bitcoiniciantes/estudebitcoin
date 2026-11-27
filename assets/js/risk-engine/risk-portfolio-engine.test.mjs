@@ -45,4 +45,9 @@ describe("RiskPortfolioEngine", () => {
     const r = Engine.calculate({ referenceBalance: 0, referencePrices: { BTC: 100 }, positions: [{ symbol: "BTC", side: "LONG", quantity: 1, averagePrice: 100, currentPrice: 100 }] });
     assert.equal(r.leverage, null); assert.equal(r.riskState, "LIMITE TEÓRICO ATINGIDO");
   });
+  it("aceita até dez posições e rejeita a décima primeira", () => {
+    const position = (i) => ({ symbol: "ASSET" + i, side: i % 2 ? "SHORT" : "LONG", quantity: 1, averagePrice: 100, currentPrice: 100 });
+    assert.equal(Engine.calculate({ referenceBalance: 1000, positions: Array.from({ length: 10 }, (_, i) => position(i)) }).success, true);
+    assert.equal(Engine.calculate({ referenceBalance: 1000, positions: Array.from({ length: 11 }, (_, i) => position(i)) }).success, false);
+  });
 });

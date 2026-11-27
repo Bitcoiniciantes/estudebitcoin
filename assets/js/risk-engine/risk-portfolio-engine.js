@@ -28,7 +28,7 @@
       return fail("INVALID_BALANCE", "Saldo de referência deve ser finito e maior ou igual a zero.");
     }
     var positions = input.positions;
-    if (!Array.isArray(positions) || positions.length > 5) return fail("INVALID_POSITIONS", "Informe de zero a cinco posições válidas.");
+    if (!Array.isArray(positions) || positions.length > 10) return fail("INVALID_POSITIONS", "Informe de zero a dez posições válidas.");
     var ref = input.referencePrices && typeof input.referencePrices === "object" ? input.referencePrices : {};
     var depositedBasis = input.equityBasis === "deposited";
     var results = [], pnlTotal = 0, variationAfterReference = 0, exposure = 0, directionalExposure = 0;

@@ -153,13 +153,15 @@ describe("P0 panel — formato canônico (depositado) e reset de legado", () => 
     assert.equal(P.applyState(legacy), false);
   });
 
-  it("aceita apenas canônico v2 + equityBasis deposited; rejeita outros", () => {
+  it("migra canônico v2 para v3 + equityBasis deposited; rejeita versões inválidas", () => {
     const base = { model: "quantfury-account-balance-simulation", referenceBalance: 100, referenceTimestamp: "t", referencePrices: {}, settings: {}, positions: [{ id: "rp-BTC", symbol: "BTC", side: "LONG", quantity: 1, averagePrice: 10 }] };
     const P = loadPanel();
     assert.equal(P.applyState({ ...base, schemaVersion: 2, equityBasis: "deposited" }), true);
+    assert.equal(P.getState().schemaVersion, 3);
+    assert.equal(P.getState().positions[0].market, "CRYPTO");
     assert.equal(P.applyState({ ...base, schemaVersion: 1 }), false);
     assert.equal(P.applyState({ ...base, schemaVersion: 2 }), false);
-    assert.equal(P.applyState({ ...base, schemaVersion: 3, equityBasis: "deposited" }), false);
+    assert.equal(P.applyState({ ...base, schemaVersion: 3, equityBasis: "deposited" }), true);
   });
 
   it("mesmos dados visíveis => estado e resultados idênticos (refs históricos ignorados/normalizados)", () => {

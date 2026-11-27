@@ -21,8 +21,9 @@
     result.quotes = quotes; notify(result); return result;
   }
   function configure(next) { state = next && typeof next === "object" ? next : null; lastSignature = ""; return snapshot(); }
-  function onTicker(event) { var d = event && event.detail, p = d && Number(d.price), symbol = normalize(d && d.symbol); if (!symbol || !Number.isFinite(p) || p <= 0) return; quotes[symbol] = { price: p, timestamp: Date.now(), source: d.source || "ticker" }; snapshot(); }
+  function onTicker(event) { var d = event && event.detail, p = d && Number(d.price), symbol = normalize(d && d.symbol); if (!symbol || !Number.isFinite(p) || p <= 0) return; quotes[symbol] = { price: p, timestamp: d.timestamp || Date.now(), source: d.source || "ticker", stale: d.stale === true, market: d.market || "CRYPTO" }; snapshot(); }
   function attach() { if (!attached && host.addEventListener) { host.addEventListener("estudebitcoin:ticker-price", onTicker); attached = true; } return attached; }
   function detach() { if (attached && host.removeEventListener) host.removeEventListener("estudebitcoin:ticker-price", onTicker); attached = false; }
-  return { configure: configure, attach: attach, detach: detach, onResult: function (fn) { if (typeof fn === "function") listeners.push(fn); return fn; }, offResult: function (fn) { listeners = listeners.filter(function (x) { return x !== fn; }); }, getQuotes: function () { return quotes; }, getSnapshot: snapshot, normalizeSymbol: normalize };
+  function markStale(symbol) { var key = normalize(symbol); if (!quotes[key]) return false; quotes[key].stale = true; snapshot(); return true; }
+  return { configure: configure, attach: attach, detach: detach, onResult: function (fn) { if (typeof fn === "function") listeners.push(fn); return fn; }, offResult: function (fn) { listeners = listeners.filter(function (x) { return x !== fn; }); }, getQuotes: function () { return quotes; }, getSnapshot: snapshot, normalizeSymbol: normalize, markStale: markStale };
 });

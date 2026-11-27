@@ -78,7 +78,7 @@ test('Risk Engine Multicripto: 5 posições, acúmulo, edição, limite e persis
     for (const [sym, qty, avg] of [['ETH', '2', '2500'], ['SOL', '10', '100'], ['LINK', '100', '12'], ['AVAX', '50', '25']]) await add(sym, 'LONG', qty, avg);
     s = await state();
     assert.equal(s.positions.length, 5);
-    assert.equal(await page.locator('#rp-add-toggle').isDisabled(), true, 'limite de 5 bloqueia novo ativo');
+    assert.equal(await page.locator('#rp-add-toggle').isDisabled(), false, 'cinco posições ainda deixam vagas no limite de 10');
 
     await change('rp-balance', '8.000,00');
     await page.waitForTimeout(100);

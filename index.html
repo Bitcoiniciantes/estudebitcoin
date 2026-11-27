@@ -1380,8 +1380,8 @@
   </div>
 </section>
 
-<!-- Risk Engine Multicripto: independente do painel re-* acima. -->
-<section class="rp-section container" aria-label="Risk Engine Multicripto">
+<!-- Risk Engine Multiativos: independente do painel re-* acima. -->
+<section class="rp-section container" aria-label="Risk Engine Multiativos">
   <div id="rp-painel">
     <svg class="rp-sprite" aria-hidden="true" focusable="false" width="0" height="0">
       <defs>
@@ -1415,8 +1415,8 @@
         <span class="rp-brand-divider" aria-hidden="true"></span>
         <span class="rp-brand-text">
           <span class="rp-kicker">RISCO EM TEMPO REAL</span>
-          <h2>Posição ao Vivo — Risk Engine Multicripto</h2>
-          <span class="rp-sub">Carteira multicripto • Simulação de risco Quantfury</span>
+          <h2>Posição ao Vivo — Risk Engine Multiativos</h2>
+          <span class="rp-sub">Carteira com Cripto e Stocks EUA • Simulação de risco</span>
         </span>
       </span>
       <span class="rp-header-side">
@@ -1429,7 +1429,7 @@
         <span class="rp-num" aria-hidden="true">1</span>
         <h3 id="rp-essentials-title">Dados essenciais</h3>
         <span class="rp-vsep" aria-hidden="true"></span>
-        <p class="rp-group-sub">Visão da carteira para análise de risco, alavancagem e liquidação.</p>
+        <p class="rp-group-sub">Depósito e parâmetros da carteira.</p>
       </header>
       <div class="rp-essentials-grid">
         <label class="rp-metric" for="rp-balance">
@@ -1453,9 +1453,9 @@
     <section class="rp-group rp-positions" aria-labelledby="rp-positions-title">
       <header class="rp-group-head">
         <span class="rp-num" aria-hidden="true">2</span>
-        <h3 id="rp-positions-title">Posições acumuladas <span class="rp-h3-light">— até 5 criptomoedas</span> <span id="rp-count" class="rp-count">0 de 5</span></h3>
+        <h3 id="rp-positions-title">Posições acumuladas <span class="rp-h3-light">— até 10 ativos</span> <span id="rp-count" class="rp-count">0 de 10 ativos</span></h3>
         <span class="rp-vsep" aria-hidden="true"></span>
-        <p class="rp-group-sub">Gerencie e acumule suas posições.</p>
+        <p class="rp-group-sub">Gerencie e acumule suas posições em Cripto e Stocks EUA.</p>
         <div class="rp-head-actions">
           <button id="rp-refresh" type="button" class="rp-btn rp-btn-ghost"><svg class="rp-ico" aria-hidden="true"><use href="#rp-i-refresh"/></svg>Atualizar preços</button>
           <button id="rp-add-toggle" type="button" class="rp-btn rp-btn-primary"><svg class="rp-ico" aria-hidden="true"><use href="#rp-i-plus"/></svg>Adicionar ativo</button>
@@ -1468,7 +1468,11 @@
       </div>
       <div class="rp-table-meta"><span id="rp-valid-quotes" class="rp-quote-note">0 de 0 ativos com cotação</span></div>
       <div id="rp-add-form" class="rp-add-form" hidden>
-        <label>Ativo<select id="rp-symbol"><option>BTC</option><option>ETH</option><option>SOL</option><option>LINK</option><option>AVAX</option><option>RENDER</option><option>PAXG</option></select></label>
+        <div class="rp-market-tabs" role="tablist" aria-label="Mercado do ativo">
+          <button id="rp-tab-crypto" type="button" class="rp-market-tab is-active" role="tab" aria-selected="true" data-market="CRYPTO">Cripto</button>
+          <button id="rp-tab-stocks" type="button" class="rp-market-tab" role="tab" aria-selected="false" data-market="STOCKS">Stocks EUA</button>
+        </div>
+        <label>Ativo<select id="rp-symbol"><option>BTC</option><option>ETH</option><option>SOL</option><option>LINK</option><option>AVAX</option><option>RENDER</option><option>PAXG</option></select><input id="rp-stock-symbol" hidden inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="12" placeholder="Ex.: NVDA" aria-label="Ticker de ação americana"></label>
         <label>Lado<select id="rp-side"><option>LONG</option><option>SHORT</option></select></label>
         <label>Quantidade<input id="rp-quantity" inputmode="decimal" autocomplete="off" placeholder="0"></label>
         <label>Preço médio (USD)<input id="rp-average" inputmode="decimal" autocomplete="off" placeholder="0,00"></label>
@@ -1477,9 +1481,9 @@
       </div>
       <div class="rp-table-wrap">
         <table class="rp-table">
-          <colgroup><col class="rp-col-asset" style="width:18%"><col class="rp-col-side" style="width:8%"><col class="rp-col-invested" style="width:12%"><col class="rp-col-qty" style="width:13%"><col class="rp-col-avg" style="width:13%"><col class="rp-col-price" style="width:12%"><col class="rp-col-value" style="width:12%"><col class="rp-col-pnl" style="width:12%"><col class="rp-col-del" style="width:44px"></colgroup>
+          <colgroup><col class="rp-col-asset" style="width:16%"><col class="rp-col-market" style="width:9%"><col class="rp-col-side" style="width:8%"><col class="rp-col-invested" style="width:11%"><col class="rp-col-qty" style="width:12%"><col class="rp-col-avg" style="width:12%"><col class="rp-col-price" style="width:11%"><col class="rp-col-value" style="width:11%"><col class="rp-col-pnl" style="width:10%"><col class="rp-col-del" style="width:44px"></colgroup>
           <thead>
-            <tr><th scope="col">Ativo</th><th scope="col">Lado</th><th scope="col" class="rp-th-num">Investido</th><th scope="col" class="rp-th-num">Quantidade</th><th scope="col" class="rp-th-num">Preço médio</th><th scope="col" class="rp-th-num">Preço atual</th><th scope="col" class="rp-th-num">Valor atual</th><th scope="col" class="rp-th-num">P/L</th><th scope="col"><span class="rp-sr-only">Excluir</span></th></tr>
+            <tr><th scope="col">Ativo</th><th scope="col">Mercado</th><th scope="col">Lado</th><th scope="col" class="rp-th-num">Investido</th><th scope="col" class="rp-th-num">Quantidade</th><th scope="col" class="rp-th-num">Preço médio</th><th scope="col" class="rp-th-num">Preço atual</th><th scope="col" class="rp-th-num">Valor atual</th><th scope="col" class="rp-th-num">P/L</th><th scope="col"><span class="rp-sr-only">Excluir</span></th></tr>
           </thead>
           <tbody id="rp-positions" aria-live="polite"></tbody>
         </table>
@@ -1509,7 +1513,7 @@
       </div>
       <div class="rp-summary-foot">
         <svg class="rp-ico" aria-hidden="true"><use href="#rp-i-info"/></svg>
-        <p><b>Cotações do ticker.</b> Simulação baseada nas criptomoedas cadastradas. Outras posições da conta podem alterar significativamente o risco real de liquidação. O valor de liquidação é teórico e depende das regras da corretora, taxas e evolução conjunta dos ativos.</p>
+        <p><b>Cotações de CRIPTO e STOCKS EUA.</b> Simulação baseada nos ativos cadastrados. Outras posições da conta podem alterar significativamente o risco real de liquidação. O valor de liquidação é teórico e depende das regras da corretora, taxas e evolução conjunta dos ativos.</p>
       </div>
       <details class="rp-scenario"><summary>Simular queda da carteira</summary><div class="rp-scenario-row"><label>Variação uniforme (%)<input id="rp-scenario" value="-10" inputmode="decimal"></label><button id="rp-simulate" type="button">Simular</button></div><output id="rp-scenario-result"></output></details>
     </section>

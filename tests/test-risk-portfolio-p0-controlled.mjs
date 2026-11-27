@@ -192,7 +192,7 @@ test('P0 controlado: 5 ativos mistos, invariantes, depósito/cotação, persist�
 
     const st = await page.evaluate(() => window.RiskPortfolioPanel.getState());
     assert.equal(st.equityBasis, 'deposited');
-    assert.equal(st.schemaVersion, 2);
+    assert.equal(st.schemaVersion, 3);
 
     // Alteração de depósito: 5000 -> 7000 => patrimônio +2000, pnl inalterado
     const beforeEq = a.n.equity;
