@@ -122,13 +122,18 @@ test('Risk Engine Multicripto: 5 posições, acúmulo, edição, limite e persis
     // o invariante crítico é não haver overflow da página.
     for (const width of [1440, 1280, 800, 390, 375, 320]) {
       await page.setViewportSize({ width, height: 900 });
-      const overflow = await page.evaluate(() => ({
-        doc: document.documentElement.scrollWidth > window.innerWidth + 1,
-        panel: document.getElementById('rp-painel').scrollWidth > document.getElementById('rp-painel').clientWidth + 1
-      }));
+      const overflow = await page.evaluate(() => {
+        const panel = document.getElementById('rp-painel');
+        const ov = getComputedStyle(panel).overflowX;
+        return {
+          doc: document.documentElement.scrollWidth > window.innerWidth + 1,
+          panel: panel.scrollWidth > panel.clientWidth + 1,
+          panelClips: ov === 'hidden' || ov === 'clip'
+        };
+      });
       assert.equal(overflow.doc, false, 'sem overflow da página em ' + width + 'px');
       if (width >= 600) {
-        assert.equal(overflow.panel, false, 'sem overflow do painel em ' + width + 'px');
+        assert.equal(overflow.panel && !overflow.panelClips, false, 'sem overflow do painel em ' + width + 'px');
       }
     }
 

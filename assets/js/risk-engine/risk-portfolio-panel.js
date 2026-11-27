@@ -232,7 +232,6 @@
   }
   function fillInputs() {
     $("#rp-balance").value = (balance > 0 || referenceAt != null) ? fmt(balance, 2) : "";
-    var pw = $("#rp-power"); if (pw) pw.value = power == null ? "" : inputNumber(Number(power), 0, 2);
     updateEssentials();
   }
   function reset() { positions = []; balance = 0; referenceAt = null; referencePrices = {}; initial = null; power = null; rowsSignature = null; demo = false; syncDemoNotice(); fillInputs(); configure(); }
@@ -332,8 +331,6 @@
     ["#rp-tab-crypto", "#rp-tab-stocks"].forEach(function (id) { var tab = $(id); if (tab) tab.addEventListener("click", function () { setMarket(tab.dataset.market); }); });
     var refresh = $("#rp-refresh"); if (refresh) refresh.addEventListener("click", refreshQuotes);
     $("#rp-reference").addEventListener("click", applyDeposit); $("#rp-balance").addEventListener("change", applyDeposit);
-    var powerInput = $("#rp-power");
-    if (powerInput) powerInput.addEventListener("change", function () { var v = num(powerInput.value); if (Number.isFinite(v) && v >= 0) { power = v; save(); configure(); } });
     var simulate = $("#rp-simulate"); if (simulate) simulate.addEventListener("click", simulateDrop);
     $("#rp-positions").addEventListener("click", function (e) { var btn = e.target.closest("[data-delete]"); var i = btn ? Number(btn.dataset.delete) : NaN; if (Number.isInteger(i) && positions[i]) { delete referencePrices[positions[i].symbol]; positions.splice(i, 1); rowsSignature = null; save(); configure(); } });
     $("#rp-positions").addEventListener("change", function (e) {

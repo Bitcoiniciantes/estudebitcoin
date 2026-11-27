@@ -1415,7 +1415,7 @@
         <span class="rp-brand-divider" aria-hidden="true"></span>
         <span class="rp-brand-text">
           <span class="rp-kicker">RISCO EM TEMPO REAL</span>
-          <h2>Posição ao Vivo — Risk Engine Multiativos</h2>
+          <h2>Risk Engine Multiativos</h2>
           <span class="rp-sub">Carteira com Cripto e Stocks EUA • Simulação de risco</span>
         </span>
       </span>
@@ -1425,29 +1425,22 @@
     </header>
 
     <section class="rp-group rp-essentials" aria-labelledby="rp-essentials-title">
-      <header class="rp-group-head">
+      <header class="rp-group-head rp-essentials-head">
         <span class="rp-num" aria-hidden="true">1</span>
         <h3 id="rp-essentials-title">Dados essenciais</h3>
         <span class="rp-vsep" aria-hidden="true"></span>
         <p class="rp-group-sub">Depósito e parâmetros da carteira.</p>
-      </header>
-      <div class="rp-essentials-grid">
-        <label class="rp-metric" for="rp-balance">
-          <span class="rp-metric-top"><svg class="rp-ico" aria-hidden="true"><use href="#rp-i-wallet"/></svg>Depositado na corretora (USD)</span>
-          <span class="rp-metric-value"><span class="rp-cur">US$</span><input id="rp-balance" inputmode="decimal" autocomplete="off" placeholder="3.000,00" aria-label="Depositado na corretora (USD)" aria-describedby="rp-status"></span>
-        </label>
-        <button id="rp-reference" type="button" class="rp-action-primary" aria-label="Recalcular a partir do depósito, posições e cotações disponíveis">
-          <svg class="rp-ico" aria-hidden="true"><use href="#rp-i-refresh"/></svg>
-          <span>Recalcular</span>
-        </button>
-      </div>
-      <details class="rp-advanced">
-        <summary>Ajustes do modelo</summary>
-        <div class="rp-advanced-body">
-          <label class="rp-inline-field" for="rp-power">Poder de trading (USD)<input id="rp-power" inputmode="decimal" autocomplete="off" aria-describedby="rp-status"></label>
-          <p class="rp-note">Modo: Quantfury — simulação de saldo da conta. A referência evita somar novamente o PnL já incorporado ao saldo.</p>
+        <div class="rp-essentials-controls">
+          <label class="rp-metric" for="rp-balance">
+            <span class="rp-metric-top"><svg class="rp-ico" aria-hidden="true"><use href="#rp-i-wallet"/></svg>Depositado na corretora (USD)</span>
+            <span class="rp-metric-value"><span class="rp-cur">US$</span><input id="rp-balance" inputmode="decimal" autocomplete="off" placeholder="3.000,00" aria-label="Depositado na corretora (USD)" aria-describedby="rp-status"></span>
+          </label>
+          <button id="rp-reference" type="button" class="rp-action-primary" aria-label="Recalcular a partir do depósito, posições e cotações disponíveis">
+            <svg class="rp-ico" aria-hidden="true"><use href="#rp-i-refresh"/></svg>
+            <span>Recalcular</span>
+          </button>
         </div>
-      </details>
+      </header>
     </section>
 
     <section class="rp-group rp-positions" aria-labelledby="rp-positions-title">
@@ -1481,7 +1474,7 @@
       </div>
       <div class="rp-table-wrap">
         <table class="rp-table">
-          <colgroup><col class="rp-col-asset" style="width:16%"><col class="rp-col-market" style="width:9%"><col class="rp-col-side" style="width:8%"><col class="rp-col-invested" style="width:11%"><col class="rp-col-qty" style="width:12%"><col class="rp-col-avg" style="width:12%"><col class="rp-col-price" style="width:11%"><col class="rp-col-value" style="width:11%"><col class="rp-col-pnl" style="width:10%"><col class="rp-col-del" style="width:44px"></colgroup>
+          <colgroup><col class="rp-col-asset" style="width:15%"><col class="rp-col-market" style="width:8.5%"><col class="rp-col-side" style="width:8%"><col class="rp-col-invested" style="width:11%"><col class="rp-col-qty" style="width:12%"><col class="rp-col-avg" style="width:12%"><col class="rp-col-price" style="width:11%"><col class="rp-col-value" style="width:11%"><col class="rp-col-pnl" style="width:11.5%"><col class="rp-col-del" style="width:44px"></colgroup>
           <thead>
             <tr><th scope="col">Ativo</th><th scope="col">Mercado</th><th scope="col">Lado</th><th scope="col" class="rp-th-num">Investido</th><th scope="col" class="rp-th-num">Quantidade</th><th scope="col" class="rp-th-num">Preço médio</th><th scope="col" class="rp-th-num">Preço atual</th><th scope="col" class="rp-th-num">Valor atual</th><th scope="col" class="rp-th-num">P/L</th><th scope="col"><span class="rp-sr-only">Excluir</span></th></tr>
           </thead>
@@ -1513,7 +1506,7 @@
       </div>
       <div class="rp-summary-foot">
         <svg class="rp-ico" aria-hidden="true"><use href="#rp-i-info"/></svg>
-        <p><b>Cotações de CRIPTO e STOCKS EUA.</b> Simulação baseada nos ativos cadastrados. Outras posições da conta podem alterar significativamente o risco real de liquidação. O valor de liquidação é teórico e depende das regras da corretora, taxas e evolução conjunta dos ativos.</p>
+        <p><b>Cotações de CRIPTO e STOCKS EUA.</b> Simulação baseada nos ativos cadastrados. Outras posições da conta podem alterar significativamente o risco real de liquidação. O resultado é uma simulação teórica e depende das regras da corretora, taxas e evolução conjunta dos ativos.</p>
       </div>
       <details class="rp-scenario"><summary>Simular queda da carteira</summary><div class="rp-scenario-row"><label>Variação uniforme (%)<input id="rp-scenario" value="-10" inputmode="decimal"></label><button id="rp-simulate" type="button">Simular</button></div><output id="rp-scenario-result"></output></details>
     </section>
